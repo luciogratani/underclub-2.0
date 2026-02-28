@@ -18,10 +18,11 @@
 @theme {
   --font-sans: "Clash Display", ui-sans-serif, system-ui, sans-serif;
 
-  /* Palette: solo nome colore, nessun ruolo (bg/text si invertono per sezione) */
-  --color-white: #ffffff;
-  --color-orange: #ff5e2a;
-  --color-black: #000000;
+  /* Palette: solo nome colore, nessun ruolo (bg/text si invertono per sezione)  --original-orange: #ff5e29; */
+  --color-white: #e4e4e4;
+  --color-primary: #baec17;
+  --color-deep-grey: #1b1b1b;
+  --color-black: #111111;
 }
 
 * {
@@ -40,7 +41,7 @@ body {
   list-style: none;
   font-size: 8vw;
   transform-style: preserve-3d;
-  perspective: 10000px;
+  perspective: 100000px;
   animation: text-ring-spin 40s linear infinite;
 }
 

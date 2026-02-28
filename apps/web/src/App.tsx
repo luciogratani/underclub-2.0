@@ -1,7 +1,12 @@
-import TextRing from "./components/TextRing";
+import Hero from "./components/Hero";
+import PerfMeter from "./components/PerfMeter";
 
 function App() {
-  return <TextRing />;
+  return (
+    <>
+      <Hero />
+    </>
+  );
 }
 
 export default App;
