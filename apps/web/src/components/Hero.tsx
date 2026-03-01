@@ -1,16 +1,38 @@
 import TextRing from "./TextRing";
 import HeroButton from "./HeroButton";
 
-export default function Hero() {
+type HeroProps = {
+  onNextDateClick?: () => void;
+  isExited?: boolean;
+};
+
+export default function Hero({ onNextDateClick, isExited = false }: HeroProps) {
   return (
     <section
-      className="flex items-center justify-center w-[100vw] min-h-[100svh] bg-black"
+      className="relative flex items-center justify-center min-w-[100vw] w-[100vw] min-h-[100svh] shrink-0 snap-start snap-always bg-black z-100"
       style={{ height: "100svh" }}
+      aria-label="Home"
     >
-      <div className="relative w-[95%] h-[90%] bg-primary rounded-3xl overflow-hidden flex flex-col items-center justify-end pb-6">
+      <div
+        className={`relative bg-primary overflow-hidden flex flex-col items-center transition-all duration-300 ease-out ${
+          isExited ? "w-[100%] h-[100%] rounded-none" : "w-[95%] h-[88%] rounded-3xl"
+        }`}
+      >
         <TextRing />
-        <div className="origin-bottom scale-75 flex flex-col items-center gap-4">
-          <HeroButton title="NEXT DATE" direction="right" />
+      </div>
+      <div className="absolute bottom-18 left-1/2 -translate-x-1/2 scale-75 flex flex-col items-center gap-4">
+        <div
+          className={`transition-transform duration-300 ease-out ${isExited ? "scale-[1.08]" : "scale-100"}`}
+        >
+          <HeroButton
+            title="NEXT DATE"
+            direction="right"
+            onClick={onNextDateClick}
+          />
+        </div>
+        <div
+          className={`transition-transform duration-300 ease-out ${isExited ? "scale-85" : "scale-100"}`}
+        >
           <HeroButton title="ABOUT" direction="left" />
         </div>
       </div>
