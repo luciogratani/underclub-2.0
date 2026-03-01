@@ -2,12 +2,21 @@ import { useEffect, useRef, useState } from "react";
 import Hero from "./components/Hero";
 import NextDate from "./components/NextDate";
 import BookNow from "./components/BookNow";
+import ReservationSummary from "./components/ReservationSummary";
+
+export type ReservationData = {
+  fullName: string;
+  dateOfBirth: string;
+  email: string;
+};
 
 function App() {
   const scrollRefH = useRef<HTMLDivElement>(null);
   const scrollRefV = useRef<HTMLDivElement>(null);
   const [heroExited, setHeroExited] = useState(false);
   const [nextDateExited, setNextDateExited] = useState(false);
+  const [bookNowExited, setBookNowExited] = useState(false);
+  const [confirmedData, setConfirmedData] = useState<ReservationData | null>(null);
 
   const scrollToNext = () => {
     const el = scrollRefH.current;
@@ -35,10 +44,21 @@ function App() {
     }, 300);
   };
 
-  const scrollToTop = () => {
-    const el = scrollRefV.current;
-    if (!el) return;
-    el.scrollTo({ top: 0, behavior: "smooth" });
+  const goToSummary = (data: ReservationData) => {
+    setConfirmedData(data);
+    setBookNowExited(true);
+    setTimeout(() => {
+      const el = scrollRefV.current;
+      if (!el) return;
+      el.scrollTo({ top: 2 * el.clientHeight, behavior: "smooth" });
+    }, 300);
+  };
+
+  const goToHero = () => {
+    const elV = scrollRefV.current;
+    const elH = scrollRefH.current;
+    if (elV) elV.scrollTo({ top: 0, behavior: "smooth" });
+    if (elH) elH.scrollTo({ left: 0, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -55,7 +75,9 @@ function App() {
     const elV = scrollRefV.current;
     if (!elV) return;
     const onScrollV = () => {
-      if (elV.scrollTop === 0) setNextDateExited(false);
+      const threshold = elV.clientHeight * 0.5;
+      if (elV.scrollTop < threshold) setNextDateExited(false);
+      if (elV.scrollTop < elV.clientHeight + threshold) setBookNowExited(false);
     };
     elV.addEventListener("scroll", onScrollV, { passive: true });
     return () => elV.removeEventListener("scroll", onScrollV);
@@ -79,7 +101,17 @@ function App() {
           <NextDate onBack={scrollToPrev} onBookNowClick={goToBookNow} isExited={nextDateExited} />
         </div>
       </div>
-      <BookNow onBack={scrollToTop} />
+      <BookNow
+        onBack={goToHero}
+        onConfirm={goToSummary}
+        isExited={bookNowExited}
+      />
+      <ReservationSummary
+        onGoHome={goToHero}
+        fullName={confirmedData?.fullName ?? ""}
+        dateOfBirth={confirmedData?.dateOfBirth ?? ""}
+        email={confirmedData?.email ?? ""}
+      />
     </div>
   );
 }

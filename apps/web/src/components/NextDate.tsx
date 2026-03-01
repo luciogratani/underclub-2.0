@@ -104,40 +104,6 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
                 <span className="font-light">from</span>
                 <span className="ml-0.5 font-medium">TRANCE ITALY</span>
               </span>
-              
-            </div>
-          </div>
-
-          <p className="mt-4.5 font-sans text-[14px] tracking-wide opacity-85">entry</p>
-          <div className="mt-0.5">
-            <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium">10 € + 1 DRINK</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">valid until</span>
-                  <span className="ml-0.5 font-medium">1:30</span>
-                </span>
-              </div>
-              <span className="shrink-0 font-medium">SOLD OUT</span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium">15 € + 1 DRINK</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">women gets</span>
-                  <span className="ml-0.5 font-medium">2 drinks</span>
-                </span>
-              </div>
-              <span className="shrink-0 font-medium">69 LEFT</span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium">20 € + 1 DRINK</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">door ticket</span>
-                  <span className="ml-0.5 font-medium"></span>
-                </span>
-              </div>
             </div>
           </div>
         </div>
