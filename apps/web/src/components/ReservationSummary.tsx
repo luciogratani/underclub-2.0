@@ -22,7 +22,7 @@ export default function ReservationSummary({
     >
       <div className="w-[95%] max-w-lg rounded-[40px] overflow-hidden bg-black text-primary">
         
-        <div className="m-4">
+        <div className="p-4">
           <p className="mt-4.5 text-[50px] font-bold">YOU'RE IN!</p>
 
           <p className="mt-6 font-sans text-lg leading-tight text-primary">

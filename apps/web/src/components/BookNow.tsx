@@ -34,8 +34,11 @@ function saveFormToStorage(fullName: string, dateOfBirth: string, email: string)
 
 function formatDateInput(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  if (digits.length <= 2) return digits.length === 2 ? `${digits}/` : digits;
+  if (digits.length <= 4) {
+    const part = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    return digits.length === 4 ? `${part}/` : part;
+  }
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
@@ -124,6 +127,20 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [ghostSize, setGhostSize] = useState({ width: 0, height: 0 });
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) setInView(true);
+      },
+      { threshold: 0.2, rootMargin: "0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -193,7 +210,7 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
   return (
     <section
       ref={sectionRef}
-      className="relative flex flex-col items-center justify-center min-h-[100svh] w-full shrink-0 snap-start snap-always bg-black"
+      className="relative flex flex-col items-center justify-center min-w-[100vw] w-[100vw] min-h-[100svh] shrink-0 snap-start snap-always bg-black"
       style={{ height: "100svh" }}
       aria-label="Book now"
     >
@@ -207,10 +224,20 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
         ref={cardRef}
         className="relative z-10 w-[95%] max-w-lg rounded-[40px] overflow-hidden bg-primary text-black"
       >
-      <div className="p-4">
-          <p className="mt-4.5 text-[50px] font-bold">BOOK NOW</p>
+        <div className={`booknow-content ${inView ? "in-view" : ""}`}>
+          <div className="p-4">
+            <p
+              className="animate-line mt-4.5 text-[50px] font-bold"
+              style={{ "--i": 0 } as React.CSSProperties}
+            >
+              BOOK NOW
+            </p>
 
-          <label htmlFor="fullName" className="mt-4.5 block font-sans text-[14px] tracking-wide opacity-85">
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 1 } as React.CSSProperties}
+            >
+          <label htmlFor="fullName" className="block font-sans text-[14px] tracking-wide opacity-85">
             full name
             {fullNameError && (
               <span className="ml-1 opacity-90" role="alert">
@@ -250,7 +277,12 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
               {fullNameError}
             </span>
           )}
+            </div>
 
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 2 } as React.CSSProperties}
+            >
           <label htmlFor="dateOfBirth" className="mt-4.5 block font-sans text-[14px] tracking-wide opacity-85">
             date of birth
             {dateOfBirthError && (
@@ -296,7 +328,12 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
               {dateOfBirthError}
             </span>
           )}
+            </div>
 
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 3 } as React.CSSProperties}
+            >
           <label htmlFor="email" className="mt-4.5 block font-sans text-[14px] tracking-wide opacity-85">
             email
             {emailError && (
@@ -337,8 +374,13 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
               {emailError}
             </span>
           )}
+            </div>
 
-          <p className="mt-4.5 font-sans text-[14px] tracking-wide opacity-85">entry</p>
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 4 } as React.CSSProperties}
+            >
+          <p className="font-sans text-[14px] tracking-wide opacity-85">entry</p>
           <div className="mt-0.5">
             <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
               <div className="flex items-baseline gap-1">
@@ -370,16 +412,21 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
               </div>
             </div>
           </div>
-        </div>
+            </div>
+          </div>
 
-        <div className="mb-10.5 mt-5 w-full">
-          <ConfirmReservationButton
+          <div
+            className="animate-line mb-10.5 mt-5 w-full"
+            style={{ "--i": 5 } as React.CSSProperties}
+          >
+            <ConfirmReservationButton
             label="Confirm"
             onClick={() =>
               isFormValid && onConfirm?.({ fullName, dateOfBirth, email })
             }
             disabled={!isFormValid}
           />
+          </div>
         </div>
 
         <div className="pb-4 pt-0 hidden">

@@ -3,10 +3,11 @@ import HeroButton from "./HeroButton";
 
 type HeroProps = {
   onNextDateClick?: () => void;
+  onAboutClick?: () => void;
   isExited?: boolean;
 };
 
-export default function Hero({ onNextDateClick, isExited = false }: HeroProps) {
+export default function Hero({ onNextDateClick, onAboutClick, isExited = false }: HeroProps) {
   return (
     <section
       className="relative flex items-center justify-center min-w-[100vw] w-[100vw] min-h-[100svh] shrink-0 snap-start snap-always bg-black z-100"
@@ -33,7 +34,7 @@ export default function Hero({ onNextDateClick, isExited = false }: HeroProps) {
         <div
           className={`transition-transform duration-300 ease-out ${isExited ? "scale-85" : "scale-100"}`}
         >
-          <HeroButton title="ABOUT" direction="left" />
+          <HeroButton title="ABOUT" direction="left" onClick={onAboutClick} />
         </div>
       </div>
     </section>

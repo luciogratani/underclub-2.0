@@ -16,6 +16,20 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [ghostSize, setGhostSize] = useState({ width: 0, height: 0 });
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) setInView(true);
+      },
+      { threshold: 0.2, rootMargin: "0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const cardEl = cardRef.current;
@@ -72,44 +86,69 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
         ref={cardRef}
         className="relative z-10 w-[95%] max-w-lg rounded-[40px] overflow-visible bg-black text-primary"
       >
-        <div className="p-4">
-          <p className="mt-4.5 text-[50px] font-bold">NEXT DATE</p>
-          <p className="mt-4.5 font-sans text-[14px] tracking-wide opacity-85">when</p>
-          <p className="mt-0.5 font-sans text-lg font-medium leading-tight">
-            {MOCK_DATE} <br /> {MOCK_TIME}
+        <div className={`nextdate-content ${inView ? "in-view" : ""}`}>
+          <div className="p-4">
+          <p
+            className="animate-line mt-4.5 text-[50px] font-bold"
+            style={{ "--i": 0 } as React.CSSProperties}
+          >
+            NEXT DATE
           </p>
+          <div
+            className="animate-line mt-4.5"
+            style={{ "--i": 1 } as React.CSSProperties}
+          >
+            <p className="font-sans text-[14px] tracking-wide opacity-85">when</p>
+            <p className="mt-0.5 font-sans text-lg font-medium leading-tight">
+              {MOCK_DATE} <br /> {MOCK_TIME}
+            </p>
+          </div>
 
-          <p className="mt-4.5 font-sans text-[14px] tracking-wide opacity-85">event</p>
-          <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{MOCK_EVENT}</p>
+          <div
+            className="animate-line mt-4.5"
+            style={{ "--i": 2 } as React.CSSProperties}
+          >
+            <p className="font-sans text-[14px] tracking-wide opacity-85">event</p>
+            <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{MOCK_EVENT}</p>
+          </div>
 
-          <p className="mt-4.5 font-sans text-[14px] tracking-wide opacity-85">lineup</p>
-          <div className="mt-0.5">
-            <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-              <span className="font-medium">ISABEL</span>
-              <span className="flex items-baseline text-[0.5em] leading-none">
-                <span className="font-light">from</span>
-                <span className="ml-0.5 font-medium">WAREHOUSE 303</span>
-              </span>
-            </div>
-            <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-              <span className="font-medium">MÅDVI</span>
-              <span className="flex items-baseline text-[0.5em] leading-none">
-                <span className="font-light">from</span>
-                <span className="ml-0.5 font-medium">TECHNOROOM</span>
-              </span>
-            </div>
-            <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-              <span className="font-medium">SKLENA</span>
-              <span className="flex items-baseline text-[0.5em] leading-none">
-                <span className="font-light">from</span>
-                <span className="ml-0.5 font-medium">TRANCE ITALY</span>
-              </span>
+          <div
+            className="animate-line mt-4.5"
+            style={{ "--i": 3 } as React.CSSProperties}
+          >
+            <p className="font-sans text-[14px] tracking-wide opacity-85">lineup</p>
+            <div className="mt-0.5">
+              <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                <span className="font-medium">ISABEL</span>
+                <span className="flex items-baseline text-[0.5em] leading-none">
+                  <span className="font-light">from</span>
+                  <span className="ml-0.5 font-medium">WAREHOUSE 303</span>
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                <span className="font-medium">MÅDVI</span>
+                <span className="flex items-baseline text-[0.5em] leading-none">
+                  <span className="font-light">from</span>
+                  <span className="ml-0.5 font-medium">TECHNOROOM</span>
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                <span className="font-medium">SKLENA</span>
+                <span className="flex items-baseline text-[0.5em] leading-none">
+                  <span className="font-light">from</span>
+                  <span className="ml-0.5 font-medium">TRANCE ITALY</span>
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="mb-11 mt-5 w-[calc(115%-2rem)] -mx-3">
-          <BookNowButton onClick={onBookNowClick} />
+          <div
+            className="animate-line mb-11 mt-5"
+            style={{ "--i": 4 } as React.CSSProperties}
+          >
+            <BookNowButton onClick={onBookNowClick} />
+          </div>
         </div>
 
         <div className="pb-4 pt-0 hidden">

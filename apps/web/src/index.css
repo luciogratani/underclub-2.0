@@ -23,6 +23,7 @@
   --color-primary: #baec17;
   --color-deep-grey: #1b1b1b;
   --color-black: #111111;
+  --color-error: #c62828;
 }
 
 * {
@@ -55,4 +56,107 @@ body {
   100% {
     transform: rotateX(-105deg) rotate(-720deg);
   }
+}
+
+/* Toast overlay: ingresso/uscita (300ms ease-out, come resto sito) */
+@keyframes toast-enter-overlay {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes toast-exit-overlay {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes toast-enter-content {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes toast-exit-content {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.toast-overlay-enter {
+  animation: toast-enter-overlay 300ms ease-out forwards;
+}
+.toast-overlay-exit {
+  animation: toast-exit-overlay 300ms ease-out forwards;
+}
+.toast-content-enter {
+  animation: toast-enter-content 300ms ease-out forwards;
+}
+.toast-content-exit {
+  animation: toast-exit-content 300ms ease-out forwards;
+}
+
+/* NextDate: stagger di testo al primo ingresso in viewport */
+@keyframes nextdate-line-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.nextdate-content.in-view .animate-line {
+  animation: nextdate-line-enter 0.4s ease-out forwards;
+  animation-delay: calc(0.08s * var(--i, 0));
+}
+.nextdate-content .animate-line {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nextdate-content .animate-line,
+  .nextdate-content.in-view .animate-line {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* BookNow: stesso stagger di NextDate */
+.booknow-content.in-view .animate-line {
+  animation: nextdate-line-enter 0.4s ease-out forwards;
+  animation-delay: calc(0.08s * var(--i, 0));
+}
+.booknow-content .animate-line {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .booknow-content .animate-line,
+  .booknow-content.in-view .animate-line {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Mini TextRing (es. Toast errore) */
+.text-ring-list-mini {
+  font-family: "Larabie", monospace;
+  margin: 0;
+  list-style: none;
+  font-size: 0.875rem;
+  transform-style: preserve-3d;
+  perspective: 100000px;
+  animation: text-ring-spin 20s linear infinite;
 }
