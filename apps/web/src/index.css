@@ -167,6 +167,36 @@ body {
   }
 }
 
+/* About / Archive: stesso stagger di NextDate (card + elementi) */
+.about-content.in-view .animate-line,
+.archive-content.in-view .animate-line {
+  animation: nextdate-line-enter 0.4s ease-out forwards;
+  animation-delay: calc(0.08s * var(--i, 0));
+}
+.about-content .animate-line,
+.archive-content .animate-line {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-content .animate-line,
+  .about-content.in-view .animate-line,
+  .archive-content .animate-line,
+  .archive-content.in-view .animate-line {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Guests: transizione cambio nome */
+.guests-current-name {
+  transition: transform 0.2s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .guests-current-name {
+    transition: none;
+  }
+}
+
 /* NextDate: scroll hint (bounce + fade-out) */
 @keyframes scroll-hint-bounce {
   0%,

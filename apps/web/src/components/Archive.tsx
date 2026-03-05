@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-type AboutProps = {
+type ArchiveProps = {
   onBack?: () => void;
 };
 
@@ -32,7 +32,7 @@ const MOCK_ARCHIVE: { year: number; events: ArchiveEvent[] }[] = [
   },
 ];
 
-export default function About({ onBack: _onBack }: AboutProps) {
+export default function Archive({ onBack: _onBack }: ArchiveProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(
@@ -46,7 +46,7 @@ export default function About({ onBack: _onBack }: AboutProps) {
       ([entry]) => {
         if (entry?.isIntersecting) setInView(true);
       },
-      { threshold: 0.3, rootMargin: "0px" }
+      { threshold: 0.5, rootMargin: "0px" }
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -66,9 +66,9 @@ export default function About({ onBack: _onBack }: AboutProps) {
       ref={sectionRef}
       className="relative flex flex-col items-center min-w-[100vw] w-[100vw] min-h-[100svh] h-[100svh] shrink-0 snap-start snap-always overflow-hidden bg-primary text-black"
       style={{ height: "100svh" }}
-      aria-label="About"
+      aria-label="Archive"
     >
-      <div className={`about-content w-[95%] max-w-lg shrink-0 flex-1 flex flex-col min-h-0 ${inView ? "in-view" : ""}`}>
+      <div className={`archive-content w-[95%] max-w-lg shrink-0 flex-1 flex flex-col min-h-0 ${inView ? "in-view" : ""}`}>
         <div
           className="animate-line flex min-h-0 flex-1 flex-col"
           style={{ "--i": 0 } as React.CSSProperties}

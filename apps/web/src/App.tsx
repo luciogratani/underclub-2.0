@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Hero from "./components/Hero";
 import NextDate from "./components/NextDate";
-import About from "./components/About";
+import Archive from "./components/Archive";
+import Guests from "./components/Guests";
 import BookNow from "./components/BookNow";
 import ReservationSummary from "./components/ReservationSummary";
 import ErrorToast from "./components/ErrorToast";
@@ -23,6 +24,7 @@ export type ToastError = {
 function App() {
   const scrollRefH = useRef<HTMLDivElement>(null);
   const scrollRefH2 = useRef<HTMLDivElement>(null);
+  const scrollRefH3 = useRef<HTMLDivElement>(null);
   const scrollRefV = useRef<HTMLDivElement>(null);
   const [heroExited, setHeroExited] = useState(false);
   const [nextDateExited, setNextDateExited] = useState(false);
@@ -75,9 +77,10 @@ function App() {
     setConfirmedData(data);
     setBookNowExited(true);
     setTimeout(() => {
-      const el = scrollRefV.current;
-      if (!el) return;
-      el.scrollTo({ top: 2 * el.clientHeight, behavior: "smooth" });
+      const elV = scrollRefV.current;
+      const elH3 = scrollRefH3.current;
+      if (elV) elV.scrollTo({ top: 2 * elV.clientHeight, behavior: "smooth" });
+      if (elH3) elH3.scrollTo({ left: elH3.clientWidth, behavior: "smooth" });
     }, 300);
     // In caso di errore API: setToastClosing(false); setConfirmError({ title, message, ... }); e non fare scroll
   };
@@ -86,9 +89,16 @@ function App() {
     const elV = scrollRefV.current;
     const elH = scrollRefH.current;
     const elH2 = scrollRefH2.current;
+    const elH3 = scrollRefH3.current;
     if (elV) elV.scrollTo({ top: 0, behavior: "smooth" });
     if (elH) elH.scrollTo({ left: 0, behavior: "smooth" });
     if (elH2) elH2.scrollTo({ left: 0, behavior: "smooth" });
+    if (elH3) elH3.scrollTo({ left: 0, behavior: "smooth" });
+  };
+
+  const goToNextSection = () => {
+    const elH3 = scrollRefH3.current;
+    if (elH3) elH3.scrollTo({ left: elH3.clientWidth, behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -182,16 +192,27 @@ function App() {
           ref={scrollRefH2}
           className="flex h-full w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <About onBack={goToHero} />
+          <Archive onBack={goToHero} />
           <BookNow onBack={goToHero} onConfirm={goToSummary} isExited={bookNowExited} />
         </div>
       </div>
-      <ReservationSummary
-        onGoHome={goToHero}
-        fullName={confirmedData?.fullName ?? ""}
-        dateOfBirth={confirmedData?.dateOfBirth ?? ""}
-        email={confirmedData?.email ?? ""}
-      />
+      <div
+        className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
+        style={{ width: "100vw" }}
+      >
+        <div
+          ref={scrollRefH3}
+          className="flex h-full w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <Guests onBack={goToHero} onScrollToNextSection={goToNextSection} />
+          <ReservationSummary
+            onGoHome={goToHero}
+            fullName={confirmedData?.fullName ?? ""}
+            dateOfBirth={confirmedData?.dateOfBirth ?? ""}
+            email={confirmedData?.email ?? ""}
+          />
+        </div>
+      </div>
 
       {confirmError && (
         <div

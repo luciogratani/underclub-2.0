@@ -16,7 +16,7 @@ export default function ReservationSummary({
 }: ReservationSummaryProps) {
   return (
     <section
-      className="flex flex-col items-center justify-center min-h-[100svh] w-full shrink-0 snap-start snap-always bg-primary"
+      className="flex flex-col items-center justify-center min-w-[100vw] w-[100vw] min-h-[100svh] h-[100svh] shrink-0 snap-start snap-always bg-primary"
       style={{ height: "100svh" }}
       aria-label="Reservation confirmed"
     >
