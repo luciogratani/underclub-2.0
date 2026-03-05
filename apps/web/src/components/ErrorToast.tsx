@@ -38,7 +38,8 @@ export default function ErrorToast({ error, onDismiss }: ErrorToastProps) {
         <button
           type="button"
           onClick={onDismiss}
-          className="shrink-0 px-4 py-1 rounded text-error font-bold hover:bg-error/10 focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 focus:ring-offset-deep-grey"
+          className="shrink-0 px-4 py-1 rounded text-error font-bold hover:bg-error/10 focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 focus:ring-offset-deep-grey 
+          hidden"
           aria-label="Chiudi"
         >
           ×

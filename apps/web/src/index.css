@@ -30,6 +30,23 @@
   box-sizing: border-box;
 }
 
+/*
+ * Scrollbar: nascosta ovunque (Safari/iOS non permettono di stilarla, mostrerebbero quella di sistema).
+ * Lo scroll resta attivo; su NextDate c’è già lo scroll-hint per far capire che si può scorrere.
+ */
+.scrollbar-site,
+.scrollbar-site-primary {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-site::-webkit-scrollbar,
+.scrollbar-site-primary::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -147,6 +164,30 @@ body {
   .booknow-content.in-view .animate-line {
     animation: none;
     opacity: 1;
+  }
+}
+
+/* NextDate: scroll hint (bounce + fade-out) */
+@keyframes scroll-hint-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+.scroll-hint-arrow {
+  animation: scroll-hint-bounce 1.2s ease-in-out infinite;
+}
+.scroll-hint-fade-out {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-hint-arrow {
+    animation: none;
   }
 }
 

@@ -12,11 +12,17 @@ const MOCK_DATE = "SATURDAY MARCH 07";
 const MOCK_TIME = "FROM 00:30 TILL LATE";
 const MOCK_EVENT = "TECHNOROOM: GIRLS POWER";
 
+/** Altezza max della sezione when→lineup: oltre questa solo quest’area scrolla */
+const CONTENT_AREA_MAX_HEIGHT_PX = 255;
+
 export default function NextDate({ onBack, onBookNowClick, isExited = false }: NextDateProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
   const [ghostSize, setGhostSize] = useState({ width: 0, height: 0 });
   const [inView, setInView] = useState(false);
+  const [hintVisible, setHintVisible] = useState(true);
+  const [contentScrollable, setContentScrollable] = useState(false);
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -57,6 +63,33 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
     return () => ro.disconnect();
   }, [isExited]);
 
+  useEffect(() => {
+    if (!inView) return;
+    const el = contentAreaRef.current;
+    if (!el) return;
+    const checkScrollable = () => {
+      setContentScrollable(el.scrollHeight > el.clientHeight);
+    };
+    checkScrollable();
+    const ro = new ResizeObserver(checkScrollable);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [inView]);
+
+  useEffect(() => {
+    if (!inView || !contentScrollable) return;
+    const t = setTimeout(() => setHintVisible(false), 4000);
+    return () => clearTimeout(t);
+  }, [inView, contentScrollable]);
+
+  useEffect(() => {
+    const el = contentAreaRef.current;
+    if (!el) return;
+    const onScroll = () => setHintVisible(false);
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, []);
+
   /* Ghost sempre centrata: si anima solo width/height → espansione uniforme dal centro */
   const ghostStyle = {
     position: "absolute" as const,
@@ -95,49 +128,75 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
             NEXT DATE
           </p>
           <div
-            className="animate-line mt-4.5"
-            style={{ "--i": 1 } as React.CSSProperties}
+            ref={contentAreaRef}
+            className="scrollbar-site-primary relative min-h-0 overflow-y-auto overflow-x-hidden"
+            style={{ maxHeight: CONTENT_AREA_MAX_HEIGHT_PX }}
           >
-            <p className="font-sans text-[14px] tracking-wide opacity-85">when</p>
-            <p className="mt-0.5 font-sans text-lg font-medium leading-tight">
-              {MOCK_DATE} <br /> {MOCK_TIME}
-            </p>
-          </div>
-
-          <div
-            className="animate-line mt-4.5"
-            style={{ "--i": 2 } as React.CSSProperties}
-          >
-            <p className="font-sans text-[14px] tracking-wide opacity-85">event</p>
-            <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{MOCK_EVENT}</p>
-          </div>
-
-          <div
-            className="animate-line mt-4.5"
-            style={{ "--i": 3 } as React.CSSProperties}
-          >
-            <p className="font-sans text-[14px] tracking-wide opacity-85">lineup</p>
-            <div className="mt-0.5">
-              <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                <span className="font-medium">ISABEL</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">from</span>
-                  <span className="ml-0.5 font-medium">WAREHOUSE 303</span>
+            {contentScrollable && (
+              <div
+                className={`absolute bottom-0 left-0 right-0 flex justify-center pb-1 pt-6 bg-gradient-to-t from-black to-transparent transition-opacity duration-500 ${
+                  hintVisible ? "opacity-100" : "scroll-hint-fade-out"
+                }`}
+                aria-hidden
+              >
+                <span className="scroll-hint-arrow text-primary" style={{ fontSize: "1.25rem" }}>
+                  ↓
                 </span>
               </div>
-              <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                <span className="font-medium">MÅDVI</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">from</span>
-                  <span className="ml-0.5 font-medium">TECHNOROOM</span>
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                <span className="font-medium">SKLENA</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">from</span>
-                  <span className="ml-0.5 font-medium">TRANCE ITALY</span>
-                </span>
+            )}
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 1 } as React.CSSProperties}
+            >
+              <p className="font-sans text-[14px] tracking-wide opacity-85">when</p>
+              <p className="mt-0.5 font-sans text-lg font-medium leading-tight">
+                {MOCK_DATE} <br /> {MOCK_TIME}
+              </p>
+            </div>
+
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 2 } as React.CSSProperties}
+            >
+              <p className="font-sans text-[14px] tracking-wide opacity-85">event</p>
+              <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{MOCK_EVENT}</p>
+            </div>
+
+            <div
+              className="animate-line mt-4.5"
+              style={{ "--i": 3 } as React.CSSProperties}
+            >
+              <p className="font-sans text-[14px] tracking-wide opacity-85">lineup</p>
+              <div className="mt-0.5">
+                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                  <span className="font-medium">ISABEL</span>
+                  <span className="flex items-baseline text-[0.5em] leading-none">
+                    <span className="font-light">from</span>
+                    <span className="ml-0.5 font-medium">WAREHOUSE 303</span>
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                  <span className="font-medium">MÅDVI</span>
+                  <span className="flex items-baseline text-[0.5em] leading-none">
+                    <span className="font-light">from</span>
+                    <span className="ml-0.5 font-medium">TECHNOROOM</span>
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                  <span className="font-medium">SKLENA</span>
+                  <span className="flex items-baseline text-[0.5em] leading-none">
+                    <span className="font-light">from</span>
+                    <span className="ml-0.5 font-medium">TRANCE ITALY</span>
+                  </span>
+                </div>
+
+                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                  <span className="font-medium">SKLENA</span>
+                  <span className="flex items-baseline text-[0.5em] leading-none">
+                    <span className="font-light">from</span>
+                    <span className="ml-0.5 font-medium">TRANCE ITALY</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
