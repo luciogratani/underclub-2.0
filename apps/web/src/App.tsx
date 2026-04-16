@@ -6,6 +6,7 @@ import Guests from "./components/Guests";
 import BookNow from "./components/BookNow";
 import ReservationSummary from "./components/ReservationSummary";
 import ErrorToast from "./components/ErrorToast";
+import PerfMeter from "./components/PerfMeter";
 
 export type ReservationData = {
   fullName: string;
@@ -141,6 +142,17 @@ function App() {
     setToastClosing(true);
   };
 
+  const showTestErrorToast = () => {
+    setToastClosing(false);
+    setConfirmError({
+      title: "Database error",
+      message: "Unable to save the reservation. Please try again in a moment.",
+      technicalDetail:
+        'insert failed: duplicate key value violates unique constraint "reservations_email_key"',
+      code: "23505",
+    });
+  };
+
   useEffect(() => {
     if (!toastClosing) return;
     const t = setTimeout(() => {
@@ -221,6 +233,7 @@ function App() {
         </div>
       )}
 
+      <PerfMeter onTriggerError={showTestErrorToast} />
     </div>
   );
 }

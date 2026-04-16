@@ -52,12 +52,6 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Lanyard ticket Html: i click passano alla mesh 3D sotto */
-.ticket-html-passthrough,
-.ticket-html-passthrough * {
-  pointer-events: none !important;
-}
-
 /* TextRing: anello 3D di caratteri */
 .text-ring-list {
   font-family: "Larabie", monospace;

@@ -63,7 +63,7 @@ cp apps/admin/.env.example apps/admin/.env
 ## Struttura repo
 
 ```
-apps/web       → SPA pubblico
+apps/web      → SPA pubblico
 apps/admin     → SPA backoffice
 packages/shared → Tipi e client Supabase (uso da web e admin)
 ```

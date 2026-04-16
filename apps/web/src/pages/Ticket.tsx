@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import Lanyard from "../components/Lanyard/Lanyard";
+import PerfMeter from "../components/PerfMeter";
 
 export default function Ticket() {
   useEffect(() => {
@@ -18,10 +19,11 @@ export default function Ticket() {
 
   return (
     <section
-      className="fixed inset-0 z-0 h-[100dvh] w-full overflow-hidden bg-primary touch-none border-2 border-red-500"
-      aria-label="3D Ticket"
+      className="fixed inset-0 z-0 h-[100dvh] w-full overflow-hidden bg-primary touch-none"
+      aria-label="Ticket"
     >
       <Lanyard />
+      <PerfMeter />
     </section>
   );
 }
