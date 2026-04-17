@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { PublicReservationFormInput, EntryTierView } from "@underclub/shared";
 import HeroButton from "./HeroButton";
 import ConfirmReservationButton from "./ConfirmReservationButton";
 
@@ -119,8 +120,9 @@ function getEmailError(value: string): string | null {
 
 type BookNowProps = {
   onBack?: () => void;
-  onConfirm?: (data: { fullName: string; dateOfBirth: string; email: string }) => void;
+  onConfirm?: (data: PublicReservationFormInput, entryId: string | null) => void;
   isExited?: boolean;
+  entries?: EntryTierView[];
 };
 
 function clearTextLetterByLetter(
@@ -144,7 +146,7 @@ function clearTextLetterByLetter(
   });
 }
 
-export default function BookNow({ onBack, onConfirm, isExited = false }: BookNowProps) {
+export default function BookNow({ onBack, onConfirm, isExited = false, entries }: BookNowProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [ghostSize, setGhostSize] = useState({ width: 0, height: 0 });
@@ -166,6 +168,13 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
   const [fullName, setFullName] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [email, setEmail] = useState("");
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!entries?.length) return;
+    const firstAvailable = entries.find((e) => !e.availability.soldOut);
+    if (firstAvailable) setSelectedEntryId(firstAvailable.id);
+  }, [entries]);
 
   useEffect(() => {
     const stored = loadFormFromStorage();
@@ -226,8 +235,12 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
   const dateOfBirthError = touchedDateOfBirth ? getDateOfBirthError(dateOfBirth) : null;
   const emailError = touchedEmail ? getEmailError(email) : null;
 
+  const needsEntrySelection = !!entries?.length;
   const isFormValid =
-    isValidFullName(fullName) && isValidDateOfBirth(dateOfBirth) && isValidEmail(email);
+    isValidFullName(fullName) &&
+    isValidDateOfBirth(dateOfBirth) &&
+    isValidEmail(email) &&
+    (!needsEntrySelection || selectedEntryId !== null);
 
   const handleConfirm = async () => {
     if (!isFormValid || confirmAnimating) return;
@@ -240,7 +253,7 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
       clearTextLetterByLetter(email, setEmail),
     ]);
 
-    onConfirm?.(payload);
+    onConfirm?.(payload, selectedEntryId);
     setConfirmAnimating(false);
   };
 
@@ -419,35 +432,70 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
             >
           <p className="font-sans text-[14px] tracking-wide opacity-85">entry</p>
           <div className="mt-0.5">
-            <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium">10 € + 1 DRINK</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">valid until</span>
-                  <span className="ml-0.5 font-medium">1:30</span>
-                </span>
-              </div>
-              <span className="shrink-0 font-medium">SOLD OUT</span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium">15 € + 1 DRINK</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">women gets</span>
-                  <span className="ml-0.5 font-medium">2 drinks</span>
-                </span>
-              </div>
-              <span className="shrink-0 font-medium">69 LEFT</span>
-            </div>
-            <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-              <div className="flex items-baseline gap-1">
-                <span className="font-medium">20 € + 1 DRINK</span>
-                <span className="flex items-baseline text-[0.5em] leading-none">
-                  <span className="font-light">door ticket</span>
-                  <span className="ml-0.5 font-medium"></span>
-                </span>
-              </div>
-            </div>
+            {entries?.length ? (
+              entries.map((tier) => {
+                const isSoldOut = tier.availability.soldOut;
+                const isSelected = selectedEntryId === tier.id;
+                return (
+                  <button
+                    key={tier.id}
+                    type="button"
+                    disabled={isSoldOut}
+                    onClick={() => !isSoldOut && setSelectedEntryId(tier.id)}
+                    className={`flex w-full items-baseline justify-between gap-4 font-sans text-lg leading-tight py-0.5 transition-opacity ${
+                      isSoldOut ? "opacity-40 line-through cursor-not-allowed" : "cursor-pointer"
+                    } ${isSelected && !isSoldOut ? "opacity-100" : !isSoldOut ? "opacity-60" : ""}`}
+                  >
+                    <div className="flex items-baseline gap-1 text-left">
+                      <span className="font-medium">{tier.name}</span>
+                      {tier.note && (
+                        <span className="flex items-baseline text-[0.5em] leading-none">
+                          <span className="font-light">{tier.note}</span>
+                        </span>
+                      )}
+                    </div>
+                    <span className="shrink-0 font-medium">
+                      {isSoldOut
+                        ? "SOLD OUT"
+                        : tier.availability.left !== null
+                          ? `${tier.availability.left} LEFT`
+                          : ""}
+                    </span>
+                  </button>
+                );
+              })
+            ) : (
+              <>
+                <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-medium">10 € + 1 DRINK</span>
+                    <span className="flex items-baseline text-[0.5em] leading-none">
+                      <span className="font-light">valid until</span>
+                      <span className="ml-0.5 font-medium">1:30</span>
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-medium">SOLD OUT</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-medium">15 € + 1 DRINK</span>
+                    <span className="flex items-baseline text-[0.5em] leading-none">
+                      <span className="font-light">women gets</span>
+                      <span className="ml-0.5 font-medium">2 drinks</span>
+                    </span>
+                  </div>
+                  <span className="shrink-0 font-medium">69 LEFT</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-medium">20 € + 1 DRINK</span>
+                    <span className="flex items-baseline text-[0.5em] leading-none">
+                      <span className="font-light">door ticket</span>
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
             </div>
           </div>

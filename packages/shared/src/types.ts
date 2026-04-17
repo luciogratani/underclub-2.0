@@ -1,3 +1,11 @@
+import type { Database } from './database';
+
+type Tables = Database['underclub']['Tables'];
+
+// ---------------------------------------------------------------------------
+// Status constants (runtime values + type extraction)
+// ---------------------------------------------------------------------------
+
 export const EVENT_STATUS = {
   DRAFT: 'draft',
   PUBLISHED: 'published',
@@ -14,44 +22,23 @@ export const RESERVATION_STATUS = {
 export type ReservationStatus =
   (typeof RESERVATION_STATUS)[keyof typeof RESERVATION_STATUS];
 
-export interface Event {
-  id: string;
-  title: string;
-  date: string;       // ISO date (YYYY-MM-DD)
-  time: string;       // HH:MM
-  status: EventStatus;
-  created_at: string;  // ISO timestamptz
-}
+// ---------------------------------------------------------------------------
+// Domain types — derived from DB rows (single source of truth)
+// ---------------------------------------------------------------------------
 
-export interface EventArtist {
-  id: string;
-  event_id: string;
-  name: string;
-  origin: string | null;
-  sort_order: number;
-}
+export type Event = Tables['events']['Row'];
+export type EventInsert = Tables['events']['Insert'];
+export type EventUpdate = Tables['events']['Update'];
 
-export interface EventEntry {
-  id: string;
-  event_id: string;
-  name: string;
-  note: string | null;
-  quota: number | null;  // null = unlimited
-  sort_order: number;
-}
+export type EventArtist = Tables['event_artists']['Row'];
+export type EventArtistInsert = Tables['event_artists']['Insert'];
 
-export interface Reservation {
-  id: string;
-  event_id: string;
-  entry_id: string;
-  full_name: string;
-  date_of_birth: string; // ISO date
-  email: string;
-  status: ReservationStatus;
-  ticket_opened_at: string | null;
-  qr_scanned_at: string | null;
-  created_at: string;
-}
+export type EventEntry = Tables['event_entries']['Row'];
+export type EventEntryInsert = Tables['event_entries']['Insert'];
+
+export type Reservation = Tables['reservations']['Row'];
+export type ReservationInsert = Tables['reservations']['Insert'];
+export type ReservationUpdate = Tables['reservations']['Update'];
 
 /** Event with its related lineup and ticket tiers. */
 export interface EventWithDetails extends Event {
@@ -61,5 +48,124 @@ export interface EventWithDetails extends Event {
 
 /** Reservation with the entry tier it was booked under. */
 export interface ReservationWithEntry extends Reservation {
-  event_entry: EventEntry;
+  entry: EventEntry;
+}
+
+// ---------------------------------------------------------------------------
+// Application contracts — public web
+// ---------------------------------------------------------------------------
+
+/** UI payload emitted by the public Book Now form (camelCase, DD/MM/YYYY). */
+export interface PublicReservationFormInput {
+  fullName: string;
+  dateOfBirth: string; // DD/MM/YYYY from input
+  email: string;
+}
+
+/** Normalized create command ready for DB insert. */
+export interface CreateReservationCommand {
+  eventId: string;
+  entryId: string;
+  fullName: string;
+  dateOfBirthIso: string; // YYYY-MM-DD
+  email: string;
+}
+
+/** Response after a successful reservation insert. */
+export interface CreateReservationResult {
+  reservationId: string;
+  status: ReservationStatus;
+  ticketToken: string;
+  ticketUrl: string;
+}
+
+/** Artist view model used by public/admin UIs (camelCase). */
+export interface ArtistView {
+  id: string;
+  eventId: string;
+  name: string;
+  origin: string | null;
+  sortOrder: number;
+}
+
+/** Ticket tier availability for public rendering. */
+export interface EntryAvailability {
+  soldOut: boolean;
+  left: number | null; // null = unlimited
+}
+
+/** Entry tier view model for cards and booking UIs. */
+export interface EntryTierView {
+  id: string;
+  eventId: string;
+  name: string;
+  note: string | null;
+  quota: number | null;
+  sortOrder: number;
+  availability: EntryAvailability;
+}
+
+/** Event shape consumed by the public "Next Date" section. */
+export interface PublicEventView {
+  id: string;
+  title: string;
+  date: string; // ISO (YYYY-MM-DD) — formatting is done in the UI layer
+  time: string;
+  lineup: ArtistView[];
+  entries: EntryTierView[];
+}
+
+/** Data needed by the ticket page / lanyard card. */
+export interface TicketViewData {
+  reservationId: string;
+  fullName: string;
+  email: string;
+  eventName: string;
+  eventDate: string; // ISO (YYYY-MM-DD)
+  entryName: string;
+}
+
+/** Input data for the BookNow section (event context + available tiers). */
+export interface BookNowPageData {
+  eventId: string;
+  eventTitle: string;
+  entries: EntryTierView[];
+}
+
+// ---------------------------------------------------------------------------
+// Application contracts — admin
+// ---------------------------------------------------------------------------
+
+/** Event row for the admin list / stat cards. */
+export interface AdminEventView {
+  id: string;
+  title: string;
+  date: string; // ISO
+  time: string;
+  status: EventStatus;
+  createdAt: string;
+  artistCount: number;
+  entryCount: number;
+  reservationCount: number;
+}
+
+/** Reservation row for the admin guest list / check-in. */
+export interface AdminReservationView {
+  id: string;
+  fullName: string;
+  email: string;
+  entryName: string;
+  status: ReservationStatus;
+  ticketOpened: boolean;
+  qrScanned: boolean;
+  createdAt: string;
+}
+
+/** Aggregated stats for the admin dashboard home. */
+export interface AdminDashboardStats {
+  nextEventTitle: string | null;
+  nextEventDate: string | null;
+  totalReservations: number;
+  ticketsOpened: number;
+  qrScanned: number;
 }

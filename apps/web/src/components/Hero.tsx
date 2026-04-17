@@ -6,6 +6,8 @@ type HeroProps = {
   onAboutClick?: () => void;
   isExited?: boolean;
   showNextDateButton?: boolean;
+  nextDateIso?: string | null;
+  nextEventTitle?: string | null;
 };
 
 export default function Hero({
@@ -13,6 +15,8 @@ export default function Hero({
   onAboutClick,
   isExited = false,
   showNextDateButton = true,
+  nextDateIso,
+  nextEventTitle,
 }: HeroProps) {
   return (
     <section
@@ -25,7 +29,7 @@ export default function Hero({
           isExited ? "w-[100%] h-[100%] rounded-none" : "w-[95%] h-[88%] rounded-3xl"
         }`}
       >
-        <TextRing />
+        <TextRing nextDateIso={nextDateIso} nextEventTitle={nextEventTitle} />
       </div>
       <div className="absolute bottom-22 left-1/2 -translate-x-1/2 scale-75 flex flex-col items-center gap-4">
         <div

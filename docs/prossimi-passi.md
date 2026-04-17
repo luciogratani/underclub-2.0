@@ -1,7 +1,7 @@
 # Prossimi passi — Underclub 2.0
 
 Panoramica del lavoro da fare, divisa per **admin**, **sito pubblico (web)** e **backend / database**.  
-Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared` (tipi + client Supabase tipizzato) sono già definiti; l’admin ha home + routing + pagine placeholder; il web usa ancora dati mock e non chiama Supabase.
+Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared` (tipi + client Supabase tipizzato + mapper) sono definiti; l'admin ha home + routing + pagine placeholder; il web è collegato a Supabase con fallback ai mock.
 
 ---
 
@@ -27,56 +27,57 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 
 ### Qualità
 - [ ] Allineare componenti shadcn dove serve (tabelle, form, dialog) invece di solo markup custom.
-- [ ] **RLS**: le policy Supabase devono consentire lettura/scrittura solo agli utenti autenticati con ruolo admin (da definire in Supabase Auth / custom claims o tabella `profiles`).
 
 ---
 
 ## 2. Sito pubblico (`apps/web`)
 
 ### Dati e Supabase
-- [ ] **Sostituire i mock** (Next Date, Archive, Book Now, ecc.) con lettura da Supabase: evento “prossimo” pubblicato, archivio, lineup, entry disponibili.
-- [ ] **Form prenotazione**: invio insert su `reservations` con `event_id`, `entry_id`, `full_name`, `date_of_birth`, `email`; rispettare `unique (event_id, email)` e quote per tier (controllo lato client + gestione errore server).
-- [ ] **Scelta entry tier** nel Book Now: oggi le tier sono solo mock in UI; collegare a `event_entries` reali e disabilitare tier esaurite (`quota` vs conteggio `confirmed`).
+- [x] **Sostituire i mock** (Next Date, Book Now) con lettura da Supabase: evento "prossimo" pubblicato, lineup, entry disponibili. *(fallback automatico a mock quando Supabase non è configurato)*
+- [x] **Form prenotazione**: invio insert su `reservations` con `event_id`, `entry_id`, `full_name`, `date_of_birth`, `email`; gestione errore server via ErrorToast.
+- [x] **Scelta entry tier** nel Book Now: entry dinamiche con availability (SOLD OUT / N LEFT), selezione tap con highlight, fallback a mock.
 
 ### Ticket
-- [ ] **Route `/ticket/:id`**: caricare la prenotazione per `id` (UUID); passare i dati a `Lanyard` (`ticketData`) invece del solo mock.
-- [ ] **Tracking apertura**: alla prima visita (o ogni visita, da decidere), aggiornare `ticket_opened_at` se ancora null (policy RLS: solo il titolare o anonimo con token — da definire).
-- [ ] **Email con link**: flusso serverless (es. Vercel) che invia mail con link `https://…/ticket/{reservationId}` dopo insert prenotazione (non è solo frontend).
+- [x] **Route `/ticket/:id`**: carica la prenotazione per UUID; passa `TicketViewData` a `Lanyard` al posto del mock.
+- [x] **Tracking apertura**: alla prima visita aggiorna `ticket_opened_at` se ancora null.
+- [ ] **Email con link**: flusso serverless (es. Vercel) che invia mail con link `https://…/ticket/{reservationId}` dopo insert prenotazione.
 
 ### Coerenza UX
-- [ ] Allineare copy e campi al modello DB (date ISO, orari, nomi tier).
-- [ ] Gestione errori rete / vincoli DB (toast o UI esistente).
+- [x] Allineamento copy e campi al modello DB (date ISO, orari, nomi tier) tramite mapper centralizzati.
+- [x] Gestione errori rete / vincoli DB (toast esistente).
 
 ---
 
 ## 3. Backend / database / wiring
 
 ### Supabase (progetto)
-- [ ] **Applicare lo schema**: eseguire `supabase/schema.sql` nell’SQL Editor (o migrare con Supabase CLI se adottate le migration).
-- [ ] **Row Level Security (RLS)**:
-  - **Pubblico**: lettura eventi `published` + entry/artisti collegati; insert `reservations` solo dove consentito; niente lettura libera di tutte le prenotazioni.
-  - **Admin**: CRUD completo su eventi, artisti, entry, prenotazioni (tramite ruolo o service role in funzioni controllate — evitare di esporre service key nel browser).
-- [ ] **Trigger / funzioni** (opzionale ma utile): aggiornamento `updated_at`, vincoli extra su quote (es. function che verifica cap prima di insert reservation).
+- [x] **Schema SQL**: `supabase/schema.sql` definisce tutte le tabelle nello schema `underclub`.
+- [x] **Row Level Security (RLS)**: `supabase/rls.sql` pronto con policy:
+  - **Pubblico (anon)**: lettura eventi `published` + artisti/entry collegati; insert `reservations`; lettura propria reservation; update `ticket_opened_at`.
+  - **Admin (authenticated)**: CRUD completo su tutte le tabelle.
+- [x] **Applicare lo schema + RLS**: eseguiti `schema.sql` e `rls.sql` in Supabase SQL Editor.
+- [ ] **Trigger / funzioni** (opzionale): aggiornamento `updated_at`, vincoli extra su quote.
 
 ### Shared e monorepo
-- [ ] **Web**: aggiungere dipendenza `@underclub/shared` e usare gli stessi tipi + `createSupabaseClient` (o wrapper) per coerenza con admin.
-- [ ] **Allineamento tipi**: quando lo schema cambia, aggiornare `packages/shared/src/database.ts` e `types.ts`.
+- [x] **`@underclub/shared`**: tipi derivati dal DB (single source of truth), mapper snake_case→camelCase, client Supabase tipizzato.
+- [x] **Web**: dipendenza `@underclub/shared` aggiunta, client Supabase + API functions in `apps/web/src/lib/`.
+- [x] **Type audit**: completato — tutti i blockers risolti (status union, tipi derivati, mapper, tipi duplicati eliminati).
 
 ### Infrastruttura
-- [ ] **Variabili ambiente** su Vercel per web e admin; **Redirect URLs** in Supabase Auth per entrambi i domini.
+- [x] **Variabili ambiente locali**: creati `apps/web/.env` e `apps/admin/.env` con `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
+- [ ] **Variabili ambiente su Vercel** + **Redirect URLs** in Supabase Auth per entrambi i domini.
 - [ ] **Serverless** (invio email, webhook): progetto Vercel + segreti (`RESEND_API_KEY`, ecc.) fuori dal bundle client.
 
 ---
 
-## Ordine suggerito (dipendenze)
+## Ordine suggerito (prossimi passi rimasti)
 
-1. Applicare schema + RLS minima (lettura eventi pubblicati + insert reservation).  
-2. Web: lettura evento + entry + submit prenotazione.  
-3. Web: ticket per UUID + `ticket_opened_at`.  
-4. Admin: lista eventi + CRUD eventi (lineup + entry).  
-5. Admin: lista prenotazioni per evento + azioni.  
-6. Email post-prenotazione + auth admin + check-in QR.
+1. Verificare submit reale prenotazione da `BookNow` (insert `reservations`) e gestione errori vincoli.
+2. Verificare ticket end-to-end (`/ticket/:id`) con aggiornamento `ticket_opened_at`.
+3. Admin: client Supabase + lista eventi + CRUD eventi (lineup + entry).
+4. Admin: lista prenotazioni per evento + azioni.
+5. Email post-prenotazione + auth admin + check-in QR.
 
 ---
 
-*Ultimo aggiornamento: allineato allo stato post-commit admin/shared/schema e ripristino Ticket/Lanyard da `bd47500`.*
+*Ultimo aggiornamento: fetch evento live OK. Console checkpoint: `fetchNextEvent -> event found (id 099c2ac1-923f-478f-9b16-46dd261fbc51, lineupCount 3, entriesCount 3)` e `App fetchNextEvent resolved hasEvent: true`. I log duplicati sono attesi in dev per React StrictMode.*

@@ -13,26 +13,20 @@ import {
 } from '@react-three/rapier';
 import { MeshLineGeometry, MeshLineMaterial } from 'meshline';
 import * as THREE from 'three';
+import type { TicketViewData } from '@underclub/shared';
 
 const CARD_MODEL_URL = '/ticket/_Card.glb';
 const LANYARD_TEXTURE_URL = '/ticket/_lanyard.png';
 
 extend({ MeshLineGeometry, MeshLineMaterial });
 
-export type TicketData = {
-  fullName: string;
-  email: string;
-  date: string;
-  eventName: string;
-  entry: string;
-};
-
-const MOCK_TICKET: TicketData = {
+const MOCK_TICKET: TicketViewData = {
+  reservationId: '00000000-0000-0000-0000-000000000000',
   fullName: 'Stevens Payano',
   email: 'stevensonpayano@icloud.com',
-  date: 'MARCH 07',
+  eventDate: 'MARCH 07',
   eventName: 'TECHNOROOM',
-  entry: '10 € + 1 DRINK'
+  entryName: '10 € + 1 DRINK'
 };
 
 interface LanyardProps {
@@ -40,7 +34,7 @@ interface LanyardProps {
   gravity?: [number, number, number];
   fov?: number;
   transparent?: boolean;
-  ticketData?: TicketData;
+  ticketData?: TicketViewData;
 }
 
 export default function Lanyard({
@@ -118,7 +112,7 @@ interface BandProps {
   maxSpeed?: number;
   minSpeed?: number;
   isMobile?: boolean;
-  ticketData: TicketData;
+  ticketData: TicketViewData;
 }
 
 function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData }: BandProps) {
@@ -279,9 +273,9 @@ function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData }: Ban
                 <div style={{ opacity: 0.9, fontSize: '12px', marginBottom: '12px'}}>{ticketData.email}</div>
 
                 <div style={{ fontWeight: 700, fontSize: '18px', marginBottom: '-4px'}}> {ticketData.eventName}</div>
-                <div style={{ fontSize: '18px', fontWeight: 400, marginBottom: '12px'}}>{ticketData.date}</div>
+                <div style={{ fontSize: '18px', fontWeight: 400, marginBottom: '12px'}}>{ticketData.eventDate}</div>
                 
-                <div style={{ fontSize: '16px', marginBottom: '12px' }}>{ticketData.entry}</div>
+                <div style={{ fontSize: '16px', marginBottom: '12px' }}>{ticketData.entryName}</div>
 
 
 

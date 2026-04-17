@@ -1,18 +1,35 @@
+import type { TicketViewData } from "@underclub/shared";
 import SummaryHomeButton from "./SummaryHomeButton";
 
-type ReservationSummaryProps = {
-  fullName: string;
-  dateOfBirth: string;
-  email: string;
+type ReservationSummaryProps = Partial<TicketViewData> & {
   onGoHome?: () => void;
+  onOpenTicket?: () => void;
 };
 
-const MOCK_DATE = "SATURDAY MARCH 07";
+function formatSummaryDate(value?: string | null): string {
+  if (!value) return "—";
+  // If already display-styled, keep as-is.
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value.toUpperCase();
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "—";
+
+  const weekday = date
+    .toLocaleDateString("en-US", { weekday: "long" })
+    .toUpperCase();
+  const month = date
+    .toLocaleDateString("en-US", { month: "long" })
+    .toUpperCase();
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${weekday} ${month} ${day}`;
+}
 
 export default function ReservationSummary({
   fullName,
   email,
+  eventDate,
   onGoHome,
+  onOpenTicket,
 }: ReservationSummaryProps) {
   return (
     <section
@@ -29,19 +46,28 @@ export default function ReservationSummary({
             Dear <span className="font-medium uppercase">{fullName || "—"},</span>
           </p>
           <p className="mt-2 font-sans text-lg leading-tight text-primary">
-            we’ll email your ticket to <br /><span className="font-medium">{email || "—"}</span>.
+            we'll email your ticket to <br /><span className="font-medium">{email || "—"}</span>.
           </p>
           <p className="mt-2 font-sans text-lg leading-tight text-primary">
-            See you at Underclub on <br /><span className="font-medium">{MOCK_DATE}</span>.
+            See you at Underclub on <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.
           </p>
 
           <div className="pb-6 pt-12">
-          {onGoHome && (
-            <div className="scale-75 origin-left">
-              <SummaryHomeButton title="Home" direction="left" onClick={onGoHome} />
+            <div className="flex items-center justify-between">
+              {onGoHome ? (
+                <div className="scale-75 origin-left">
+                  <SummaryHomeButton title="Home" direction="left" onClick={onGoHome} />
+                </div>
+              ) : (
+                <div />
+              )}
+              {onOpenTicket && (
+                <div className="scale-75 origin-right">
+                  <SummaryHomeButton title="Ticket" direction="right" onClick={onOpenTicket} />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
         </div>
 

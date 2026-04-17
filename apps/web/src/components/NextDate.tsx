@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { PublicEventView } from "@underclub/shared";
 import HeroButton from "./HeroButton";
 import BookNowButton from "./BookNowButton";
 
@@ -6,16 +7,34 @@ type NextDateProps = {
   onBack?: () => void;
   onBookNowClick?: () => void;
   isExited?: boolean;
+  event?: PublicEventView | null;
 };
 
 const MOCK_DATE = "SATURDAY MARCH 07";
 const MOCK_TIME = "FROM 00:30 TILL LATE";
 const MOCK_EVENT = "TECHNOROOM: GIRLS POWER";
+const MOCK_LINEUP = [
+  { name: "ISABEL", origin: "WAREHOUSE 303" },
+  { name: "MÅDVI", origin: "TECHNOROOM" },
+  { name: "SKLENA", origin: "TRANCE ITALY" },
+];
 
 /** Altezza max della sezione when→lineup: oltre questa solo quest’area scrolla */
 const CONTENT_AREA_MAX_HEIGHT_PX = 255;
 
-export default function NextDate({ onBack, onBookNowClick, isExited = false }: NextDateProps) {
+function formatEventDate(iso: string): string {
+  const d = new Date(iso + "T00:00:00");
+  const day = d.toLocaleDateString("en-US", { weekday: "long" }).toUpperCase();
+  const month = d.toLocaleDateString("en-US", { month: "long" }).toUpperCase();
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${day} ${month} ${dd}`;
+}
+
+function formatEventTime(time: string): string {
+  return `FROM ${time.slice(0, 5)} TILL LATE`;
+}
+
+export default function NextDate({ onBack, onBookNowClick, isExited = false, event }: NextDateProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
@@ -150,7 +169,7 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">when</p>
               <p className="mt-0.5 font-sans text-lg font-medium leading-tight">
-                {MOCK_DATE} <br /> {MOCK_TIME}
+                {event ? formatEventDate(event.date) : MOCK_DATE} <br /> {event ? formatEventTime(event.time) : MOCK_TIME}
               </p>
             </div>
 
@@ -159,7 +178,7 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
               style={{ "--i": 2 } as React.CSSProperties}
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">event</p>
-              <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{MOCK_EVENT}</p>
+              <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{event?.title ?? MOCK_EVENT}</p>
             </div>
 
             <div
@@ -168,35 +187,17 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false }: N
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">lineup</p>
               <div className="mt-0.5">
-                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                  <span className="font-medium">ISABEL</span>
-                  <span className="flex items-baseline text-[0.5em] leading-none">
-                    <span className="font-light">from</span>
-                    <span className="ml-0.5 font-medium">WAREHOUSE 303</span>
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                  <span className="font-medium">MÅDVI</span>
-                  <span className="flex items-baseline text-[0.5em] leading-none">
-                    <span className="font-light">from</span>
-                    <span className="ml-0.5 font-medium">TECHNOROOM</span>
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                  <span className="font-medium">SKLENA</span>
-                  <span className="flex items-baseline text-[0.5em] leading-none">
-                    <span className="font-light">from</span>
-                    <span className="ml-0.5 font-medium">TRANCE ITALY</span>
-                  </span>
-                </div>
-
-                <div className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                  <span className="font-medium">SKLENA</span>
-                  <span className="flex items-baseline text-[0.5em] leading-none">
-                    <span className="font-light">from</span>
-                    <span className="ml-0.5 font-medium">TRANCE ITALY</span>
-                  </span>
-                </div>
+                {(event ? event.lineup.map((a) => ({ name: a.name, origin: a.origin })) : MOCK_LINEUP).map((artist, i) => (
+                  <div key={i} className="flex items-baseline gap-1 font-sans text-lg leading-tight">
+                    <span className="font-medium">{artist.name}</span>
+                    {artist.origin && (
+                      <span className="flex items-baseline text-[0.5em] leading-none">
+                        <span className="font-light">from</span>
+                        <span className="ml-0.5 font-medium">{artist.origin}</span>
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

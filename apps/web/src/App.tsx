@@ -1,30 +1,24 @@
 import { useEffect, useRef, useState } from "react";
+import type {
+  PublicReservationFormInput,
+  PublicEventView,
+  CreateReservationResult,
+} from "@underclub/shared";
 import Hero from "./components/Hero";
 import NextDate from "./components/NextDate";
 import BookNow from "./components/BookNow";
 import ReservationSummary from "./components/ReservationSummary";
 import DataNoticeOverlay from "./components/DataNoticeOverlay";
-import ErrorToast from "./components/ErrorToast";
+import ErrorToast, { type ErrorToastData } from "./components/ErrorToast";
 import PerfMeter from "./components/PerfMeter";
+import { fetchNextEvent, createReservation } from "./lib/api";
 
 const TOTAL_SECTIONS = 4;
 const GESTURE_THRESHOLD_PX = 40;
 const WHEEL_THRESHOLD = 24;
 const DATA_NOTICE_FADE_MS = 360;
 const DATA_NOTICE_SESSION_KEY = "underclub.dataNoticeAccepted";
-
-export type ReservationData = {
-  fullName: string;
-  dateOfBirth: string;
-  email: string;
-};
-
-export type ToastError = {
-  title: string;
-  message: string;
-  technicalDetail?: string;
-  code?: string;
-};
+const DEBUG_LOG = import.meta.env.DEV;
 
 function App() {
   const hasAcceptedDataNoticeInSession = (() => {
@@ -50,8 +44,11 @@ function App() {
   const [heroExited, setHeroExited] = useState(false);
   const [nextDateExited, setNextDateExited] = useState(false);
   const [bookNowExited, setBookNowExited] = useState(false);
-  const [confirmedData, setConfirmedData] = useState<ReservationData | null>(null);
-  const [confirmError, setConfirmError] = useState<ToastError | null>(null);
+  const [nextEvent, setNextEvent] = useState<PublicEventView | null>(null);
+  const [reservationResult, setReservationResult] = useState<CreateReservationResult | null>(null);
+  const [confirmedData, setConfirmedData] = useState<PublicReservationFormInput | null>(null);
+  const [confirmedEventDate, setConfirmedEventDate] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<ErrorToastData | null>(null);
   const [toastClosing, setToastClosing] = useState(false);
 
   const scrollToSection = (index: number) => {
@@ -115,15 +112,60 @@ function App() {
     navigateToSection(2);
   };
 
-  const goToSummary = (data: ReservationData) => {
+  const refreshNextEvent = async () => {
+    const refreshed = await fetchNextEvent();
+    setNextEvent(refreshed);
+  };
+
+  const goToSummary = async (
+    data: PublicReservationFormInput,
+    entryId: string | null,
+  ) => {
     setConfirmError(null);
-    setConfirmedData(data);
-    navigateToSection(3);
-    // In caso di errore API: setToastClosing(false); setConfirmError({ title, message, ... }); e non fare scroll
+
+    if (nextEvent && entryId) {
+      try {
+        const result = await createReservation(data, nextEvent.id, entryId);
+        setReservationResult(result);
+        const absoluteTicketUrl =
+          typeof window !== "undefined"
+            ? new URL(result.ticketUrl, window.location.origin).toString()
+            : result.ticketUrl;
+        console.info("[underclub][reservation] ticket link (tokenized)", {
+          reservationId: result.reservationId,
+          ticketUrl: absoluteTicketUrl,
+          ticketToken: result.ticketToken,
+        });
+        // Keep entry availability in sync after each successful booking.
+        void refreshNextEvent();
+        setConfirmedData(data);
+        setConfirmedEventDate(nextEvent.date);
+        navigateToSection(3);
+      } catch (err: unknown) {
+        const e = err as { message?: string; details?: string; code?: string };
+        setToastClosing(false);
+        setConfirmError({
+          title: "Reservation failed",
+          message: e.message || "Unable to save. Please try again.",
+          technicalDetail: e.details,
+          code: e.code,
+        });
+      }
+    } else {
+      setConfirmedData(data);
+      setConfirmedEventDate(nextEvent?.date ?? null);
+      navigateToSection(3);
+    }
   };
 
   const goToHero = () => {
     navigateToSection(0);
+  };
+
+  const openTicketInNewTab = () => {
+    if (!reservationResult?.ticketUrl || typeof window === "undefined") return;
+    const absoluteTicketUrl = new URL(reservationResult.ticketUrl, window.location.origin).toString();
+    window.open(absoluteTicketUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleAcceptDataNotice = () => {
@@ -311,6 +353,21 @@ function App() {
     return () => clearTimeout(t);
   }, [toastClosing]);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchNextEvent().then((ev) => {
+      if (DEBUG_LOG) {
+        console.info("[underclub][App] fetchNextEvent resolved", {
+          hasEvent: Boolean(ev),
+          eventId: ev?.id,
+          title: ev?.title,
+        });
+      }
+      if (!cancelled && ev) setNextEvent(ev);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div
       ref={scrollRefV}
@@ -325,19 +382,26 @@ function App() {
           onNextDateClick={goToNextDate}
           isExited={heroExited || heroIntroActive}
           showNextDateButton={heroCtaVisible}
+          nextDateIso={nextEvent?.date}
+          nextEventTitle={nextEvent?.title}
         />
       </div>
       <div
         className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
         style={{ width: "100vw" }}
       >
-        <NextDate onBookNowClick={goToBookNow} isExited={nextDateExited} />
+        <NextDate onBookNowClick={goToBookNow} isExited={nextDateExited} event={nextEvent} />
       </div>
       <div
         className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
         style={{ width: "100vw" }}
       >
-        <BookNow onBack={goToHero} onConfirm={goToSummary} isExited={bookNowExited} />
+        <BookNow
+          onBack={goToHero}
+          onConfirm={goToSummary}
+          isExited={bookNowExited}
+          entries={nextEvent?.entries}
+        />
       </div>
       <div
         className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
@@ -345,9 +409,11 @@ function App() {
       >
         <ReservationSummary
           onGoHome={goToHero}
+          onOpenTicket={reservationResult?.ticketUrl ? openTicketInNewTab : undefined}
           fullName={confirmedData?.fullName ?? ""}
-          dateOfBirth={confirmedData?.dateOfBirth ?? ""}
           email={confirmedData?.email ?? ""}
+          eventDate={confirmedEventDate ?? undefined}
+          reservationId={reservationResult?.reservationId}
         />
       </div>
 
