@@ -14,8 +14,8 @@ import {
 import { MeshLineGeometry, MeshLineMaterial } from 'meshline';
 import * as THREE from 'three';
 
-import cardGLB from '/public/ticket/_Card.glb';
-import lanyard from '/public/ticket/_lanyard.png';
+const CARD_MODEL_URL = '/ticket/_Card.glb';
+const LANYARD_TEXTURE_URL = '/ticket/_lanyard.png';
 
 extend({ MeshLineGeometry, MeshLineMaterial });
 
@@ -149,8 +149,8 @@ function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData }: Ban
     linearDamping: 4
   };
 
-  const { nodes, materials } = useGLTF(cardGLB) as any;
-  const texture = useTexture(lanyard);
+  const { nodes, materials } = useGLTF(CARD_MODEL_URL) as any;
+  const texture = useTexture(LANYARD_TEXTURE_URL);
   const [curve] = useState(
     () =>
       new THREE.CatmullRomCurve3([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()])

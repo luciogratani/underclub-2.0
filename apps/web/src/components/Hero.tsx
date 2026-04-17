@@ -5,9 +5,15 @@ type HeroProps = {
   onNextDateClick?: () => void;
   onAboutClick?: () => void;
   isExited?: boolean;
+  showNextDateButton?: boolean;
 };
 
-export default function Hero({ onNextDateClick, onAboutClick, isExited = false }: HeroProps) {
+export default function Hero({
+  onNextDateClick,
+  onAboutClick,
+  isExited = false,
+  showNextDateButton = true,
+}: HeroProps) {
   return (
     <section
       className="relative flex items-center justify-center min-w-[100vw] w-[100vw] min-h-[100svh] shrink-0 snap-start snap-always bg-black z-100"
@@ -21,9 +27,13 @@ export default function Hero({ onNextDateClick, onAboutClick, isExited = false }
       >
         <TextRing />
       </div>
-      <div className="absolute bottom-18 left-1/2 -translate-x-1/2 scale-75 flex flex-col items-center gap-4">
+      <div className="absolute bottom-22 left-1/2 -translate-x-1/2 scale-75 flex flex-col items-center gap-4">
         <div
-          className={`transition-transform duration-300 ease-out ${isExited ? "scale-[1.08]" : "scale-100"}`}
+          className={`transition-all duration-300 ease-out ${
+            showNextDateButton
+              ? `${isExited ? "scale-[1.08]" : "scale-100"} opacity-100 translate-y-0`
+              : "scale-95 opacity-0 translate-y-2 pointer-events-none"
+          }`}
         >
           <HeroButton
             title="NEXT DATE"
@@ -31,11 +41,13 @@ export default function Hero({ onNextDateClick, onAboutClick, isExited = false }
             onClick={onNextDateClick}
           />
         </div>
-        <div
-          className={`transition-transform duration-300 ease-out ${isExited ? "scale-85" : "scale-100"}`}
-        >
-          <HeroButton title="ABOUT" direction="left" onClick={onAboutClick} />
-        </div>
+        {onAboutClick && (
+          <div
+            className={`transition-transform duration-300 ease-out ${isExited ? "scale-85" : "scale-100"}`}
+          >
+            <HeroButton title="ABOUT" direction="left" onClick={onAboutClick} />
+          </div>
+        )}
       </div>
     </section>
   );

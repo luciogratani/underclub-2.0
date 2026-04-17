@@ -231,3 +231,58 @@ body {
   perspective: 100000px;
   animation: text-ring-spin 20s linear infinite;
 }
+
+/* Data notice overlay (startup privacy/cookie notice) */
+@keyframes data-notice-exit {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.data-notice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 260;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  cursor: pointer;
+  background: var(--color-primary);
+}
+
+.data-notice-overlay-exit {
+  animation: data-notice-exit 360ms ease-out forwards;
+}
+
+.data-notice-card {
+  width: min(95vw, 560px);
+  color: var(--color-black);
+  padding: 1.25rem 1.25rem 1.5rem;
+  text-transform: uppercase;
+}
+
+.data-notice-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  opacity: 0.9;
+}
+
+.data-notice-copy {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.2;
+  font-weight: 700;
+  text-wrap: balance;
+}
+
+.data-notice-hint {
+  margin: 1rem 0 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+}

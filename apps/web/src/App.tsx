@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import Hero from "./components/Hero";
 import NextDate from "./components/NextDate";
-import Archive from "./components/Archive";
-import Guests from "./components/Guests";
 import BookNow from "./components/BookNow";
 import ReservationSummary from "./components/ReservationSummary";
+import DataNoticeOverlay from "./components/DataNoticeOverlay";
 import ErrorToast from "./components/ErrorToast";
 import PerfMeter from "./components/PerfMeter";
+
+const TOTAL_SECTIONS = 4;
+const GESTURE_THRESHOLD_PX = 40;
+const WHEEL_THRESHOLD = 24;
+const DATA_NOTICE_FADE_MS = 360;
+const DATA_NOTICE_SESSION_KEY = "underclub.dataNoticeAccepted";
 
 export type ReservationData = {
   fullName: string;
@@ -22,10 +27,26 @@ export type ToastError = {
 };
 
 function App() {
-  const scrollRefH = useRef<HTMLDivElement>(null);
-  const scrollRefH2 = useRef<HTMLDivElement>(null);
-  const scrollRefH3 = useRef<HTMLDivElement>(null);
+  const hasAcceptedDataNoticeInSession = (() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.sessionStorage.getItem(DATA_NOTICE_SESSION_KEY) === "1";
+    } catch {
+      return false;
+    }
+  })();
+
   const scrollRefV = useRef<HTMLDivElement>(null);
+  const currentSectionRef = useRef(0);
+  const isNavigatingRef = useRef(false);
+  const gesturesLockedRef = useRef(true);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchStartedInNativeScrollableRef = useRef(false);
+  const lockHeroResetUntilLeaveTopRef = useRef(false);
+  const [dataNoticeVisible, setDataNoticeVisible] = useState(!hasAcceptedDataNoticeInSession);
+  const [dataNoticeClosing, setDataNoticeClosing] = useState(false);
+  const [heroIntroActive, setHeroIntroActive] = useState(true);
+  const [heroCtaVisible, setHeroCtaVisible] = useState(false);
   const [heroExited, setHeroExited] = useState(false);
   const [nextDateExited, setNextDateExited] = useState(false);
   const [bookNowExited, setBookNowExited] = useState(false);
@@ -33,109 +54,237 @@ function App() {
   const [confirmError, setConfirmError] = useState<ToastError | null>(null);
   const [toastClosing, setToastClosing] = useState(false);
 
-  const scrollToNext = () => {
-    const el = scrollRefH.current;
+  const scrollToSection = (index: number) => {
+    const el = scrollRefV.current;
     if (!el) return;
-    el.scrollTo({ left: el.clientWidth, behavior: "smooth" });
+    const target = Math.max(0, Math.min(TOTAL_SECTIONS - 1, index));
+    currentSectionRef.current = target;
+    el.scrollTo({ top: target * el.clientHeight, behavior: "smooth" });
   };
 
-  const scrollToPrev = () => {
-    const el = scrollRefH.current;
-    if (!el) return;
-    el.scrollTo({ left: 0, behavior: "smooth" });
+  const navigateToSection = (
+    targetIndex: number,
+    options?: {
+      fromGesture?: boolean;
+    }
+  ) => {
+    if (gesturesLockedRef.current) return;
+    const current = currentSectionRef.current;
+    const target = Math.max(0, Math.min(TOTAL_SECTIONS - 1, targetIndex));
+    if (target === current || isNavigatingRef.current) return;
+    // "YOU'RE IN" (section 4) must never be reachable via gestures.
+    // It is reserved for the Confirm flow from Book Now.
+    if (options?.fromGesture && target === 3) return;
+    if (options?.fromGesture && current === 3 && target < current) return;
+
+    const performScroll = () => {
+      scrollToSection(target);
+      window.setTimeout(() => {
+        isNavigatingRef.current = false;
+      }, 420);
+    };
+
+    isNavigatingRef.current = true;
+    const forward = target > current;
+
+    if (forward && current === 0 && target === 1) {
+      lockHeroResetUntilLeaveTopRef.current = true;
+      setHeroExited(true);
+      window.setTimeout(performScroll, 300);
+      return;
+    }
+    if (forward && current === 1 && target === 2) {
+      setNextDateExited(true);
+      window.setTimeout(performScroll, 300);
+      return;
+    }
+    if (forward && current === 2 && target === 3) {
+      setBookNowExited(true);
+      window.setTimeout(performScroll, 300);
+      return;
+    }
+
+    performScroll();
   };
 
   const goToNextDate = () => {
-    setHeroExited(true);
-    setTimeout(() => scrollToNext(), 300);
-  };
-
-  const goToAbout = () => {
-    setHeroExited(true);
-    const elH = scrollRefH.current;
-    if (elH) elH.scrollTo({ left: 0, behavior: "auto" });
-    setTimeout(() => {
-      const el = scrollRefV.current;
-      if (!el) return;
-      el.scrollTo({ top: el.clientHeight, behavior: "smooth" });
-    }, 300);
+    navigateToSection(1);
   };
 
   const goToBookNow = () => {
-    setNextDateExited(true);
-    const elH2 = scrollRefH2.current;
-    if (elH2) elH2.scrollTo({ left: elH2.clientWidth, behavior: "auto" });
-    setTimeout(() => {
-      const elV = scrollRefV.current;
-      if (!elV) return;
-      elV.scrollTo({ top: elV.clientHeight, behavior: "smooth" });
-    }, 300);
+    navigateToSection(2);
   };
 
   const goToSummary = (data: ReservationData) => {
     setConfirmError(null);
     setConfirmedData(data);
-    setBookNowExited(true);
-    setTimeout(() => {
-      const elV = scrollRefV.current;
-      const elH3 = scrollRefH3.current;
-      if (elV) elV.scrollTo({ top: 2 * elV.clientHeight, behavior: "smooth" });
-      if (elH3) elH3.scrollTo({ left: elH3.clientWidth, behavior: "smooth" });
-    }, 300);
+    navigateToSection(3);
     // In caso di errore API: setToastClosing(false); setConfirmError({ title, message, ... }); e non fare scroll
   };
 
   const goToHero = () => {
-    const elV = scrollRefV.current;
-    const elH = scrollRefH.current;
-    const elH2 = scrollRefH2.current;
-    const elH3 = scrollRefH3.current;
-    if (elV) elV.scrollTo({ top: 0, behavior: "smooth" });
-    if (elH) elH.scrollTo({ left: 0, behavior: "smooth" });
-    if (elH2) elH2.scrollTo({ left: 0, behavior: "smooth" });
-    if (elH3) elH3.scrollTo({ left: 0, behavior: "smooth" });
+    navigateToSection(0);
   };
 
-  const goToNextSection = () => {
-    const elH3 = scrollRefH3.current;
-    if (elH3) elH3.scrollTo({ left: elH3.clientWidth, behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    const elH = scrollRefH.current;
-    if (!elH) return;
-    const onScrollH = () => {
-      if (elH.scrollLeft === 0) {
-        setHeroExited(false);
-        setNextDateExited(false);
+  const handleAcceptDataNotice = () => {
+    if (dataNoticeClosing || !dataNoticeVisible) return;
+    setDataNoticeClosing(true);
+    window.setTimeout(() => {
+      setDataNoticeVisible(false);
+      setDataNoticeClosing(false);
+      try {
+        window.sessionStorage.setItem(DATA_NOTICE_SESSION_KEY, "1");
+      } catch {
+        // ignore sessionStorage errors
       }
+    }, DATA_NOTICE_FADE_MS);
+  };
+
+  useEffect(() => {
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overflow = prevBodyOverflow;
     };
-    elH.addEventListener("scroll", onScrollH, { passive: true });
-    return () => elH.removeEventListener("scroll", onScrollH);
   }, []);
 
   useEffect(() => {
-    const elH2 = scrollRefH2.current;
-    if (!elH2) return;
-    const onScrollH2 = () => {
-      if (elH2.scrollLeft === 0) setBookNowExited(false);
+    gesturesLockedRef.current = dataNoticeVisible || dataNoticeClosing;
+  }, [dataNoticeVisible, dataNoticeClosing]);
+
+  useEffect(() => {
+    if (dataNoticeVisible || dataNoticeClosing) return;
+
+    // Always run intro when app becomes visible (also when overlay was already
+    // accepted in session), and keep it StrictMode-safe.
+    setHeroCtaVisible(false);
+    setHeroIntroActive(true);
+    const timerId = window.setTimeout(() => {
+      setHeroCtaVisible(true);
+      setHeroIntroActive(false);
+    }, 180);
+
+    return () => {
+      window.clearTimeout(timerId);
     };
-    elH2.addEventListener("scroll", onScrollH2, { passive: true });
-    return () => elH2.removeEventListener("scroll", onScrollH2);
-  }, []);
+  }, [dataNoticeVisible, dataNoticeClosing]);
 
   useEffect(() => {
     const elV = scrollRefV.current;
     if (!elV) return;
     const onScrollV = () => {
+      if (gesturesLockedRef.current) return;
       const h = elV.clientHeight;
-      if (elV.scrollTop < h * 0.5) {
+      if (h > 0) {
+        currentSectionRef.current = Math.max(
+          0,
+          Math.min(TOTAL_SECTIONS - 1, Math.round(elV.scrollTop / h))
+        );
+      }
+      // While programmatic navigation from Hero -> NextDate starts,
+      // ignore top resets until we've actually left the first section.
+      if (lockHeroResetUntilLeaveTopRef.current) {
+        if (elV.scrollTop > h * 0.08) {
+          lockHeroResetUntilLeaveTopRef.current = false;
+        } else {
+          return;
+        }
+      }
+
+      // Reset exit animations only when we are back to the first screen.
+      // During transitions (0 -> 1), this avoids collapsing Hero mid-animation.
+      if (elV.scrollTop <= 2) {
         setHeroExited(false);
+        setNextDateExited(false);
         setBookNowExited(false);
       }
     };
     elV.addEventListener("scroll", onScrollV, { passive: true });
     return () => elV.removeEventListener("scroll", onScrollV);
+  }, []);
+
+  useEffect(() => {
+    const elV = scrollRefV.current;
+    if (!elV) return;
+
+    const getNativeScrollable = (target: EventTarget | null): HTMLElement | null => {
+      if (!(target instanceof HTMLElement)) return null;
+      const scrollable = target.closest(".scrollbar-site, .scrollbar-site-primary");
+      return scrollable instanceof HTMLElement ? scrollable : null;
+    };
+
+    const canNativeScroll = (target: EventTarget | null, deltaY: number): boolean => {
+      const scrollable = getNativeScrollable(target);
+      if (!scrollable) return false;
+
+      if (deltaY > 0) {
+        return scrollable.scrollTop + scrollable.clientHeight < scrollable.scrollHeight - 1;
+      }
+      if (deltaY < 0) {
+        return scrollable.scrollTop > 0;
+      }
+      return false;
+    };
+
+    const onWheel = (e: WheelEvent) => {
+      if (gesturesLockedRef.current) return;
+      if (Math.abs(e.deltaY) < WHEEL_THRESHOLD) return;
+      // Any interaction inside a native inner scroller should never trigger
+      // section gestures.
+      if (getNativeScrollable(e.target)) return;
+      if (canNativeScroll(e.target, e.deltaY)) return;
+
+      if (e.cancelable) e.preventDefault();
+      navigateToSection(
+        e.deltaY > 0 ? currentSectionRef.current + 1 : currentSectionRef.current - 1,
+        { fromGesture: true }
+      );
+    };
+
+    const onTouchStart = (e: TouchEvent) => {
+      if (gesturesLockedRef.current) return;
+      touchStartedInNativeScrollableRef.current = Boolean(getNativeScrollable(e.target));
+      touchStartYRef.current = e.touches[0]?.clientY ?? null;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      if (gesturesLockedRef.current) return;
+      if (touchStartedInNativeScrollableRef.current) return;
+      const start = touchStartYRef.current;
+      const currentY = e.touches[0]?.clientY;
+      if (start == null || currentY == null) return;
+      const deltaY = start - currentY;
+      if (Math.abs(deltaY) < GESTURE_THRESHOLD_PX) return;
+      if (getNativeScrollable(e.target)) return;
+      if (canNativeScroll(e.target, deltaY)) return;
+
+      if (e.cancelable) e.preventDefault();
+      navigateToSection(
+        deltaY > 0 ? currentSectionRef.current + 1 : currentSectionRef.current - 1,
+        { fromGesture: true }
+      );
+      touchStartYRef.current = null;
+    };
+
+    const onTouchEnd = () => {
+      touchStartYRef.current = null;
+      touchStartedInNativeScrollableRef.current = false;
+    };
+
+    elV.addEventListener("wheel", onWheel, { passive: false });
+    elV.addEventListener("touchstart", onTouchStart, { passive: true });
+    elV.addEventListener("touchmove", onTouchMove, { passive: false });
+    elV.addEventListener("touchend", onTouchEnd, { passive: true });
+
+    return () => {
+      elV.removeEventListener("wheel", onWheel);
+      elV.removeEventListener("touchstart", onTouchStart);
+      elV.removeEventListener("touchmove", onTouchMove);
+      elV.removeEventListener("touchend", onTouchEnd);
+    };
   }, []);
 
   const dismissToast = () => {
@@ -165,53 +314,41 @@ function App() {
   return (
     <div
       ref={scrollRefV}
-      className="h-[100svh] w-full overflow-y-auto overflow-x-hidden snap-y snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="h-[100svh] w-full overflow-hidden snap-y snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       style={{ width: "100vw" }}
     >
       <div
         className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
         style={{ width: "100vw" }}
       >
-        <div
-          ref={scrollRefH}
-          className="flex h-full w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <Hero
-            onNextDateClick={goToNextDate}
-            onAboutClick={goToAbout}
-            isExited={heroExited}
-          />
-          <NextDate onBack={scrollToPrev} onBookNowClick={goToBookNow} isExited={nextDateExited} />
-        </div>
+        <Hero
+          onNextDateClick={goToNextDate}
+          isExited={heroExited || heroIntroActive}
+          showNextDateButton={heroCtaVisible}
+        />
       </div>
       <div
         className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
         style={{ width: "100vw" }}
       >
-        <div
-          ref={scrollRefH2}
-          className="flex h-full w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <Archive onBack={goToHero} />
-          <BookNow onBack={goToHero} onConfirm={goToSummary} isExited={bookNowExited} />
-        </div>
+        <NextDate onBookNowClick={goToBookNow} isExited={nextDateExited} />
       </div>
       <div
         className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
         style={{ width: "100vw" }}
       >
-        <div
-          ref={scrollRefH3}
-          className="flex h-full w-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          <Guests onBack={goToHero} onScrollToNextSection={goToNextSection} />
-          <ReservationSummary
-            onGoHome={goToHero}
-            fullName={confirmedData?.fullName ?? ""}
-            dateOfBirth={confirmedData?.dateOfBirth ?? ""}
-            email={confirmedData?.email ?? ""}
-          />
-        </div>
+        <BookNow onBack={goToHero} onConfirm={goToSummary} isExited={bookNowExited} />
+      </div>
+      <div
+        className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
+        style={{ width: "100vw" }}
+      >
+        <ReservationSummary
+          onGoHome={goToHero}
+          fullName={confirmedData?.fullName ?? ""}
+          dateOfBirth={confirmedData?.dateOfBirth ?? ""}
+          email={confirmedData?.email ?? ""}
+        />
       </div>
 
       {confirmError && (
@@ -232,6 +369,12 @@ function App() {
           </div>
         </div>
       )}
+
+      <DataNoticeOverlay
+        visible={dataNoticeVisible}
+        isClosing={dataNoticeClosing}
+        onAccept={handleAcceptDataNotice}
+      />
 
       <PerfMeter onTriggerError={showTestErrorToast} />
     </div>

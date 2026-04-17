@@ -123,6 +123,27 @@ type BookNowProps = {
   isExited?: boolean;
 };
 
+function clearTextLetterByLetter(
+  value: string,
+  setValue: (next: string) => void,
+  stepMs = 30
+): Promise<void> {
+  if (!value) return Promise.resolve();
+  return new Promise((resolve) => {
+    let index = value.length;
+    const timer = window.setInterval(() => {
+      index -= 1;
+      if (index <= 0) {
+        setValue("");
+        window.clearInterval(timer);
+        resolve();
+        return;
+      }
+      setValue(value.slice(0, index));
+    }, stepMs);
+  });
+}
+
 export default function BookNow({ onBack, onConfirm, isExited = false }: BookNowProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -199,6 +220,7 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
   const [focusedField, setFocusedField] = useState<"fullName" | "dateOfBirth" | "email" | null>(
     null
   );
+  const [confirmAnimating, setConfirmAnimating] = useState(false);
 
   const fullNameError = touchedFullName ? getFullNameError(fullName) : null;
   const dateOfBirthError = touchedDateOfBirth ? getDateOfBirthError(dateOfBirth) : null;
@@ -206,6 +228,21 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
 
   const isFormValid =
     isValidFullName(fullName) && isValidDateOfBirth(dateOfBirth) && isValidEmail(email);
+
+  const handleConfirm = async () => {
+    if (!isFormValid || confirmAnimating) return;
+    setConfirmAnimating(true);
+
+    const payload = { fullName, dateOfBirth, email };
+    await Promise.all([
+      clearTextLetterByLetter(fullName, setFullName),
+      clearTextLetterByLetter(dateOfBirth, setDateOfBirth),
+      clearTextLetterByLetter(email, setEmail),
+    ]);
+
+    onConfirm?.(payload);
+    setConfirmAnimating(false);
+  };
 
   return (
     <section
@@ -421,10 +458,8 @@ export default function BookNow({ onBack, onConfirm, isExited = false }: BookNow
           >
             <ConfirmReservationButton
             label="Confirm"
-            onClick={() =>
-              isFormValid && onConfirm?.({ fullName, dateOfBirth, email })
-            }
-            disabled={!isFormValid}
+            onClick={() => void handleConfirm()}
+            disabled={!isFormValid || confirmAnimating}
           />
           </div>
         </div>
