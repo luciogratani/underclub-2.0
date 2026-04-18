@@ -28,8 +28,15 @@ export default function DataNoticeOverlay({
       <div className="data-notice-card">
         <p className="data-notice-title">DATA NOTICE</p>
         <p className="data-notice-copy">
-          By tapping anywhere, you continue to Underclub and accept the Privacy
-          Policy and Cookie Policy regarding personal data processing.
+          By tapping anywhere, you continue to Underclub and accept the{" "}
+          <a
+            href="/info/privacy-cookie"
+            className="underline underline-offset-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Privacy Policy
+          </a>{" "}
+          regarding personal data processing.
         </p>
         <p className="data-notice-hint">TAP ANYWHERE TO CONTINUE</p>
       </div>

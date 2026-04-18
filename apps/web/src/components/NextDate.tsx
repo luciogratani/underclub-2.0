@@ -178,7 +178,7 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
               style={{ "--i": 2 } as React.CSSProperties}
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">event</p>
-              <p className="mt-0.5 font-sans text-lg font-medium leading-tight">{event?.title ?? MOCK_EVENT}</p>
+              <p className="mt-0.5 font-sans text-lg font-medium leading-tight uppercase">{event?.title ?? MOCK_EVENT}</p>
             </div>
 
             <div
@@ -188,12 +188,12 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
               <p className="font-sans text-[14px] tracking-wide opacity-85">lineup</p>
               <div className="mt-0.5">
                 {(event ? event.lineup.map((a) => ({ name: a.name, origin: a.origin })) : MOCK_LINEUP).map((artist, i) => (
-                  <div key={i} className="flex items-baseline gap-1 font-sans text-lg leading-tight">
-                    <span className="font-medium">{artist.name}</span>
+                  <div key={i} className="flex items-baseline gap-1 font-sans text-lg  leading-tight">
+                    <span className="font-medium uppercase">{artist.name}</span>
                     {artist.origin && (
                       <span className="flex items-baseline text-[0.5em] leading-none">
                         <span className="font-light">from</span>
-                        <span className="ml-0.5 font-medium">{artist.origin}</span>
+                        <span className="ml-0.5 font-medium uppercase">{artist.origin}</span>
                       </span>
                     )}
                   </div>

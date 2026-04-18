@@ -1,7 +1,7 @@
 /* eslint-disable react/no-unknown-property */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, extend, useFrame } from '@react-three/fiber';
-import { useGLTF, useTexture, Environment, Lightformer, Html, OrbitControls } from '@react-three/drei';
+import { useGLTF, useTexture, Environment, Lightformer, Html } from '@react-three/drei';
 import {
   BallCollider,
   CuboidCollider,
@@ -45,7 +45,6 @@ export default function Lanyard({
   ticketData = MOCK_TICKET
 }: LanyardProps) {
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  const [orbitEnabled, setOrbitEnabled] = useState(false);
 
   useEffect(() => {
     const handleResize = (): void => setIsMobile(window.innerWidth < 768);
@@ -55,21 +54,12 @@ export default function Lanyard({
 
   return (
     <div className="relative z-0 h-full w-full min-h-0 overflow-hidden flex justify-center items-center">
-      <button
-        type="button"
-        onClick={() => setOrbitEnabled((v) => !v)}
-        className="absolute top-3 left-3 z-10 px-3 py-1.5 rounded-full text-sm font-bold bg-black text-primary border border-primary"
-        aria-pressed={orbitEnabled}
-      >
-        Orbit {orbitEnabled ? 'ON' : 'OFF'}
-      </button>
       <Canvas
         camera={{ position, fov }}
         dpr={[1, isMobile ? 1.5 : 2]}
         gl={{ alpha: transparent }}
         onCreated={({ gl }) => gl.setClearColor(new THREE.Color(0x000000), transparent ? 0 : 1)}
       >
-        {orbitEnabled && <OrbitControls />}
         <ambientLight intensity={Math.PI} />
         <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60}>
           <Band isMobile={isMobile} ticketData={ticketData} />

@@ -447,10 +447,10 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
                     } ${isSelected && !isSoldOut ? "opacity-100" : !isSoldOut ? "opacity-60" : ""}`}
                   >
                     <div className="flex items-baseline gap-1 text-left">
-                      <span className="font-medium">{tier.name}</span>
+                      <span className="font-medium uppercase">{tier.name}</span>
                       {tier.note && (
                         <span className="flex items-baseline text-[0.5em] leading-none">
-                          <span className="font-light">{tier.note}</span>
+                          <span className="font-light lowercase">{tier.note}</span>
                         </span>
                       )}
                     </div>

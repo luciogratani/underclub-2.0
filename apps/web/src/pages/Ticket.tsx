@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import type { TicketViewData } from "@underclub/shared";
 import Lanyard from "../components/Lanyard/Lanyard";
-import PerfMeter from "../components/PerfMeter";
 import { fetchTicketData, markTicketOpened } from "../lib/api";
 
 export default function Ticket() {
@@ -65,7 +64,6 @@ export default function Ticket() {
       aria-label="Ticket"
     >
       <Lanyard ticketData={ticketData} />
-      <PerfMeter />
     </section>
   );
 }

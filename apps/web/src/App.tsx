@@ -10,7 +10,6 @@ import BookNow from "./components/BookNow";
 import ReservationSummary from "./components/ReservationSummary";
 import DataNoticeOverlay from "./components/DataNoticeOverlay";
 import ErrorToast, { type ErrorToastData } from "./components/ErrorToast";
-import PerfMeter from "./components/PerfMeter";
 import { fetchNextEvent, createReservation } from "./lib/api";
 
 const TOTAL_SECTIONS = 4;
@@ -333,17 +332,6 @@ function App() {
     setToastClosing(true);
   };
 
-  const showTestErrorToast = () => {
-    setToastClosing(false);
-    setConfirmError({
-      title: "Database error",
-      message: "Unable to save the reservation. Please try again in a moment.",
-      technicalDetail:
-        'insert failed: duplicate key value violates unique constraint "reservations_email_key"',
-      code: "23505",
-    });
-  };
-
   useEffect(() => {
     if (!toastClosing) return;
     const t = setTimeout(() => {
@@ -441,8 +429,6 @@ function App() {
         isClosing={dataNoticeClosing}
         onAccept={handleAcceptDataNotice}
       />
-
-      <PerfMeter onTriggerError={showTestErrorToast} />
     </div>
   );
 }
