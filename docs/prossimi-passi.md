@@ -22,7 +22,7 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 - [ ] **Guest list**: vista A–Z / ricerca sullo stesso dataset delle prenotazioni.
 
 ### Check-in e analytics
-- [x] **Check-in / QR**: RPC `scan_ticket_check_in` + pagina `/check-in` con scanner camera live (BarcodeDetector + fallback ZXing) e input manuale. Vedi sezioni 4 e 6.
+- [x] **Check-in / QR**: RPC `scan_ticket_check_in` + pagina `/check-in` con scanner camera live (`qr-scanner`) e input manuale. Vedi sezioni 4 e 6.
 - [ ] **Analytics**: pagina con metriche reali (prenotazioni per evento, aperture ticket, scan, trend nel tempo) — dipende da query e eventualmente viste/materializzate in DB.
 
 ### Qualità
@@ -169,10 +169,9 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 ## 6. Camera scanner live su `/check-in` (implementato 2026-04-22)
 
 ### Decisioni prese
-- **Strategia 2-vie**:
-  1. `BarcodeDetector` nativo quando disponibile (Chrome/Android, Edge, Firefox recente). Zero payload aggiuntivo, detect quasi gratuito.
-  2. Fallback a `@zxing/browser` per Safari iOS e browser senza `BarcodeDetector`. Caricato via **dynamic import**, quindi non entra nel bundle iniziale (ZXing finisce in un chunk a parte di ~107 kB gzip, scaricato solo alla prima attivazione del fallback).
-- **Dipendenze aggiunte** (solo `apps/admin`): `@zxing/browser`, `@zxing/library`.
+- **Engine unico: `qr-scanner` (Nimiq)**. Sotto il cofano usa `BarcodeDetector` nativo quando disponibile (Chrome/Android/Edge) e fallback a un worker WASM su Safari iOS e altri browser privi di `BarcodeDetector`. Caricato via **dynamic import**: libreria + worker finiscono in chunk separati (~5.6 kB + ~10.4 kB gzip) e vengono scaricati solo al primo ingresso in modalità Camera.
+- **Perché `qr-scanner` e non ZXing**: ZXing (anche con `TRY_HARDER` e risoluzione alta) sui nostri QR non decodificava in modo affidabile su iPhone (Safari). `qr-scanner` ha una pipeline di image processing più aggressiva (gestione inversione colori, grayscale ottimizzato, `scanRegion` centrata) e testata proprio sui token ticket.
+- **Dipendenze (solo `apps/admin`)**: `qr-scanner`. Rimosse `@zxing/browser` e `@zxing/library`.
 - **UX**:
   - Toggle **Camera / Manual** in alto (`Camera` di default se l'utente sceglie camera). Il paste manuale resta sempre disponibile come fallback lato utente.
   - Viewfinder con bordo colore primary e etichetta di stato (`Avvio camera…`, `Scanning…`, `Errore camera`).
@@ -183,13 +182,13 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 - **Nessuna dipendenza dal server**: la verifica resta sempre via RPC `scan_ticket_check_in` (stesso identico percorso del flusso manuale).
 
 ### File introdotti / modificati
-- `apps/admin/src/components/QrCameraScanner.tsx` — nuovo componente riusabile (BarcodeDetector + fallback ZXing, cleanup stream, viewfinder).
-- `apps/admin/src/pages/CheckIn.tsx` — toggle Camera/Manual, lock processing, feedback vibrazione, riuso di `ResultCard`.
+- `apps/admin/src/components/QrCameraScanner.tsx` — componente riusabile basato su `qr-scanner` (engine unico, cleanup stream/worker, viewfinder, debug logger opzionale).
+- `apps/admin/src/pages/CheckIn.tsx` — toggle Camera/Manual, lock processing, feedback vibrazione, pannello debug logs, riuso di `ResultCard`.
 
 ### Setup / requisiti
 - **HTTPS obbligatorio** in produzione: `getUserMedia` è bloccato su `http://` non-localhost. Fai servire l'admin sotto HTTPS (ok in locale via `localhost`).
 - Nessuna migrazione SQL richiesta.
-- Build: lo chunk ZXing viene code-splittato automaticamente da Vite; nessuna azione manuale.
+- Build: i chunk `qr-scanner` e `qr-scanner-worker` vengono code-splittati automaticamente da Vite; nessuna azione manuale.
 
 ### Test manuale end-to-end
 1. Aprire `/check-in`, cliccare **Camera**. Il browser chiede il permesso camera → concedere.
@@ -197,7 +196,7 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 3. Riprovare sullo stesso QR entro 2 s → ignorato (nessuna seconda richiesta RPC).
 4. Riprovare dopo 2 s → risponde `already_scanned` come atteso.
 5. Toggle a **Manual** → camera si spegne (LED fotocamera si spegne / track rilasciati).
-6. Safari iOS: il primo uso scarica il chunk ZXing (visibile in Network), poi il flusso è identico.
+6. Safari iOS: il primo uso scarica i chunk `qr-scanner` + worker WASM (visibili in Network), poi il flusso è identico.
 
 ### Cosa resta aperto
 - **Scelta camera**: attualmente si lascia al browser (`facingMode: environment` hint). Possibile evoluzione: dropdown "Camera X" con `enumerateDevices()` se in futuro ci saranno multiple camere rilevanti.
@@ -219,4 +218,4 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 
 ---
 
-*Ultimo aggiornamento: 2026-04-22 — implementata la sezione 6 (camera scanner live su `/check-in` con BarcodeDetector + fallback ZXing dynamic-imported). Build `pnpm -r build` verde, ZXing splittato in chunk separato (~107 kB gzip, caricato on-demand). Prossimo: CRUD eventi e lista prenotazioni admin.*
+*Ultimo aggiornamento: 2026-04-22 — scanner camera migrato da ZXing a `qr-scanner` (Nimiq) per affidabilità su Safari iOS. Engine unico, dynamic import, chunk principale `qr-scanner` ~5.6 kB gz + worker WASM ~10.4 kB gz scaricati solo all'attivazione della modalità Camera. Build `pnpm --filter admin build` verde. Prossimo: CRUD eventi e lista prenotazioni admin.*

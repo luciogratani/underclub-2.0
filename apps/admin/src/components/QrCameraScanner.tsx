@@ -1,28 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
+import type QrScannerType from 'qr-scanner'
 
 /**
  * QR camera scanner.
  *
- * Strategy:
- *  1) Use the native `BarcodeDetector` when available (Chrome/Android, Edge, recent
- *     Firefox). Very cheap, no library download.
- *  2) Fallback to `@zxing/browser` (dynamically imported, so it stays out of the
- *     initial bundle) for Safari iOS and any browser without `BarcodeDetector`.
+ * Uses `qr-scanner` (Nimiq) as single engine: under the hood it prefers the
+ * native `BarcodeDetector` when available and falls back to a WASM worker on
+ * browsers without it (iOS Safari in particular). This gives us robust
+ * detection on both desktop and mobile without hand-tuning ZXing.
  *
  * Anti-dup: a per-token cooldown ignores the same QR decoded within `cooldownMs`.
  * The parent is responsible for a higher-level lock during RPC processing.
  */
 
 type Status = 'idle' | 'starting' | 'scanning' | 'error'
-
-interface BarcodeDetectorLike {
-  detect(source: CanvasImageSource): Promise<Array<{ rawValue?: string }>>
-}
-
-interface BarcodeDetectorCtor {
-  new (opts?: { formats?: string[] }): BarcodeDetectorLike
-  getSupportedFormats?: () => Promise<string[]>
-}
 
 function hasGetUserMedia(): boolean {
   if (typeof navigator === 'undefined') return false
@@ -35,13 +26,6 @@ function getCameraUnavailableReason(): string {
     return 'Camera API non disponibile: usa HTTPS (o localhost in sviluppo).'
   }
   return 'Camera API non disponibile su questo browser/device.'
-}
-
-function getBarcodeDetector(): BarcodeDetectorCtor | null {
-  if (typeof window === 'undefined') return null
-  const BD = (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor })
-    .BarcodeDetector
-  return BD ?? null
 }
 
 type Props = {
@@ -65,11 +49,10 @@ export default function QrCameraScanner({
   cooldownMs = 2000,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const rafRef = useRef<number | null>(null)
-  const zxingControlsRef = useRef<{ stop: () => void } | null>(null)
+  const scannerRef = useRef<QrScannerType | null>(null)
   const lastDecodeRef = useRef<{ token: string; at: number } | null>(null)
   const cancelledRef = useRef(false)
+  const decodeErrorCountRef = useRef(0)
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -88,7 +71,13 @@ export default function QrCameraScanner({
 
     setStatus('starting')
     setErrorMsg(null)
-    debug(`start requested | secure=${typeof window !== 'undefined' ? String(window.isSecureContext) : 'n/a'} | hasGUM=${String(hasGetUserMedia())} | hasBD=${typeof window !== 'undefined' ? String('BarcodeDetector' in window) : 'n/a'}`)
+    debug(
+      `start requested | secure=${
+        typeof window !== 'undefined' ? String(window.isSecureContext) : 'n/a'
+      } | hasGUM=${String(hasGetUserMedia())} | hasBD=${
+        typeof window !== 'undefined' ? String('BarcodeDetector' in window) : 'n/a'
+      }`,
+    )
     start().catch((e: unknown) => {
       if (cancelledRef.current) return
       const msg = e instanceof Error ? e.message : 'Errore camera'
@@ -121,21 +110,24 @@ export default function QrCameraScanner({
 
   function stopAll() {
     debug('stopAll called')
-    if (rafRef.current !== null) {
-      cancelAnimationFrame(rafRef.current)
-      rafRef.current = null
-    }
-    zxingControlsRef.current?.stop()
-    zxingControlsRef.current = null
-
-    const stream = streamRef.current
-    if (stream) {
-      stream.getTracks().forEach((t) => t.stop())
-      streamRef.current = null
+    const scanner = scannerRef.current
+    if (scanner) {
+      try {
+        scanner.stop()
+      } catch {
+        /* noop */
+      }
+      try {
+        scanner.destroy()
+      } catch {
+        /* noop */
+      }
+      scannerRef.current = null
     }
     if (videoRef.current) {
       videoRef.current.srcObject = null
     }
+    decodeErrorCountRef.current = 0
     setStatus('idle')
   }
 
@@ -148,154 +140,72 @@ export default function QrCameraScanner({
       throw new Error(getCameraUnavailableReason())
     }
 
-    const BD = getBarcodeDetector()
-    if (BD) {
-      let supportsQr = true
-      if (BD.getSupportedFormats) {
-        try {
-          const formats = await BD.getSupportedFormats()
-          supportsQr = formats.includes('qr_code')
-        } catch {
-          supportsQr = true
-        }
-      }
-      if (supportsQr) {
-        debug('using native BarcodeDetector path')
-        await startNative(BD)
-        return
-      }
-    }
-
-    debug('falling back to ZXing path')
-    await startZxing()
-  }
-
-  async function startNative(BD: BarcodeDetectorCtor) {
-    const video = videoRef.current!
-    if (!hasGetUserMedia()) {
-      debug('getUserMedia unavailable before start')
-      throw new Error(getCameraUnavailableReason())
-    }
-    debug('requesting camera stream (native path)')
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } },
-      audio: false,
-    })
-    if (cancelledRef.current) {
-      stream.getTracks().forEach((t) => t.stop())
-      return
-    }
-    streamRef.current = stream
-    video.srcObject = stream
-    video.setAttribute('playsinline', 'true')
-    await video.play()
-    debug('video playing (native path)')
-    if (cancelledRef.current) return
-    setStatus('scanning')
-    debug('native detector loop started')
-
-    const detector = new BD({ formats: ['qr_code'] })
-    const tick = async () => {
-      if (cancelledRef.current || !videoRef.current) return
-      try {
-        const results = await detector.detect(videoRef.current)
-        if (results && results.length) {
-          const raw = results[0].rawValue
-          if (raw) emitIfNew(raw)
-        }
-      } catch (err) {
-        debug(`native detect error: ${err instanceof Error ? err.message : 'unknown'}`)
-      }
-      rafRef.current = requestAnimationFrame(tick)
-    }
-    rafRef.current = requestAnimationFrame(tick)
-  }
-
-  async function startZxing() {
-    const video = videoRef.current!
-    if (!hasGetUserMedia()) {
-      debug('getUserMedia unavailable before start')
-      throw new Error(getCameraUnavailableReason())
-    }
-    debug('loading ZXing dynamically')
-    const [{ BrowserQRCodeReader }, { DecodeHintType, BarcodeFormat }] =
-      await Promise.all([import('@zxing/browser'), import('@zxing/library')])
+    debug('loading qr-scanner dynamically')
+    const { default: QrScanner } = await import('qr-scanner')
     if (cancelledRef.current) return
 
-    // Tuning for mobile reliability (esp. iOS Safari): TRY_HARDER + QR_CODE only,
-    // shorter delay between scan attempts so we don't wait ~500ms per frame.
-    const hints = new Map<number, unknown>()
-    hints.set(DecodeHintType.TRY_HARDER, true)
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE])
+    const hasCamera = await QrScanner.hasCamera().catch(() => false)
+    debug(`qr-scanner hasCamera=${String(hasCamera)}`)
+    if (!hasCamera) {
+      throw new Error('Nessuna camera rilevata su questo device.')
+    }
 
-    const reader = new BrowserQRCodeReader(hints, {
-      delayBetweenScanAttempts: 120,
-      delayBetweenScanSuccess: 1500,
-    })
-    debug('starting ZXing decodeFromConstraints (environment, 1920x1080)')
-
-    // Explicit constraints: many mobile browsers (iOS Safari in particular)
-    // need an explicit rear-camera + higher resolution to actually produce
-    // a decodable frame. iPhones usually clamp to portrait aspect and keep
-    // the resolution low when no width/height is specified, so we ask for
-    // 1920x1080 ideal which most rear cameras honor.
-    let decodeAttempts = 0
-    const controls = await reader.decodeFromConstraints(
+    const scanner = new QrScanner(
+      video,
+      (result) => {
+        if (cancelledRef.current) return
+        const data = typeof result === 'string' ? result : result?.data
+        if (data) emitIfNew(data)
+      },
       {
-        audio: false,
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+        preferredCamera: 'environment',
+        highlightScanRegion: false,
+        highlightCodeOutline: false,
+        maxScansPerSecond: 10,
+        returnDetailedScanResult: true,
+        onDecodeError: (err) => {
+          if (cancelledRef.current) return
+          decodeErrorCountRef.current += 1
+          // qr-scanner emits the string "No QR code found" on every miss.
+          // Rate-limit it to every 40 misses and surface real errors asap.
+          const raw = err instanceof Error ? err.message : String(err)
+          const isMiss =
+            raw === QrScanner.NO_QR_CODE_FOUND ||
+            raw.toLowerCase().includes('no qr code found')
+          if (!isMiss) {
+            debug(`decode error: ${raw}`)
+            return
+          }
+          if (decodeErrorCountRef.current % 40 === 0) {
+            debug(`no QR in frame x${decodeErrorCountRef.current}`)
+          }
         },
       },
-      video,
-      (result, err) => {
-        if (cancelledRef.current) return
-        if (result) {
-          emitIfNew(result.getText())
-          return
-        }
-        if (!err) return
-        decodeAttempts += 1
-        const name = err.name ?? 'unknown'
-        // `NotFoundException` in production builds is often minified to a
-        // single-letter class name (e.g. "e"). We treat any "no QR in this
-        // frame" case as noise and only surface it once every 40 attempts
-        // plus log truly unexpected errors right away.
-        const isExpectedMiss =
-          name === 'NotFoundException' ||
-          name === 'ChecksumException' ||
-          name === 'FormatException' ||
-          name.length <= 2
-        if (!isExpectedMiss) {
-          debug(`ZXing decode error: ${name} ${err.message ?? ''}`)
-          return
-        }
-        if (decodeAttempts % 40 === 0) {
-          debug(`ZXing no QR in frame x${decodeAttempts}`)
-        }
-      },
     )
+    scannerRef.current = scanner
+
+    debug('starting qr-scanner')
+    await scanner.start()
     if (cancelledRef.current) {
-      controls.stop()
+      stopAll()
       return
     }
-    zxingControlsRef.current = controls
 
-    // Log effective camera & resolution when available (helps diagnose iOS).
     const stream = (video.srcObject as MediaStream | null) ?? null
-    streamRef.current = stream
     const track = stream?.getVideoTracks?.()[0]
     if (track) {
       const settings = track.getSettings?.() ?? {}
       debug(
-        `ZXing camera ready label="${track.label || 'n/a'}" track=${settings.width ?? '?'}x${settings.height ?? '?'} video=${video.videoWidth ?? '?'}x${video.videoHeight ?? '?'} facing=${settings.facingMode ?? '?'}`,
+        `camera ready label="${track.label || 'n/a'}" track=${
+          settings.width ?? '?'
+        }x${settings.height ?? '?'} video=${video.videoWidth ?? '?'}x${
+          video.videoHeight ?? '?'
+        } facing=${settings.facingMode ?? '?'}`,
       )
     }
 
     setStatus('scanning')
-    debug('ZXing loop started')
+    debug('scanner loop started')
   }
 
   const label =
