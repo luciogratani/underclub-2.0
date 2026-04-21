@@ -8,7 +8,9 @@ import {
   Archive,
   BarChart3,
   Plus,
+  LogOut,
 } from 'lucide-react'
+import { useAuth } from '../lib/auth'
 
 const ANALYTICS_MOCK = {
   nextEvent: 'TECHNOROOM: GIRLS POWER',
@@ -106,12 +108,30 @@ function StatCard({
 }
 
 export default function Home() {
+  const { user, signOut } = useAuth()
+
   return (
     <div className="min-h-screen bg-background font-mono">
       {/* Subtle gradient overlay for depth */}
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(186,236,23,0.06),transparent)]" />
 
-      <div className="relative px-5 pb-10 pt-8">
+      <div className="relative px-5 pb-10 pt-5">
+        {/* Session header */}
+        <header className="mb-5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span className="truncate">
+            Signed in as{' '}
+            <span className="text-foreground">{user?.email ?? '—'}</span>
+          </span>
+          <button
+            type="button"
+            onClick={signOut}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border/70 px-2.5 py-1.5 text-[11px] transition-colors hover:border-primary/40 hover:text-primary"
+          >
+            <LogOut className="size-3.5" />
+            Logout
+          </button>
+        </header>
+
         {/* Analytics block */}
         <section className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.03)]">
           <div className="mb-4 flex items-center gap-2">

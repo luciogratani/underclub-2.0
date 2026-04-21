@@ -22,6 +22,18 @@ export const RESERVATION_STATUS = {
 export type ReservationStatus =
   (typeof RESERVATION_STATUS)[keyof typeof RESERVATION_STATUS];
 
+// Admin check-in (QR scan) outcomes.
+export const ADMIN_SCAN_RESULT = {
+  OK: 'ok',
+  ALREADY_SCANNED: 'already_scanned',
+  CANCELLED: 'cancelled',
+  INVALID: 'invalid',
+  UNAUTHORIZED: 'unauthorized',
+} as const;
+
+export type AdminScanResultCode =
+  (typeof ADMIN_SCAN_RESULT)[keyof typeof ADMIN_SCAN_RESULT];
+
 // ---------------------------------------------------------------------------
 // Domain types — derived from DB rows (single source of truth)
 // ---------------------------------------------------------------------------
@@ -168,4 +180,15 @@ export interface AdminDashboardStats {
   totalReservations: number;
   ticketsOpened: number;
   qrScanned: number;
+}
+
+/** Normalized admin-side result of a ticket check-in scan. */
+export interface AdminScanResult {
+  code: AdminScanResultCode;
+  reservationId?: string;
+  fullName?: string;
+  entryName?: string;
+  eventTitle?: string;
+  eventDate?: string; // ISO (YYYY-MM-DD)
+  scannedAt?: string; // ISO timestamp
 }

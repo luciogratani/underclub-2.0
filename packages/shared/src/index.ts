@@ -1,8 +1,10 @@
 export {
   EVENT_STATUS,
   RESERVATION_STATUS,
+  ADMIN_SCAN_RESULT,
   type EventStatus,
   type ReservationStatus,
+  type AdminScanResultCode,
   type Event,
   type EventInsert,
   type EventUpdate,
@@ -27,6 +29,7 @@ export {
   type AdminEventView,
   type AdminReservationView,
   type AdminDashboardStats,
+  type AdminScanResult,
 } from './types';
 
 export { type Database } from './database';
@@ -47,4 +50,5 @@ export {
   toReservationInsert,
   toTicketViewData,
   toAdminReservationView,
+  toAdminScanResult,
 } from './mappers';

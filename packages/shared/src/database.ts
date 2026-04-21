@@ -188,6 +188,20 @@ export interface Database {
         };
         Returns: string;
       };
+      scan_ticket_check_in: {
+        Args: {
+          p_token: string;
+        };
+        Returns: {
+          result_code: 'ok' | 'invalid' | 'already_scanned' | 'cancelled';
+          reservation_id: string | null;
+          full_name: string | null;
+          entry_name: string | null;
+          event_title: string | null;
+          event_date: string | null;
+          scanned_at: string | null;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

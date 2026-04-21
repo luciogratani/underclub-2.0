@@ -13,6 +13,7 @@ import {
 } from '@react-three/rapier';
 import { MeshLineGeometry, MeshLineMaterial } from 'meshline';
 import * as THREE from 'three';
+import QRCode from 'qrcode';
 import type { TicketViewData } from '@underclub/shared';
 
 const CARD_MODEL_URL = '/ticket/_Card.glb';
@@ -35,6 +36,7 @@ interface LanyardProps {
   fov?: number;
   transparent?: boolean;
   ticketData?: TicketViewData;
+  qrToken?: string | null;
 }
 
 export default function Lanyard({
@@ -42,7 +44,8 @@ export default function Lanyard({
   gravity = [0, -33, 0],
   fov = 24,
   transparent = true,
-  ticketData = MOCK_TICKET
+  ticketData = MOCK_TICKET,
+  qrToken = null,
 }: LanyardProps) {
   const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.innerWidth < 768);
 
@@ -62,7 +65,7 @@ export default function Lanyard({
       >
         <ambientLight intensity={Math.PI} />
         <Physics gravity={gravity} timeStep={isMobile ? 1 / 30 : 1 / 60}>
-          <Band isMobile={isMobile} ticketData={ticketData} />
+          <Band isMobile={isMobile} ticketData={ticketData} qrToken={qrToken} />
         </Physics>
         <Environment>
           <Lightformer
@@ -103,9 +106,10 @@ interface BandProps {
   minSpeed?: number;
   isMobile?: boolean;
   ticketData: TicketViewData;
+  qrToken?: string | null;
 }
 
-function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData }: BandProps) {
+function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData, qrToken = null }: BandProps) {
   const cardColor = useMemo(() => {
     if (typeof document === 'undefined') return '#111111';
     const value = getComputedStyle(document.documentElement).getPropertyValue('--color-black').trim();
@@ -141,6 +145,36 @@ function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData }: Ban
   );
   const [dragged, drag] = useState<false | THREE.Vector3>(false);
   const [hovered, hover] = useState(false);
+  const [qrSvg, setQrSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!qrToken) {
+      setQrSvg(null);
+      return;
+    }
+    const primary =
+      typeof document !== 'undefined'
+        ? getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-primary')
+            .trim() || '#baec17'
+        : '#baec17';
+    QRCode.toString(qrToken, {
+      type: 'svg',
+      errorCorrectionLevel: 'M',
+      margin: 0,
+      color: { dark: primary, light: '#00000000' },
+    })
+      .then((svg) => {
+        if (!cancelled) setQrSvg(svg);
+      })
+      .catch(() => {
+        if (!cancelled) setQrSvg(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [qrToken]);
 
   useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1]);
   useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1]);
@@ -269,10 +303,18 @@ function Band({ maxSpeed = 50, minSpeed = 0, isMobile = false, ticketData }: Ban
 
 
 
-                <div style={{ marginTop: '12px', width: '80px', height: '80px' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 253.15 253.15" style={{ width: '100%', height: '100%', fill: 'var(--color-primary, #baec17)' }}>
-                    <path d="M0 0h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 8.73h8.73v8.73H0zm52.38 0h8.73v8.73h-8.73zm43.64 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm52.37 0h8.73v8.73h-8.73zM0 17.46h8.73v8.73H0zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.18 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm52.38 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zM0 26.19h8.73v8.73H0zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zM0 34.92h8.73v8.73H0zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm52.38 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zM0 43.65h8.73v8.73H0zm52.38 0h8.73v8.73h-8.73zm26.18 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm43.65 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm52.37 0h8.73v8.73h-8.73zM0 52.38h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM69.83 61.11h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 69.83h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.18 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm43.65 0h8.73v8.73h-8.73zm52.37 0h8.73v8.73h-8.73zM17.46 78.56h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm43.65 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM8.73 87.29h8.73v8.73H8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm26.18 0h8.73v8.73h-8.73zm-209.5 8.73h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm113.48 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm-192.04 8.73h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm52.37 0h8.73v8.73h-8.73zM8.73 113.48h8.73v8.73H8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm43.65 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 122.21h8.73v8.73H0zm26.19 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm52.38 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm-226.96 8.73h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm69.83 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm-226.96 8.73h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zM0 148.4h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm17.46 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.18 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 157.13h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm26.19 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zM0 165.86h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 174.59h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm-165.86 8.73h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 192.05h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 200.78h8.73v8.73H0zm52.38 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zM0 209.5h8.73v8.73H0zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zM0 218.23h8.73v8.73H0zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm61.1 0h8.73v8.73h-8.73zM0 226.96h8.73v8.73H0zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm26.18 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zM0 235.69h8.73v8.73H0zm52.38 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.92 0h8.73v8.73h-8.73zm8.72 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.46 0h8.73v8.73h-8.73zM0 244.42h8.73v8.73H0zm8.73 0h8.73v8.73H8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm17.45 0h8.73v8.73h-8.73zm52.38 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm26.19 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73zm34.91 0h8.73v8.73h-8.73zm8.73 0h8.73v8.73h-8.73z" />
-                  </svg>
+                <div
+                  style={{ marginTop: '12px', width: '80px', height: '80px' }}
+                  aria-label="Ticket QR code"
+                >
+                  {qrSvg ? (
+                    <div
+                      style={{ width: '100%', height: '100%' }}
+                      dangerouslySetInnerHTML={{ __html: qrSvg }}
+                    />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', opacity: 0.4 }} />
+                  )}
                 </div>
               </Html>
             </group>

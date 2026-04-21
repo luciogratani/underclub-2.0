@@ -1,21 +1,33 @@
+import type { ReactElement } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import Home from './pages/Home'
 import EventsList from './pages/EventsList'
 import Placeholder from './pages/Placeholder'
+import CheckIn from './pages/CheckIn'
+import Login from './pages/Login'
+import ProtectedRoute from './components/ProtectedRoute'
+import { AuthProvider } from './lib/auth'
+
+const protect = (el: ReactElement) => <ProtectedRoute>{el}</ProtectedRoute>
 
 const router = createBrowserRouter([
-  { path: '/', element: <Home /> },
-  { path: '/events', element: <EventsList /> },
-  { path: '/events/new', element: <Placeholder /> },
-  { path: '/reservations', element: <Placeholder /> },
-  { path: '/check-in', element: <Placeholder /> },
-  { path: '/guest-list', element: <Placeholder /> },
-  { path: '/archive', element: <Placeholder /> },
-  { path: '/analytics', element: <Placeholder /> },
+  { path: '/login', element: <Login /> },
+  { path: '/', element: protect(<Home />) },
+  { path: '/events', element: protect(<EventsList />) },
+  { path: '/events/new', element: protect(<Placeholder />) },
+  { path: '/reservations', element: protect(<Placeholder />) },
+  { path: '/check-in', element: protect(<CheckIn />) },
+  { path: '/guest-list', element: protect(<Placeholder />) },
+  { path: '/archive', element: protect(<Placeholder />) },
+  { path: '/analytics', element: protect(<Placeholder />) },
 ])
 
 function App() {
-  return <RouterProvider router={router} />
+  return (
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
+  )
 }
 
 export default App

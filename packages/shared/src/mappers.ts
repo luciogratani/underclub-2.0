@@ -14,6 +14,8 @@ import type {
   CreateReservationCommand,
   TicketViewData,
   AdminReservationView,
+  AdminScanResult,
+  AdminScanResultCode,
 } from './types';
 
 type ReservationsInsert = Database['underclub']['Tables']['reservations']['Insert'];
@@ -149,5 +151,28 @@ export function toAdminReservationView(row: ReservationWithEntry): AdminReservat
     ticketOpened: row.ticket_opened_at !== null,
     qrScanned: row.qr_scanned_at !== null,
     createdAt: row.created_at,
+  };
+}
+
+/** Row shape returned by `scan_ticket_check_in` RPC. */
+type ScanTicketCheckInRow = {
+  result_code: 'ok' | 'invalid' | 'already_scanned' | 'cancelled';
+  reservation_id: string | null;
+  full_name: string | null;
+  entry_name: string | null;
+  event_title: string | null;
+  event_date: string | null;
+  scanned_at: string | null;
+};
+
+export function toAdminScanResult(row: ScanTicketCheckInRow): AdminScanResult {
+  return {
+    code: row.result_code as AdminScanResultCode,
+    reservationId: row.reservation_id ?? undefined,
+    fullName: row.full_name ?? undefined,
+    entryName: row.entry_name ?? undefined,
+    eventTitle: row.event_title ?? undefined,
+    eventDate: row.event_date ?? undefined,
+    scannedAt: row.scanned_at ?? undefined,
   };
 }

@@ -63,7 +63,7 @@ export default function Ticket() {
       className="fixed inset-0 z-0 h-[100dvh] w-full overflow-hidden bg-primary touch-none"
       aria-label="Ticket"
     >
-      <Lanyard ticketData={ticketData} />
+      <Lanyard ticketData={ticketData} qrToken={ticketToken} />
     </section>
   );
 }
