@@ -232,19 +232,21 @@ export default function QrCameraScanner({
       delayBetweenScanAttempts: 120,
       delayBetweenScanSuccess: 1500,
     })
-    debug('starting ZXing decodeFromConstraints (environment, 1280x720)')
+    debug('starting ZXing decodeFromConstraints (environment, 1920x1080)')
 
     // Explicit constraints: many mobile browsers (iOS Safari in particular)
     // need an explicit rear-camera + higher resolution to actually produce
-    // a decodable frame. decodeFromConstraints also lets us observe the
-    // resolved track settings via streamRef for diagnostics.
+    // a decodable frame. iPhones usually clamp to portrait aspect and keep
+    // the resolution low when no width/height is specified, so we ask for
+    // 1920x1080 ideal which most rear cameras honor.
+    let decodeAttempts = 0
     const controls = await reader.decodeFromConstraints(
       {
         audio: false,
         video: {
           facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
       },
       video,
@@ -254,8 +256,24 @@ export default function QrCameraScanner({
           emitIfNew(result.getText())
           return
         }
-        if (err && err.name && err.name !== 'NotFoundException') {
-          debug(`ZXing decode error: ${err.name}`)
+        if (!err) return
+        decodeAttempts += 1
+        const name = err.name ?? 'unknown'
+        // `NotFoundException` in production builds is often minified to a
+        // single-letter class name (e.g. "e"). We treat any "no QR in this
+        // frame" case as noise and only surface it once every 40 attempts
+        // plus log truly unexpected errors right away.
+        const isExpectedMiss =
+          name === 'NotFoundException' ||
+          name === 'ChecksumException' ||
+          name === 'FormatException' ||
+          name.length <= 2
+        if (!isExpectedMiss) {
+          debug(`ZXing decode error: ${name} ${err.message ?? ''}`)
+          return
+        }
+        if (decodeAttempts % 40 === 0) {
+          debug(`ZXing no QR in frame x${decodeAttempts}`)
         }
       },
     )
@@ -272,7 +290,7 @@ export default function QrCameraScanner({
     if (track) {
       const settings = track.getSettings?.() ?? {}
       debug(
-        `ZXing camera ready label="${track.label || 'n/a'}" ${settings.width ?? '?'}x${settings.height ?? '?'} facing=${settings.facingMode ?? '?'}`,
+        `ZXing camera ready label="${track.label || 'n/a'}" track=${settings.width ?? '?'}x${settings.height ?? '?'} video=${video.videoWidth ?? '?'}x${video.videoHeight ?? '?'} facing=${settings.facingMode ?? '?'}`,
       )
     }
 
