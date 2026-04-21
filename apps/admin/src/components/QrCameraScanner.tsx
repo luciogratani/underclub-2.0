@@ -218,17 +218,45 @@ export default function QrCameraScanner({
       throw new Error(getCameraUnavailableReason())
     }
     debug('loading ZXing dynamically')
-    const { BrowserQRCodeReader } = await import('@zxing/browser')
+    const [{ BrowserQRCodeReader }, { DecodeHintType, BarcodeFormat }] =
+      await Promise.all([import('@zxing/browser'), import('@zxing/library')])
     if (cancelledRef.current) return
-    const reader = new BrowserQRCodeReader()
-    debug('starting ZXing decodeFromVideoDevice')
-    // decodeFromVideoDevice handles getUserMedia + frame decoding internally.
-    const controls = await reader.decodeFromVideoDevice(
-      undefined,
+
+    // Tuning for mobile reliability (esp. iOS Safari): TRY_HARDER + QR_CODE only,
+    // shorter delay between scan attempts so we don't wait ~500ms per frame.
+    const hints = new Map<number, unknown>()
+    hints.set(DecodeHintType.TRY_HARDER, true)
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.QR_CODE])
+
+    const reader = new BrowserQRCodeReader(hints, {
+      delayBetweenScanAttempts: 120,
+      delayBetweenScanSuccess: 1500,
+    })
+    debug('starting ZXing decodeFromConstraints (environment, 1280x720)')
+
+    // Explicit constraints: many mobile browsers (iOS Safari in particular)
+    // need an explicit rear-camera + higher resolution to actually produce
+    // a decodable frame. decodeFromConstraints also lets us observe the
+    // resolved track settings via streamRef for diagnostics.
+    const controls = await reader.decodeFromConstraints(
+      {
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      },
       video,
-      (result) => {
+      (result, err) => {
         if (cancelledRef.current) return
-        if (result) emitIfNew(result.getText())
+        if (result) {
+          emitIfNew(result.getText())
+          return
+        }
+        if (err && err.name && err.name !== 'NotFoundException') {
+          debug(`ZXing decode error: ${err.name}`)
+        }
       },
     )
     if (cancelledRef.current) {
@@ -236,6 +264,18 @@ export default function QrCameraScanner({
       return
     }
     zxingControlsRef.current = controls
+
+    // Log effective camera & resolution when available (helps diagnose iOS).
+    const stream = (video.srcObject as MediaStream | null) ?? null
+    streamRef.current = stream
+    const track = stream?.getVideoTracks?.()[0]
+    if (track) {
+      const settings = track.getSettings?.() ?? {}
+      debug(
+        `ZXing camera ready label="${track.label || 'n/a'}" ${settings.width ?? '?'}x${settings.height ?? '?'} facing=${settings.facingMode ?? '?'}`,
+      )
+    }
+
     setStatus('scanning')
     debug('ZXing loop started')
   }
