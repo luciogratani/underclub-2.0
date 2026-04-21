@@ -51,6 +51,8 @@ type Props = {
   onError?: (msg: string) => void
   /** Whether the scanner is active (camera on). Setting to false stops everything. */
   active: boolean
+  /** Optional debug logger for mobile diagnostics. */
+  onDebug?: (line: string) => void
   /** Ignore duplicate reads of the same token within this window (ms). */
   cooldownMs?: number
 }
@@ -59,6 +61,7 @@ export default function QrCameraScanner({
   onDecode,
   onError,
   active,
+  onDebug,
   cooldownMs = 2000,
 }: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -70,19 +73,26 @@ export default function QrCameraScanner({
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  function debug(msg: string) {
+    onDebug?.(`[scanner] ${msg}`)
+  }
+
   useEffect(() => {
     cancelledRef.current = false
 
     if (!active) {
+      debug('inactive -> stopAll')
       stopAll()
       return
     }
 
     setStatus('starting')
     setErrorMsg(null)
+    debug(`start requested | secure=${typeof window !== 'undefined' ? String(window.isSecureContext) : 'n/a'} | hasGUM=${String(hasGetUserMedia())} | hasBD=${typeof window !== 'undefined' ? String('BarcodeDetector' in window) : 'n/a'}`)
     start().catch((e: unknown) => {
       if (cancelledRef.current) return
       const msg = e instanceof Error ? e.message : 'Errore camera'
+      debug(`start failed: ${msg}`)
       setErrorMsg(msg)
       setStatus('error')
       onError?.(msg)
@@ -100,12 +110,17 @@ export default function QrCameraScanner({
     if (!trimmed) return
     const now = Date.now()
     const last = lastDecodeRef.current
-    if (last && last.token === trimmed && now - last.at < cooldownMs) return
+    if (last && last.token === trimmed && now - last.at < cooldownMs) {
+      debug('duplicate token ignored by cooldown')
+      return
+    }
     lastDecodeRef.current = { token: trimmed, at: now }
+    debug(`decoded token length=${trimmed.length}`)
     onDecode(trimmed)
   }
 
   function stopAll() {
+    debug('stopAll called')
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
@@ -129,6 +144,7 @@ export default function QrCameraScanner({
     if (!video) return
 
     if (!hasGetUserMedia()) {
+      debug('getUserMedia unavailable before start')
       throw new Error(getCameraUnavailableReason())
     }
 
@@ -144,19 +160,23 @@ export default function QrCameraScanner({
         }
       }
       if (supportsQr) {
+        debug('using native BarcodeDetector path')
         await startNative(BD)
         return
       }
     }
 
+    debug('falling back to ZXing path')
     await startZxing()
   }
 
   async function startNative(BD: BarcodeDetectorCtor) {
     const video = videoRef.current!
     if (!hasGetUserMedia()) {
+      debug('getUserMedia unavailable before start')
       throw new Error(getCameraUnavailableReason())
     }
+    debug('requesting camera stream (native path)')
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } },
       audio: false,
@@ -169,8 +189,10 @@ export default function QrCameraScanner({
     video.srcObject = stream
     video.setAttribute('playsinline', 'true')
     await video.play()
+    debug('video playing (native path)')
     if (cancelledRef.current) return
     setStatus('scanning')
+    debug('native detector loop started')
 
     const detector = new BD({ formats: ['qr_code'] })
     const tick = async () => {
@@ -181,8 +203,8 @@ export default function QrCameraScanner({
           const raw = results[0].rawValue
           if (raw) emitIfNew(raw)
         }
-      } catch {
-        // transient detect errors are safe to ignore; keep polling
+      } catch (err) {
+        debug(`native detect error: ${err instanceof Error ? err.message : 'unknown'}`)
       }
       rafRef.current = requestAnimationFrame(tick)
     }
@@ -192,11 +214,14 @@ export default function QrCameraScanner({
   async function startZxing() {
     const video = videoRef.current!
     if (!hasGetUserMedia()) {
+      debug('getUserMedia unavailable before start')
       throw new Error(getCameraUnavailableReason())
     }
+    debug('loading ZXing dynamically')
     const { BrowserQRCodeReader } = await import('@zxing/browser')
     if (cancelledRef.current) return
     const reader = new BrowserQRCodeReader()
+    debug('starting ZXing decodeFromVideoDevice')
     // decodeFromVideoDevice handles getUserMedia + frame decoding internally.
     const controls = await reader.decodeFromVideoDevice(
       undefined,
@@ -212,6 +237,7 @@ export default function QrCameraScanner({
     }
     zxingControlsRef.current = controls
     setStatus('scanning')
+    debug('ZXing loop started')
   }
 
   const label =

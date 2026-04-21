@@ -102,6 +102,7 @@ export default function CheckIn() {
   const [status, setStatus] = useState<Status>('idle')
   const [result, setResult] = useState<AdminScanResult | null>(null)
   const [cameraError, setCameraError] = useState<string | null>(null)
+  const [debugLines, setDebugLines] = useState<string[]>([])
   const processingRef = useRef(false)
 
   const processToken = useCallback(async (raw: string) => {
@@ -112,9 +113,11 @@ export default function CheckIn() {
     processingRef.current = true
     setStatus('scanning')
     setResult(null)
+    addDebug(`[check-in] process token length=${trimmed.length}`)
     try {
       const res = await scanTicketCheckIn(trimmed)
       setResult(res)
+      addDebug(`[check-in] rpc result=${res.code}`)
       feedbackForResult(res.code)
     } finally {
       setStatus('done')
@@ -125,6 +128,23 @@ export default function CheckIn() {
       }, 1500)
     }
   }, [])
+
+
+  const addDebug = useCallback((line: string) => {
+    const stamped = `${new Date().toLocaleTimeString()} ${line}`
+    setDebugLines((prev) => [...prev.slice(-39), stamped])
+  }, [])
+
+  const copyLogs = useCallback(async () => {
+    const text = debugLines.join('\n')
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setDebugLines((prev) => [...prev, `${new Date().toLocaleTimeString()} [ui] logs copied`])
+    } catch {
+      setDebugLines((prev) => [...prev, `${new Date().toLocaleTimeString()} [ui] clipboard failed`])
+    }
+  }, [debugLines])
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -185,7 +205,11 @@ export default function CheckIn() {
           <QrCameraScanner
             active={mode === 'camera'}
             onDecode={(t) => void processToken(t)}
-            onError={(msg) => setCameraError(msg)}
+            onError={(msg) => {
+              addDebug(`[scanner] error=${msg}`)
+              setCameraError(msg)
+            }}
+            onDebug={addDebug}
           />
           {cameraError && (
             <p className="mt-2 text-xs text-red-400">
@@ -231,6 +255,31 @@ export default function CheckIn() {
           <ResultCard result={result} />
         </div>
       )}
+      <div className="mt-5 max-w-sm rounded-md border border-border/60 bg-card/40 p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Debug logs</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setDebugLines([])}
+              className="rounded border border-border/70 px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyLogs()}
+              className="rounded border border-primary/50 bg-primary/10 px-2 py-1 text-[11px] text-primary"
+            >
+              Copy logs
+            </button>
+          </div>
+        </div>
+        <pre className="max-h-44 overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
+{debugLines.length ? debugLines.join('\n') : 'No logs yet'}
+        </pre>
+      </div>
+
     </div>
   )
 }
