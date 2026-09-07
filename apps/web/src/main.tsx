@@ -9,6 +9,8 @@ import './index.css'
 const Info = lazy(() => import('./pages/Info.tsx'))
 const PrivacyCookie = lazy(() => import('./pages/PrivacyCookie.tsx'))
 const Ticket = lazy(() => import('./pages/Ticket.tsx'))
+// Internal A/B bench for the lanyard physics — unlinked, not part of the funnel.
+const LanyardLab = lazy(() => import('./pages/LanyardLab.tsx'))
 
 const pageFallback = <div className="min-h-[100svh] w-full bg-black" />
 
@@ -31,6 +33,10 @@ const router = createBrowserRouter([
   {
     path: '/ticket/:id',
     element: <Suspense fallback={ticketFallback}><Ticket /></Suspense>,
+  },
+  {
+    path: '/demo/lanyard',
+    element: <Suspense fallback={ticketFallback}><LanyardLab /></Suspense>,
   },
 ])
 
