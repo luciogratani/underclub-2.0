@@ -63,10 +63,44 @@ cp apps/admin/.env.example apps/admin/.env
 ## Struttura repo
 
 ```
-apps/web      → SPA pubblico
-apps/admin     → SPA backoffice
+apps/web        → SPA pubblico
+apps/admin      → SPA backoffice
 packages/shared → Tipi e client Supabase (uso da web e admin)
+supabase/       → schema.sql, rls.sql e migrazioni in rls-history/
+docs/           → documentazione (vedi sotto)
 ```
+
+## Documentazione
+
+| File | Cosa contiene |
+|------|----------------|
+| [`docs/prossimi-passi.md`](docs/prossimi-passi.md) | **Punto di partenza.** Stato del lavoro e roadmap, con le decisioni tecniche prese e il perché |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Registro delle modifiche, dalla più recente |
+| [`docs/cursor_typescript_code_audit_review.md`](docs/cursor_typescript_code_audit_review.md) | Audit coerenza tipi DB ↔ shared ↔ app (chiuso) |
+| [`docs/cursor_react_performance_and_bundle_siz.md`](docs/cursor_react_performance_and_bundle_siz.md) | Analisi bundle e runtime di `apps/web` con roadmap |
+| [`docs/modifica-struttura-public.md`](docs/modifica-struttura-public.md) | Refactor del funnel pubblico a colonna singola |
+| [`docs/lanyard-physics-ab.svg`](docs/lanyard-physics-ab.svg) | Confronto visivo fra i due motori fisici del lanyard |
+| `docs/security/` | Copie delle migrazioni RLS applicate |
+
+## Database
+
+Su un database Supabase nuovo gli script vanno eseguiti **in quest'ordine**, tutti
+e cinque (l'elenco è ripetuto in testa a `rls.sql`):
+
+1. `supabase/schema.sql`
+2. `supabase/rls.sql`
+3. `supabase/rls-history/2026-04-17-ultra-strict-ticket-token.sql`
+4. `supabase/rls-history/2026-04-17-ultra-strict-ticket-token-v2.sql`
+5. `supabase/rls-history/2026-04-21-ticket-check-in.sql`
+
+Fermarsi allo step 2 lascia la pagina ticket non funzionante, ma non espone mai
+le prenotazioni: `rls.sql` è fail-closed su quella tabella.
+
+## Route non pubblicizzate
+
+- `/demo/lanyard` (web) — banco di prova A/B fra la fisica attuale del ticket
+  (Rapier) e un solver alternativo. Non linkata da nessuna parte, ma raggiungibile:
+  da rimuovere o proteggere prima della produzione. Vedi `docs/CHANGELOG.md`.
 
 ---
 

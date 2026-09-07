@@ -53,9 +53,10 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 ### Supabase (progetto)
 - [x] **Schema SQL**: `supabase/schema.sql` definisce tutte le tabelle nello schema `underclub`.
 - [x] **Row Level Security (RLS)**: `supabase/rls.sql` pronto con policy:
-  - **Pubblico (anon)**: lettura eventi `published` + artisti/entry collegati; insert `reservations`; lettura propria reservation; update `ticket_opened_at`.
+  - **Pubblico (anon)**: lettura eventi `published` + artisti/entry collegati; insert `reservations`. **Nessun** accesso in lettura/scrittura alle prenotazioni: lettura ticket e `ticket_opened_at` arrivano solo dalle policy token-scoped dello step 3 (vedi sezione 7).
   - **Admin (authenticated)**: CRUD completo su tutte le tabelle.
 - [x] **Applicare lo schema + RLS**: eseguiti `schema.sql` e `rls.sql` in Supabase SQL Editor.
+  ⚠️ Su un DB nuovo servono **tutti e 5 gli step** nell'ordine indicato in testa a `rls.sql`: fermarsi a `rls.sql` lascia la pagina ticket non funzionante (ma mai i dati esposti).
 - [ ] **Trigger / funzioni** (opzionale): aggiornamento `updated_at`, vincoli extra su quote.
 
 ### Shared e monorepo
@@ -205,6 +206,53 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 
 ---
 
+## 7. Performance web + hardening RLS (2026-09-07)
+
+Dettaglio completo con numeri in [`CHANGELOG.md`](./CHANGELOG.md).
+
+### Fatto
+
+- [x] **Code splitting `apps/web`**: `Info`, `PrivacyCookie` e `Ticket` passano a
+  `React.lazy`; `Lanyard` è lazy dentro `Ticket`; `manualChunks` in
+  `vite.config.ts` con vendor chunk stabili. La landing scende da **1.292 kB gz a
+  148 kB gz (−88%)**: lo stack 3D è ora raggiungibile solo da `/ticket/:id`.
+  Due trappole di Rollup documentate nel config (React e l'helper
+  `vite/preload-helper` vanno pinnati, altrimenti finiscono in `vendor-three` e
+  la landing fa `modulepreload` dell'intero stack 3D).
+- [x] **`supabase/rls.sql` reso fail-closed** su `reservations`: rimosse le due
+  policy anon permissive (`using (true)`) ormai superate dalle migrazioni in
+  `rls-history/`, e aggiunto in testa l'ordine di esecuzione dei 5 step.
+  Riapplicare `rls.sql` su un DB nuovo non riapre più il buco.
+
+### Aperto — decisione da prendere
+
+- [ ] **Fisica lanyard: sostituire Rapier?** Su `/demo/lanyard` c'è un A/B fra il
+  motore attuale e un solver XPBD scritto ad hoc
+  (`components/Lanyard/lanyardSolver.ts` + `LanyardVerlet.tsx`). Tarato
+  eseguendo entrambi i motori headless in Node e confrontando le traiettorie:
+  RMS 0,41 complessivo, 0,067 dopo il rilascio del drag, giunto sferico 140x più
+  stretto di Rapier, CPU inferiore del 30%. Se adottato, la route ticket passa da
+  ~1.140 kB gz a ~298 kB gz (−74%) e si disinstallano `@react-three/rapier` +
+  `@dimforge/rapier3d-compat`. **Manca la prova al tatto su device reale**: è la
+  parte che i numeri catturano meno. La pagina ticket attuale non è toccata.
+- [ ] La route `/demo/lanyard` è pubblica anche se non linkata: rimuoverla o
+  proteggerla prima della produzione.
+
+### Debito segnalato, non affrontato
+
+- [ ] Pannello **"Debug logs"** ancora attivo in `apps/admin/src/pages/CheckIn.tsx`
+  (+ `highlightScanRegion` / `highlightCodeOutline` in `QrCameraScanner.tsx`):
+  residui del debug scanner su Safari iOS, da tenere o rimuovere.
+- [ ] **Repo git annidato** in `apps/admin/.git/` (la root traccia comunque i file).
+- [ ] `apps/{web,admin}/tsconfig.tsbuildinfo` **tracciati** in git;
+  `.tmp-qr-venv/` (165 MB) non in `.gitignore`.
+- [ ] ~880 LOC di componenti mai importati in `apps/web` (`About`, `Archive`,
+  `Guests`, `PerfMeter`, `TextureOverlay`, `HalftoneOverlay`) e asset orfani
+  (`public/ticket/Card.glb` 2,3 MB, `lanyard.png`); GIF hero da 2,2 MB e 1,4 MB
+  da convertire in `<video>`.
+
+---
+
 ## Ordine suggerito (prossimi passi rimasti)
 
 1. Admin: **lista eventi + CRUD eventi** (lineup + entry) + **lista prenotazioni per evento** (con colonna `qr_scanned_at`).
@@ -213,9 +261,10 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 4. Verificare ticket end-to-end (`/ticket/:id`) con aggiornamento `ticket_opened_at`.
 5. Email post-prenotazione (serverless su Vercel + Resend).
 6. **Analytics** admin (prenotazioni, aperture ticket, scan) quando ci sarà dato reale.
-7. (Futuro) Allowlist admin via tabella dedicata se cresce il team.
-8. (Futuro) Suono/offline queue per lo scanner se emergono esigenze operative.
+7. Decidere sulla **fisica del lanyard** provando `/demo/lanyard` su telefono (sezione 7).
+8. (Futuro) Allowlist admin via tabella dedicata se cresce il team.
+9. (Futuro) Suono/offline queue per lo scanner se emergono esigenze operative.
 
 ---
 
-*Ultimo aggiornamento: 2026-04-22 — scanner camera migrato da ZXing a `qr-scanner` (Nimiq) per affidabilità su Safari iOS. Engine unico, dynamic import, chunk principale `qr-scanner` ~5.6 kB gz + worker WASM ~10.4 kB gz scaricati solo all'attivazione della modalità Camera. Build `pnpm --filter admin build` verde. Prossimo: CRUD eventi e lista prenotazioni admin.*
+*Ultimo aggiornamento: 2026-09-07 — code splitting di `apps/web` (landing da 1.292 a 148 kB gz), `supabase/rls.sql` reso fail-closed su `reservations`, e route `/demo/lanyard` per confrontare la fisica attuale (Rapier, 843 kB gz) con un solver XPBD scritto ad hoc (0 kB). Build `pnpm --filter web build` verde. Prossimo: CRUD eventi e lista prenotazioni admin; in parallelo, provare la demo lanyard su device reale e decidere.*
