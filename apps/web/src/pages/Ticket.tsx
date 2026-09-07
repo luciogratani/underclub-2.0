@@ -1,8 +1,17 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import type { TicketViewData } from "@underclub/shared";
-import Lanyard from "../components/Lanyard/Lanyard";
 import { fetchTicketData, markTicketOpened } from "../lib/api";
+
+// The 3D card pulls in three/@react-three/rapier; load it only once the
+// reservation actually resolved.
+const Lanyard = lazy(() => import("../components/Lanyard/Lanyard"));
+
+const loadingScreen = (
+  <section className="fixed inset-0 z-0 flex items-center justify-center h-[100dvh] w-full bg-primary">
+    <p className="text-black font-bold text-xl animate-pulse">Loading ticket…</p>
+  </section>
+);
 
 export default function Ticket() {
   const { id } = useParams<{ id: string }>();
@@ -41,11 +50,7 @@ export default function Ticket() {
   }, [id, ticketToken]);
 
   if (loading) {
-    return (
-      <section className="fixed inset-0 z-0 flex items-center justify-center h-[100dvh] w-full bg-primary">
-        <p className="text-black font-bold text-xl animate-pulse">Loading ticket…</p>
-      </section>
-    );
+    return loadingScreen;
   }
 
   if (!ticketData) {
@@ -63,7 +68,9 @@ export default function Ticket() {
       className="fixed inset-0 z-0 h-[100dvh] w-full overflow-hidden bg-primary touch-none"
       aria-label="Ticket"
     >
-      <Lanyard ticketData={ticketData} qrToken={ticketToken} />
+      <Suspense fallback={loadingScreen}>
+        <Lanyard ticketData={ticketData} qrToken={ticketToken} />
+      </Suspense>
     </section>
   );
 }
