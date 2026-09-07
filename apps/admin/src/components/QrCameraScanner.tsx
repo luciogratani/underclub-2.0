@@ -159,8 +159,8 @@ export default function QrCameraScanner({
       },
       {
         preferredCamera: 'environment',
-        highlightScanRegion: false,
-        highlightCodeOutline: false,
+        highlightScanRegion: true,
+        highlightCodeOutline: true,
         maxScansPerSecond: 10,
         returnDetailedScanResult: true,
         onDecodeError: (err) => {
