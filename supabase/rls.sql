@@ -1,6 +1,19 @@
 -- Underclub 2.0 — Row Level Security policies
 -- Run this AFTER schema.sql has been applied.
 -- Enables public (anon) read of published events and reservation creation.
+--
+-- ORDER OF EXECUTION (all steps are mandatory on a fresh database):
+--   1. supabase/schema.sql
+--   2. supabase/rls.sql                                        <- this file
+--   3. supabase/rls-history/2026-04-17-ultra-strict-ticket-token.sql
+--   4. supabase/rls-history/2026-04-17-ultra-strict-ticket-token-v2.sql
+--   5. supabase/rls-history/2026-04-21-ticket-check-in.sql
+--
+-- This file is deliberately FAIL-CLOSED on `reservations`: anon gets no
+-- select/update policy here. Ticket read + "first open" tracking are granted
+-- only by step 3, scoped to the per-reservation token (x-ticket-token header).
+-- Stopping after step 2 leaves the ticket page non-functional; it never leaves
+-- reservations publicly readable.
 
 -- Enable RLS on all tables
 alter table underclub.events enable row level security;
@@ -51,18 +64,16 @@ create policy "anon_insert_reservation"
     )
   );
 
--- Reservations: anon can read their own reservation by ID (ticket page)
-create policy "anon_read_own_reservation"
-  on underclub.reservations for select
-  to anon
-  using (true);
-
--- Reservations: anon can set ticket_opened_at (ticket tracking)
-create policy "anon_update_ticket_opened"
-  on underclub.reservations for update
-  to anon
-  using (true)
-  with check (true);
+-- Reservations: NO anon select/update policy is created here.
+--
+-- Earlier revisions of this file shipped permissive `using (true)` policies
+-- ("anon_read_own_reservation" / "anon_update_ticket_opened"), which let anon
+-- read every reservation and write any column on it — including `status` and
+-- `qr_scanned_at`. They are replaced by the token-scoped policies in
+-- rls-history/2026-04-17-ultra-strict-ticket-token.sql (step 3 above), which
+-- also drops them by name if an old database still has them.
+--
+-- Do not reintroduce them here.
 
 -- =========================================================================
 -- AUTHENTICATED (admin) policies — full CRUD
