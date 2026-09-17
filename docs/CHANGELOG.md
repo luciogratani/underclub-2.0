@@ -5,6 +5,55 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-09-17 — Lanyard: il solver XPBD diventa il motore ufficiale
+
+Dopo la prova su device, la pagina ticket usa il nuovo solver. Rapier non viene
+cancellato: resta consultabile su una route dedicata.
+
+### Cambiato
+
+- **File rinominati per ruolo**: `Lanyard.tsx` è ora il motore ufficiale
+  (ex `LanyardVerlet.tsx`); il vecchio diventa `LanyardRapier.tsx`, con un
+  commento in testa che vieta di importarlo dal flusso ticket. `Ticket.tsx` non
+  cambia import, quindi passa automaticamente al nuovo motore.
+- **Nuova route `/lanyard-rapier`** (`pages/LanyardRapierDemo.tsx`): la card
+  Rapier a schermo intero con dati mock. Il componente è lazy, quindi il WASM di
+  Rapier si scarica solo lì (e su `/demo/lanyard` scegliendo Rapier).
+- **Fix reset al resize**: il solver veniva ricreato quando la larghezza
+  attraversava i 768 px (es. rotazione tablet) e la card ricadeva dall'alto. Ora
+  è creato una volta sola e cambia solo il passo di simulazione.
+- `/demo/lanyard` resta, con le etichette aggiornate (Rapier "precedente",
+  Verlet "ufficiale").
+
+### Verificato
+
+- Build verde. Nel grafo dei chunk `vendor-rapier` è referenziato solo da
+  `LanyardRapier`, `LanyardRapierDemo` e `LanyardLab`; `Ticket` e il nuovo
+  `Lanyard` non lo toccano, e la home non precarica nulla del 3D.
+- A runtime, con la build di produzione: aprendo il motore ufficiale il canvas
+  monta e **`vendor-rapier` non viene scaricato**; aprendo `/lanyard-rapier` sì.
+  Nessun errore in console sulla route Rapier.
+- Non verificato a occhio da qui (tab del browser non visibile, WebGL non
+  disegna): il rendering l'hai provato tu su device.
+
+### Peso della route ticket
+
+JavaScript gzip scaricato aprendo `/ticket/:id`, totale reale compresi i chunk
+condivisi con la home: **da 1.286 kB a 446 kB (−840 kB, −65%)**. Nella voce del
+2026-09-07 avevo stimato ~1.140 → ~298 kB escludendo quei chunk condivisi: i
+numeri corretti sono questi.
+
+### Ancora aperto
+
+- Gli **script di taratura** (confronto headless con Rapier) erano in una
+  cartella temporanea e sono andati persi. Se in futuro cambiano dimensioni della
+  card, corda, gravità o punto di partenza, vanno riscritti per ricalibrare.
+- `/lanyard-rapier` e `/demo/lanyard` sono pubbliche anche se non linkate.
+- `@react-three/rapier` e `@dimforge/rapier3d-compat` restano dipendenze, perché
+  servono alla route di riferimento.
+
+---
+
 ## 2026-09-07 — Lanyard: fisica Verlet alternativa + route demo A/B
 
 Rapier pesa 843 kB gz (WASM inlinato in base64) per simulare quattro giunti corda

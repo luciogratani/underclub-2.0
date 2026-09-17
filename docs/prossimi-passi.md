@@ -206,7 +206,7 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 
 ---
 
-## 7. Performance web + hardening RLS (2026-09-07)
+## 7. Performance web, hardening RLS e fisica lanyard (2026-09-07 / 09-17)
 
 Dettaglio completo con numeri in [`CHANGELOG.md`](./CHANGELOG.md).
 
@@ -224,19 +224,19 @@ Dettaglio completo con numeri in [`CHANGELOG.md`](./CHANGELOG.md).
   `rls-history/`, e aggiunto in testa l'ordine di esecuzione dei 5 step.
   Riapplicare `rls.sql` su un DB nuovo non riapre più il buco.
 
-### Aperto — decisione da prendere
+### Lanyard
 
-- [ ] **Fisica lanyard: sostituire Rapier?** Su `/demo/lanyard` c'è un A/B fra il
-  motore attuale e un solver XPBD scritto ad hoc
-  (`components/Lanyard/lanyardSolver.ts` + `LanyardVerlet.tsx`). Tarato
-  eseguendo entrambi i motori headless in Node e confrontando le traiettorie:
-  RMS 0,41 complessivo, 0,067 dopo il rilascio del drag, giunto sferico 140x più
-  stretto di Rapier, CPU inferiore del 30%. Se adottato, la route ticket passa da
-  ~1.140 kB gz a ~298 kB gz (−74%) e si disinstallano `@react-three/rapier` +
-  `@dimforge/rapier3d-compat`. **Manca la prova al tatto su device reale**: è la
-  parte che i numeri catturano meno. La pagina ticket attuale non è toccata.
-- [ ] La route `/demo/lanyard` è pubblica anche se non linkata: rimuoverla o
-  proteggerla prima della produzione.
+- [x] **Fisica lanyard: Rapier sostituito** (decisione 2026-09-17, dopo prova su
+  device). La pagina ticket usa il solver XPBD
+  (`components/Lanyard/Lanyard.tsx` + `lanyardSolver.ts`): route ticket da
+  1.286 a 446 kB gz (−65%). Il vecchio motore è in `LanyardRapier.tsx`,
+  consultabile su `/lanyard-rapier`, dove soltanto viene scaricato il WASM.
+  Sistemato anche il reset della card al resize oltre i 768 px.
+- [ ] **Script di taratura persi**: il confronto headless con Rapier va
+  riscritto (e stavolta messo nel repo) prima di cambiare dimensioni della card,
+  corda, gravità o punto di partenza.
+- [ ] Le route `/lanyard-rapier` e `/demo/lanyard` sono pubbliche anche se non
+  linkate: rimuoverle o proteggerle prima della produzione, se non servono.
 
 ### Debito segnalato, non affrontato
 
@@ -261,10 +261,10 @@ Dettaglio completo con numeri in [`CHANGELOG.md`](./CHANGELOG.md).
 4. Verificare ticket end-to-end (`/ticket/:id`) con aggiornamento `ticket_opened_at`.
 5. Email post-prenotazione (serverless su Vercel + Resend).
 6. **Analytics** admin (prenotazioni, aperture ticket, scan) quando ci sarà dato reale.
-7. Decidere sulla **fisica del lanyard** provando `/demo/lanyard` su telefono (sezione 7).
+7. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
 8. (Futuro) Allowlist admin via tabella dedicata se cresce il team.
 9. (Futuro) Suono/offline queue per lo scanner se emergono esigenze operative.
 
 ---
 
-*Ultimo aggiornamento: 2026-09-07 — code splitting di `apps/web` (landing da 1.292 a 148 kB gz), `supabase/rls.sql` reso fail-closed su `reservations`, e route `/demo/lanyard` per confrontare la fisica attuale (Rapier, 843 kB gz) con un solver XPBD scritto ad hoc (0 kB). Build `pnpm --filter web build` verde. Prossimo: CRUD eventi e lista prenotazioni admin; in parallelo, provare la demo lanyard su device reale e decidere.*
+*Ultimo aggiornamento: 2026-09-17 — il solver XPBD è il motore ufficiale del lanyard (route ticket da 1.286 a 446 kB gz); Rapier resta su `/lanyard-rapier` e si scarica solo lì. Build `pnpm --filter web build` verde. Prossimo: CRUD eventi e lista prenotazioni admin.*

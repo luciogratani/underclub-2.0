@@ -98,29 +98,9 @@ le prenotazioni: `rls.sql` è fail-closed su quella tabella.
 
 ## Route non pubblicizzate
 
-- `/demo/lanyard` (web) — banco di prova A/B fra la fisica attuale del ticket
-  (Rapier) e un solver alternativo. Non linkata da nessuna parte, ma raggiungibile:
-  da rimuovere o proteggere prima della produzione. Vedi `docs/CHANGELOG.md`.
+Non linkate da nessuna parte, ma raggiungibili: da rimuovere o proteggere prima
+della produzione se non servono più. Dettagli in `docs/CHANGELOG.md`.
 
----
-
-## Note di inizializzazione (chat di setup)
-
-*Questo blocco documenta le scelte fatte in fase di setup; puoi dare questo file in pasto alle chat successive per contesto.*
-
-- **Solo versione mobile** — per ora si sviluppa solo la versione mobile (layout/UX da pensare mobile-first).
-- **Tailwind CSS v4** — installato in **web** e **admin**:
-  - Pacchetti: `tailwindcss@^4.0.0`, `@tailwindcss/vite@^4.0.0` (devDependencies).
-  - Config: plugin `@tailwindcss/vite` in `vite.config.ts`; **niente** PostCSS né `tailwind.config.js`.
-  - CSS: in `src/index.css` di entrambe le app c’è `@import "tailwindcss";` in cima (il resto del file è reset/base custom).
-  - Per temi/colori custom in v4 si usa la config in CSS (`@theme` in un file CSS), non il config JS.
-- **packages/shared** — al momento è uno stub (solo `export {}`); tipi e client Supabase vanno aggiunti quando si inizia a usare il DB.
-- **React 19** + **React Router 7** + **Vite 6** + **TypeScript 5.6** — stack confermato per entrambe le app.
-- **Frontend solo web** — tutto il lavoro di frontend da qui in poi riguarda **solo** `apps/web`. L’admin si trascura fino a quando non serve ragionarci.
-
-**Quando ha senso ragionare anche sull’admin** (segnalarlo nella chat):
-- Definizione o modifica di **tipi/API in `packages/shared`** (auth, modelli DB, client Supabase): web e admin li useranno entrambi.
-- **Auth / ruoli**: chi può fare cosa (anonimo, utente, admin) e come l’admin protegge le route.
-- **Struttura dati** per serate e prenotazioni: il pubblico le vede/crea, l’admin le gestisce; allineare nomi e campi.
-- **Funzioni serverless** (es. invio email, webhook): spesso servono sia al flusso pubblico sia al backoffice.
-- Quando si inizia a **buildare le schermate admin** (liste, form, dashboard).
+- `/lanyard-rapier` (web) — la card del ticket col motore fisico precedente
+  (Rapier). Il suo WASM (~840 kB gz) si scarica solo su questa route.
+- `/demo/lanyard` (web) — confronto A/B fra il motore ufficiale e Rapier.
