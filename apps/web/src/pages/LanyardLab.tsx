@@ -10,8 +10,8 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react';
  * Network tab, which is half the point of the comparison.
  */
 
-const LanyardRapier = lazy(() => import('../components/Lanyard/Lanyard'));
-const LanyardVerlet = lazy(() => import('../components/Lanyard/LanyardVerlet'));
+const LanyardRapier = lazy(() => import('../components/Lanyard/LanyardRapier'));
+const LanyardVerlet = lazy(() => import('../components/Lanyard/Lanyard'));
 
 type Engine = 'rapier' | 'verlet';
 
@@ -19,13 +19,13 @@ const ENGINES: { id: Engine; label: string; sub: string; cost: string }[] = [
   {
     id: 'rapier',
     label: 'Rapier',
-    sub: 'WASM · attuale',
+    sub: 'WASM · precedente',
     cost: '+843 kB gz',
   },
   {
     id: 'verlet',
     label: 'Verlet',
-    sub: 'JS · nuovo',
+    sub: 'JS · ufficiale',
     cost: '+0 kB gz',
   },
 ];

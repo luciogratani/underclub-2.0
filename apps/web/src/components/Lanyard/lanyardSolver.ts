@@ -4,8 +4,8 @@ import * as THREE from 'three';
  * Position-based dynamics solver for the lanyard: a 4-point rope chain plus a
  * rigid card hanging off its end.
  *
- * This is a drop-in replacement for the Rapier setup in `Lanyard.tsx`, which
- * costs ~843 kB gzip because `@dimforge/rapier3d-compat` inlines its WASM as
+ * It replaces the Rapier setup now kept in `LanyardRapier.tsx`, which costs
+ * ~843 kB gzip because `@dimforge/rapier3d-compat` inlines its WASM as
  * base64. The scene only ever needed four rope joints and one ball joint, so
  * the general-purpose engine is replaced here by the two constraints it was
  * actually being asked to solve.

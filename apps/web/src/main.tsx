@@ -4,13 +4,15 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
 
-// Route-level code splitting: keeps the three/rapier/drei stack (pulled in by
+// Route-level code splitting: keeps the three/drei stack (pulled in by
 // Ticket → Lanyard) out of the bundle served on "/".
 const Info = lazy(() => import('./pages/Info.tsx'))
 const PrivacyCookie = lazy(() => import('./pages/PrivacyCookie.tsx'))
 const Ticket = lazy(() => import('./pages/Ticket.tsx'))
 // Internal A/B bench for the lanyard physics — unlinked, not part of the funnel.
 const LanyardLab = lazy(() => import('./pages/LanyardLab.tsx'))
+// Previous Rapier-based lanyard, kept for reference; Rapier loads only here.
+const LanyardRapierDemo = lazy(() => import('./pages/LanyardRapierDemo.tsx'))
 
 const pageFallback = <div className="min-h-[100svh] w-full bg-black" />
 
@@ -37,6 +39,10 @@ const router = createBrowserRouter([
   {
     path: '/demo/lanyard',
     element: <Suspense fallback={ticketFallback}><LanyardLab /></Suspense>,
+  },
+  {
+    path: '/lanyard-rapier',
+    element: <Suspense fallback={ticketFallback}><LanyardRapierDemo /></Suspense>,
   },
 ])
 
