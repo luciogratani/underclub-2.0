@@ -1,7 +1,5 @@
-import { Link } from "react-router-dom";
 import TextRing from "./TextRing";
 import HeroButton from "./HeroButton";
-import InfoCircle from "./icons/InfoCircle";
 
 type HeroProps = {
   onNextDateClick?: () => void;
@@ -41,13 +39,6 @@ export default function Hero({
               : "scale-95 opacity-0 translate-y-2 pointer-events-none"
           }`}
         >
-          <Link
-            to="/info"
-            aria-label="Info e link utili"
-            className="flex size-14 shrink-0 items-center justify-center rounded-full bg-black text-primary ring-1 ring-primary/30 transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <InfoCircle className="size-[22px]" />
-          </Link>
           <HeroButton
             title="NEXT DATE"
             direction="right"
