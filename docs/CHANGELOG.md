@@ -5,6 +5,120 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-01 — Schema per registrazione, sessioni e formule d'ingresso
+
+Il flusso pubblico passa da "compila e vai" a utenti registrati con sessione e
+consensi. Questa voce copre solo lo schema: gli endpoint non esistono ancora.
+Le decisioni complete sono nella sezione 8 di
+[`prossimi-passi.md`](./prossimi-passi.md).
+
+### Aggiunto
+
+- **`supabase/rls-history/2026-10-01-contacts-sessions-formulas.sql`**:
+  - `contacts` — la persona, separata dalla singola prenotazione: email unica e
+    normalizzata, nome completo in un campo, data di nascita, consensi marketing
+    e profilazione con data di concessione e revoca, trigger su `updated_at`.
+  - `activation_tokens` — link monouso, con il riferimento alla prenotazione da
+    confermare: conferma solo quella, quindi un link vecchio non ne risuscita
+    una dimenticata.
+  - `contact_sessions` — sessione a rinnovo dietro cookie `httpOnly`; in DB solo
+    l'hash del token.
+  - `event_entries` — aggiunti `price` e `valid_until`. `note` resta il campo
+    offerta già mostrato in BookNow, `quota` nulla significa illimitata.
+  - `reservations` — `contact_id`, stato `pending` con scadenza obbligatoria,
+    `confirmed_at`, `cancelled_at`, `source`.
+  - `reservations.source` — da dove arriva la prenotazione, per la futura
+    sezione analytics: slug normalizzato (minuscole, cifre, trattino o
+    underscore, 2-64 caratteri) tipo `meta-ads`, `volantino-ottobre`,
+    `pr-giulia`. Non testo libero, altrimenti `Volantino X` e `volantino-x`
+    diventano due fonti diverse. Null = diretto o ignoto, e resta null.
+    Nessun indice: una stagione intera sta in poche migliaia di righe.
+  - RLS **fail-closed** sulle tabelle nuove: nessuna policy `anon`, gli endpoint
+    le raggiungono con la service key. L'admin legge solo i contatti.
+
+### Corretto
+
+- **`unique (event_id, email)` contava anche le prenotazioni annullate**, quindi
+  una disdetta bloccava per sempre quell'email su quella serata. Sostituito da
+  un indice parziale che ignora gli annullati. Bug preesistente, trovato dai
+  test sui vincoli.
+
+### Scelte non ovvie
+
+- **Migrazione additiva**: niente viene rimosso, così il sito non si rompe tra
+  questo passo e gli endpoint. La pulizia (policy anon, vecchia RPC, colonne
+  denormalizzate, `contact_id` obbligatorio) è elencata in fondo al file e va
+  eseguita dopo.
+- `valid_until` è un **timestamp pieno**, non un orario: il limite del ridotto
+  cade dopo la mezzanotte, quindi un orario secco sembrerebbe precedente
+  all'apertura.
+- **18+ e quota non sono in SQL.** Il primo perché `now()` non è immutabile e
+  non può stare in un CHECK; la seconda perché si conta sulle confermate in fase
+  di prenotazione. Entrambi finiscono negli endpoint.
+
+### Aggiunto dopo lo stress test
+
+- **`revoke all` su `contacts`, `activation_tokens` e `contact_sessions`** per
+  `anon` e `authenticated` (difesa in profondità, come l'hardening di aprile su
+  `reservations`), più `grant select on contacts to authenticated` per la guest
+  list. Motivo misurato: esporre uno schema dalla dashboard Supabase imposta
+  anche le **DEFAULT PRIVILEGES**, quindi le tabelle create dopo nascono
+  concesse ad `anon`. RLS regge comunque, ma senza revoke sarebbe l'unico
+  argine, e i tentativi di scrittura di `anon` fallivano **silenziosamente**
+  come `UPDATE 0` invece di essere rifiutati. Ora rispondono
+  `permission denied`. `service_role` resta intatto: è la via degli endpoint.
+- **Ordine del blocco di pulizia corretto**: la riscrittura di
+  `scan_ticket_check_in` era in coda, ma va **prima** del drop delle colonne.
+
+### Verificato
+
+- `schema.sql` + `rls.sql` + migrazione su un **Postgres 16 locale usa e getta**,
+  eseguita **due volte** per l'idempotenza: nessun errore.
+- **Stress test su catena completa e database con dati**: le cinque migrazioni
+  di aprile, poi due prenotazioni create col flusso vecchio, poi la migrazione
+  nuova tre volte di fila. Righe preesistenti intatte, `price` backfillato,
+  e il flusso vecchio ancora funzionante: `create_public_reservation`,
+  `get_public_entry_counts`, rifiuto degli eventi `draft` e delle entry di un
+  altro evento. 57 controlli passati.
+- **RLS attaccata come `anon`** con le DEFAULT PRIVILEGES di Supabase emulate:
+  zero righe da contatti, sessioni e token, insert rifiutata, nessuna
+  prenotazione leggibile senza token, e `update` su `status` e `source` negata
+  anche a livello di privilegio di colonna (la grant di aprile è limitata a
+  `ticket_opened_at`, e vale anche per le colonne nuove).
+- Test di inserimento sui vincoli: email non normalizzata respinta, `pending`
+  senza scadenza respinta, seconda prenotazione attiva per lo stesso contatto
+  respinta, disdetta con riprenotazione ammessa, trigger `updated_at` attivo,
+  zero policy `anon` sulle tabelle nuove.
+- `source`: accettati `volantino-ottobre`, `pr_giulia` e null; respinti
+  `Volantino X`, stringa vuota, un solo carattere e trattino finale. Provato
+  anche il raggruppamento per fonte con i null etichettati.
+- **Non applicata sul Supabase reale**: lo esegui tu in SQL Editor.
+
+### Emerso, non risolto
+
+- `scan_ticket_check_in`, **misurato, non dedotto**: su una prenotazione
+  `pending` con token risponde `already_scanned` con timestamp vuoto e il nome
+  giusto, cioè alla porta sembra "già entrato" uno che non ha mai confermato.
+  E dopo il drop delle colonne ogni scan muore con
+  `record "v_reservation" has no field "full_name"`. Va riscritta **prima**
+  della pulizia.
+- **`rls.sql` non è rieseguibile**: si ferma sul primo `create policy` già
+  esistente. È fail-safe, ma il changelog di settembre lasciava intendere che
+  riapplicarlo fosse innocuo: è innocuo perché si interrompe subito, non perché
+  sia idempotente.
+- **Lo step 3 della catena può abortire su un DB nuovo.** La migrazione di
+  aprile dichiara `hash_ticket_token` come funzione `language sql` con `digest`
+  non qualificato, e quei corpi vengono validati alla creazione: se pgcrypto sta
+  in `extensions` e non è nel `search_path`, il file si ferma **prima** di creare
+  le policy del token e le grant in coda, e la pagina ticket resta senza policy.
+  Il prerequisito è ora annotato in testa a `rls.sql`; la correzione del file di
+  aprile (qualificare `digest`, come già fa la v2) è da decidere.
+- La union `status` in `packages/shared` non conosce `pending`.
+- La quarta sezione del funnel assume la conferma immediata: serve la variante
+  "controlla la posta".
+
+---
+
 ## 2026-09-17 — Lanyard: il solver XPBD diventa il motore ufficiale
 
 Dopo la prova su device, la pagina ticket usa il nuovo solver. Rapier non viene

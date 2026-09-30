@@ -8,6 +8,19 @@
 --   3. supabase/rls-history/2026-04-17-ultra-strict-ticket-token.sql
 --   4. supabase/rls-history/2026-04-17-ultra-strict-ticket-token-v2.sql
 --   5. supabase/rls-history/2026-04-21-ticket-check-in.sql
+--   6. supabase/rls-history/2026-10-01-contacts-sessions-formulas.sql
+--
+-- PREREQUISITE for step 3: `digest()` must resolve. Step 3 declares
+-- `hash_ticket_token` as a `language sql` function with an unqualified
+-- `digest(...)`, and those bodies are validated at CREATE time, so if pgcrypto
+-- lives in the `extensions` schema and it is not on the search_path, step 3
+-- aborts on that function — before creating the token policies and the grants
+-- at the end of the file. The ticket page then has no policies at all.
+-- Measured on a fresh database: with `search_path = underclub, public,
+-- extensions` the whole chain applies; without it, step 3 stops at line 41.
+--
+-- These files are NOT re-runnable: this one aborts on the first `create policy`
+-- if the policies already exist (fail-safe, but do not count on replaying it).
 --
 -- This file is deliberately FAIL-CLOSED on `reservations`: anon gets no
 -- select/update policy here. Ticket read + "first open" tracking are granted

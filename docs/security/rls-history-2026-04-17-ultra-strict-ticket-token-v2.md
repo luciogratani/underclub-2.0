@@ -1,5 +1,11 @@
 # RLS History — 2026-04-17 v2
 
+> **Superata per la parte prenotazione** (2026-10-01). `create_public_reservation`
+> non è più il percorso ufficiale: la prenotazione passa dalle funzioni
+> serverless con service key. Vedi
+> [`rls-history-2026-10-01-contacts-sessions-formulas.md`](./rls-history-2026-10-01-contacts-sessions-formulas.md).
+> Il token del ticket descritto qui resta valido.
+
 File SQL:
 
 - `supabase/rls-history/2026-04-17-ultra-strict-ticket-token-v2.sql`

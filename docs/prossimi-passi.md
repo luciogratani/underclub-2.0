@@ -162,6 +162,9 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 
 ### Cosa resta aperto
 - **Allowlist admin**: non implementata per scelta esplicita. Quando servirà, il pattern è: tabella `underclub.admin_users (user_id uuid primary key references auth.users)` + controllo `exists(select 1 from underclub.admin_users where user_id = auth.uid())` come prima riga della RPC `scan_ticket_check_in`.
+  *(2026-10-01: resta un "quando servirà". Gli utenti del sito non entrano in
+  `auth.users`, perché il passwordless pubblico è proprietario — sezione 8 —
+  quindi `authenticated` continua a significare solo "admin".)*
 - **Password reset / cambio password**: non in UI. Per ora si gestisce da dashboard Supabase.
 - **Rate limit login** lato UI: affidato ai default Supabase; valutare throttle custom se emergono attacchi brute-force.
 
@@ -253,18 +256,139 @@ Dettaglio completo con numeri in [`CHANGELOG.md`](./CHANGELOG.md).
 
 ---
 
-## Ordine suggerito (prossimi passi rimasti)
+## 8. Registrazione, sessioni e formule d'ingresso (decisioni 2026-10-01)
 
-1. Admin: **lista eventi + CRUD eventi** (lineup + entry) + **lista prenotazioni per evento** (con colonna `qr_scanned_at`).
-2. Admin: **Guest list** A-Z (stesso dataset prenotazioni, ricerca veloce per addetti ingresso).
-3. Verificare submit reale prenotazione da `BookNow` (insert `reservations`) e gestione errori vincoli.
-4. Verificare ticket end-to-end (`/ticket/:id`) con aggiornamento `ticket_opened_at`.
-5. Email post-prenotazione (serverless su Vercel + Resend).
-6. **Analytics** admin (prenotazioni, aperture ticket, scan) quando ci sarà dato reale.
-7. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
-8. (Futuro) Allowlist admin via tabella dedicata se cresce il team.
-9. (Futuro) Suono/offline queue per lo scanner se emergono esigenze operative.
+Le decisioni di marketing e di flusso vivono fuori dal repo, in
+`underclub_gestione/26_winter/marketing-analysis/` (`scheda-underclub.md` e
+`flussi-prenotazione.md`). Qui resta solo ciò che tocca il codice.
+
+### Decisioni prese
+- **Niente account con password.** Accesso passwordless: link di attivazione
+  monouso via email, poi sessione lunga. Registrazione obbligatoria per
+  prenotare, con consensi GDPR.
+- **Sistema passwordless proprietario, non Supabase Auth.** Il progetto Supabase
+  è multi-tenant e ospita altri servizi: il pool `authenticated` è la porta
+  dell'admin e non va aperto agli utenti del sito. Conseguenza: l'allowlist
+  admin **non** serve più come prerequisito.
+- **Sessione in cookie `httpOnly`, 12 mesi, rinnovata a ogni uso.** Login,
+  attivazione, prenotazione e disdetta passano da **funzioni serverless su
+  Vercel** con la service key. Una sessione annuale in `localStorage` sarebbe
+  leggibile da qualunque XSS. La parte pubblica (eventi, disponibilità) e la
+  pagina ticket col token nell'URL restano dirette verso Supabase.
+- **Dati raccolti**: nome completo in **un solo campo** (come già fa il form),
+  data di nascita, email. **Nessun numero di telefono.** Due consensi separati,
+  marketing e profilazione, ciascuno con data di concessione e di revoca.
+- **Formule d'ingresso configurabili per evento**: `event_entries` guadagna
+  prezzo e scadenza. Nome, offerta (`note`, già mostrato in BookNow) e quota
+  esistevano già; quota nulla significa illimitata. Nel 2026/27 saranno di norma
+  due, ridotto e intero, entrambe prenotabili online, ma il numero è libero.
+- **La scadenza è un limite d'ingresso, non di prenotazione.** Si prenota sempre;
+  passata l'ora, la formula non vale più alla porta. Salvata come timestamp
+  pieno, non come orario: il limite cade **dopo la mezzanotte**, quindi un orario
+  secco risulterebbe precedente all'apertura.
+- **Prenotazione `pending` senza sessione**, valida 30 minuti, confermata
+  dall'apertura del link. Il link conferma **solo** la prenotazione da cui è
+  partito, così un link vecchio non ne risuscita una dimenticata.
+- **La quota conta solo le confermate**: le `pending` non tengono il posto.
+  Overbooking minimo accettato in cambio di un conteggio banale.
+  `get_public_entry_counts` filtra già `status = 'confirmed'`: nessuna modifica.
+- **Un ticket per persona per serata**, e una disdetta libera il posto.
+- **`reservations.source`**: da dove arriva la prenotazione (volantino, manifesto,
+  campagna Meta, promoter, sponsor), in vista della sezione analytics dell'admin.
+  È uno **slug normalizzato**, non testo libero, perché `Volantino X` e
+  `volantino-x` spaccherebbero in due la stessa fonte nei raggruppamenti.
+  Convenzione: minuscole, cifre, trattino o underscore, 2-64 caratteri —
+  `meta-ads`, `volantino-ottobre`, `manifesto-corso-vico`, `pr-giulia`.
+  **Null significa diretto o ignoto**, e va lasciato null: scriverci `direct`
+  farebbe sembrare uguali "non lo sappiamo" e "ha digitato l'indirizzo".
+- **Rimandati** per scelta: anonimizzazione GDPR, incassi e ingressi senza
+  prenotazione, limite ai tentativi per indirizzo e dispositivo.
+
+### Schema — fatto
+- [x] `supabase/rls-history/2026-10-01-contacts-sessions-formulas.sql`:
+  `contacts`, `activation_tokens`, `contact_sessions`; `price` e `valid_until`
+  su `event_entries`; `contact_id`, stato `pending`, `confirmed_at`,
+  `cancelled_at` e `source` su `reservations`. RLS fail-closed sulle tabelle nuove (zero
+  policy `anon`), admin in sola lettura sui contatti.
+  **Migrazione additiva**: il percorso anon attuale continua a funzionare, la
+  pulizia è elencata in fondo al file e va eseguita solo a endpoint vivi.
+- [x] Verificata su un Postgres 16 usa e getta: `schema.sql` + `rls.sql` +
+  migrazione, due volte di fila per l'idempotenza, con test sui vincoli nuovi.
+  **Non ancora applicata sul Supabase reale.**
+- [x] Corretto un bug preesistente: `unique (event_id, email)` includeva anche
+  le prenotazioni annullate, quindi una disdetta bloccava per sempre quella
+  email su quella serata. Sostituito da un indice parziale.
+
+### Tre cose che il nuovo modello rompe
+- [ ] **`scan_ticket_check_in` fraintende una `pending`**: gestisce `cancelled`,
+  poi aggiorna solo se `status = 'confirmed'`, e una `pending` col token
+  uscirebbe come `already_scanned` con timestamp vuoto. Soluzione scelta:
+  **emettere il token del ticket solo alla conferma**, così una `pending` non ha
+  QR.
+- [ ] **La stessa RPC legge `full_name` dalla prenotazione**, colonna che la
+  pulizia elimina: va riscritta con il join su `contacts`, oltre ad aggiungere
+  l'esito "formula scaduta" per la cassa.
+- [ ] **La union `status` nei tipi condivisi non conosce `pending`**:
+  `packages/shared/src/database.ts` (quattro punti, incluso il ritorno di
+  `create_public_reservation`) e le costanti in `types.ts`.
+
+### Conseguenze sul funnel pubblico
+- [ ] La quarta sezione assume la conferma immediata ("YOU'RE IN"). Chi prenota
+  **senza sessione non è dentro**: serve la variante "controlla la posta", e
+  `goToSummary` in `App.tsx` cambia di conseguenza.
+- [ ] Pagina privacy e overlay del data notice vanno riscritti con i due
+  consensi nuovi.
+- [ ] **Cattura della fonte**: `source` resta vuoto finché non c'è chi lo
+  scrive. Serve leggere `?src=...` (o gli `utm_*`) all'atterraggio, tenerlo per
+  la visita e passarlo all'endpoint di prenotazione. Se la stagione parte prima
+  degli endpoint, le prime serate non avranno dati di provenienza: in quel caso
+  meglio aggiungere il parametro alla RPC attuale come tappabuchi.
+- [ ] `BookNow` si allarga (consensi, stati della prenotazione): è l'occasione
+  per lo split già pianificato al punto 14 della roadmap performance, invece di
+  rifarlo due volte.
+- [ ] Il **menu** rimasto in sospeso dal 18 settembre va fatto **dopo**
+  l'autenticazione: con gli account nascono voci che prima non esistevano (la
+  mia prenotazione, uscita dall'account). Il bottone info è già stato rimosso
+  dalla Hero, quindi al momento `/info` non è raggiungibile dalla home.
+
+### Decisioni ancora aperte
+- `About`, `Archive` e `Guests`: tre documenti dicono tre cose diverse
+  (cancellarli per la roadmap performance, usarli come voci di menu, spostarli
+  in route fuori dal funnel per `modifica-struttura-public.md`). Da chiudere una
+  volta sola.
+- Lista d'attesa quando i ridotti finiscono, oppure solo prezzo pieno in cassa.
+- Si avvisa chi arriva dopo l'orario limite?
+- Per quanto tempo si conservano i dati di chi non viene più.
 
 ---
 
-*Ultimo aggiornamento: 2026-09-17 — il solver XPBD è il motore ufficiale del lanyard (route ticket da 1.286 a 446 kB gz); Rapier resta su `/lanyard-rapier` e si scarica solo lì. Build `pnpm --filter web build` verde. Prossimo: CRUD eventi e lista prenotazioni admin.*
+## Ordine suggerito (prossimi passi rimasti)
+
+Riordinato il 2026-10-01: **prima il nuovo modello dati, poi l'admin.** L'ordine
+precedente partiva dal CRUD eventi, che oggi andrebbe rifatto subito dopo per i
+campi nuovi delle formule d'ingresso.
+
+1. Applicare la migrazione del 2026-10-01 sul Supabase reale.
+2. **Endpoint serverless su Vercel**: richiesta del link, attivazione, sessione
+   in cookie, prenotazione, disdetta. Email transazionale con Resend sui due
+   sottodomini (`reservations.` transazionale, `news.` promozioni).
+3. Allineare `packages/shared` (union `status`, tipi dei contatti, mapper) e poi
+   `BookNow` + quarta sezione del funnel, consensi inclusi.
+4. Riscrivere `scan_ticket_check_in`: join su `contacts` ed esito per formula
+   scaduta. Poi eseguire la pulizia in fondo alla migrazione.
+5. Admin: **lista eventi + CRUD eventi** (lineup + formule con prezzo, quota e
+   scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
+6. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
+   funzionare anche senza QR.
+7. Menu del sito pubblico, con le voci dell'account.
+8. **Analytics** admin quando ci sarà dato reale.
+9. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
+10. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
+    limite ai tentativi, suono e coda offline per lo scanner.
+
+---
+
+*Ultimo aggiornamento: 2026-10-01 — prese le decisioni su registrazione,
+sessioni passwordless e formule d'ingresso (sezione 8); schema nuovo scritto e
+verificato in locale, non ancora applicato su Supabase. Ordine dei prossimi
+passi invertito: prima il modello dati e gli endpoint, poi l'admin.*
