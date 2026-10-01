@@ -98,6 +98,17 @@ begin
   select * into a from underclub.ep_activate(b.activation_token);
   assert a.outcome = 'ok' and a.reservation_outcome = 'unavailable' and a.ticket_token is null, 'cancelled -> unavailable';
 
+  -- Live pending whose event was unpublished meanwhile: unavailable, no QR.
+  select * into b from underclub.ep_request_booking(
+    null, E_RACE, N_RACE, 'Lia Neri', '1998-08-08', 'lia@example.com', null, null, null);
+  update underclub.events set status = 'draft' where id = E_RACE;
+  select * into a from underclub.ep_activate(b.activation_token);
+  assert a.outcome = 'ok' and a.reservation_outcome = 'unavailable' and a.ticket_token is null,
+    format('unpublished event -> %s', a.reservation_outcome);
+  select * into res from underclub.reservations where id = b.reservation_id;
+  assert res.status = 'pending' and res.ticket_access_token_hash is null, 'unpublished: stays pending without QR';
+  update underclub.events set status = 'published' where id = E_RACE;
+
   -- Consent rules: re-grant a revoked one, leave an active one alone, and a
   -- false never revokes. verified_at keeps its first value.
   update underclub.contacts

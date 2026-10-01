@@ -18,9 +18,15 @@ export const handleBooking = safeHandler('reservations', 'POST', async (request,
   const body = await readJsonObject(request);
   const input = validateBooking(body, deps.now?.() ?? new Date());
   const cookie = readSessionCookie(request);
+  // The client sends identity fields only when it shows the form, i.e. when it
+  // believes nobody is logged in. Honour that: a leftover cookie (failed
+  // logout, shared phone, session check that failed on load) must never turn
+  // someone else's form into a confirmed booking on the cookie's account.
+  const formBooking = input.fullName !== null || input.dateOfBirth !== null || input.email !== null;
+  const sessionToken = formBooking ? null : cookie.token;
 
   const row = await deps.rpc.requestBooking({
-    p_session_token: cookie.token,
+    p_session_token: sessionToken,
     p_event_id: input.eventId,
     p_entry_id: input.entryId,
     p_full_name: input.fullName,
@@ -31,9 +37,10 @@ export const handleBooking = safeHandler('reservations', 'POST', async (request,
     p_source: input.source,
   });
 
-  // The DB took the no-session path although a cookie was sent: it is dead.
-  const clearIfSent = cookie.sent ? [clearedSessionCookie()] : [];
-  const renew = cookie.token ? [sessionCookie(cookie.token)] : [];
+  // The DB took the no-session path although a session token was sent: it is
+  // dead. A cookie deliberately left out for a form booking is not touched.
+  const clearIfSent = cookie.sent && !formBooking ? [clearedSessionCookie()] : [];
+  const renew = sessionToken ? [sessionCookie(sessionToken)] : [];
   // A malformed cookie is never valid: drop it whatever the outcome.
   const clearIfMalformed = cookie.sent && !cookie.token ? [clearedSessionCookie()] : [];
   const checkEmail = (): Response => json(200, { status: 'check_email' } satisfies BookingResponse, { setCookie: clearIfSent });
@@ -98,7 +105,7 @@ export const handleBooking = safeHandler('reservations', 'POST', async (request,
         }
         return checkEmail();
       }
-      if (!cookie.token || !row.reservation_id) {
+      if (!sessionToken || !row.reservation_id) {
         // Should not happen (no session, no login token): never reveal the booking.
         console.error('[api:reservations] already_booked without session nor login token');
         return checkEmail();

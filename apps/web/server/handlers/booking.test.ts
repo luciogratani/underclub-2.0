@@ -16,6 +16,9 @@ const form = {
   source: 'Volantino Ottobre',
 };
 
+/** What the client sends when it shows "booking as": no identity fields. */
+const sessionBody = { eventId: EVENT_ID, entryId: ENTRY_ID, source: 'meta-ads' };
+
 function setup(row: Partial<BookingRow>) {
   return makeDeps({ requestBooking: async () => bookingRow(row) });
 }
@@ -167,7 +170,7 @@ describe('POST /api/reservations — outcomes', () => {
 
   it('confirmed (session) → ticketUrl, renewed cookie, ticket email', async () => {
     const { deps, email } = setup({ outcome: 'confirmed', ticket_token: TICKET_TOKEN });
-    const res = await handleBooking(req('/api/reservations', form, { cookie: `other=1; uc_session=${SESSION_TOKEN}` }), deps);
+    const res = await handleBooking(req('/api/reservations', sessionBody, { cookie: `other=1; uc_session=${SESSION_TOKEN}` }), deps);
     expect(res.status).toBe(200);
     const ticketUrl = `/ticket/${RESERVATION_ID}?t=${encodeURIComponent(TICKET_TOKEN)}`;
     expect(await jsonOf(res)).toEqual({ status: 'confirmed', reservationId: RESERVATION_ID, ticketUrl });
@@ -182,7 +185,7 @@ describe('POST /api/reservations — outcomes', () => {
     const { deps, email } = setup({ outcome: 'confirmed', ticket_token: TICKET_TOKEN });
     email.failWith = new Error('down');
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    const res = await handleBooking(req('/api/reservations', form, { cookie: `uc_session=${SESSION_TOKEN}` }), deps);
+    const res = await handleBooking(req('/api/reservations', sessionBody, { cookie: `uc_session=${SESSION_TOKEN}` }), deps);
     spy.mockRestore();
     expect(res.status).toBe(200);
     expect((await jsonOf(res)).status).toBe('confirmed');
@@ -190,7 +193,7 @@ describe('POST /api/reservations — outcomes', () => {
 
   it('already_booked with session → reservationId, ticketUrl null, renewed cookie, no email', async () => {
     const { deps, email } = setup({ outcome: 'already_booked' });
-    const res = await handleBooking(req('/api/reservations', form, { cookie: `uc_session=${SESSION_TOKEN}` }), deps);
+    const res = await handleBooking(req('/api/reservations', sessionBody, { cookie: `uc_session=${SESSION_TOKEN}` }), deps);
     expect(await jsonOf(res)).toEqual({ status: 'already_booked', reservationId: RESERVATION_ID, ticketUrl: null });
     expect(setCookies(res)[0]).toMatch(/^uc_session=sess.*Max-Age=31536000/);
     expect(email.sent).toHaveLength(0);
@@ -204,12 +207,13 @@ describe('POST /api/reservations — outcomes', () => {
     expect(await jsonOf(res)).toEqual({ status: 'check_email' });
   });
 
-  it('a cookie that turned out invalid (no-session path) is cleared', async () => {
+  it('a form booking ignores a leftover session cookie and leaves it alone', async () => {
     for (const outcome of ['pending', 'already_booked'] as const) {
-      const { deps } = setup({ outcome, activation_token: ACTIVATION_TOKEN });
+      const { deps, rpc } = setup({ outcome, activation_token: ACTIVATION_TOKEN });
       const res = await handleBooking(req('/api/reservations', form, { cookie: `uc_session=${SESSION_TOKEN}` }), deps);
+      expect((rpc.calls[0]!.args[0] as { p_session_token: unknown }).p_session_token).toBeNull();
       expect(await jsonOf(res)).toEqual({ status: 'check_email' });
-      expect(setCookies(res)).toEqual(['uc_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax']);
+      expect(setCookies(res)).toEqual([]);
     }
   });
 

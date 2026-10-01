@@ -273,7 +273,13 @@ function App() {
     try {
       await logout();
     } catch {
-      // Even if the call fails, forget the session locally.
+      // The httpOnly cookie can only be cleared by the server: pretending to be
+      // logged out here would leave the session alive on this device.
+      showBookingError({
+        title: "Couldn't log out", // COPY-DRAFT
+        message: "Check your connection and try again.", // COPY-DRAFT
+      });
+      return;
     }
     setSessionContact(null);
   };

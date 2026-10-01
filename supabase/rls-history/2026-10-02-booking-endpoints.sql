@@ -462,6 +462,7 @@ declare
   v_consent_p   boolean;
   v_event_id    uuid;
   v_res_status  text;
+  v_res_stale   boolean;
   v_res_outcome text := 'none';
   v_session     text;
   v_ticket      text;
@@ -558,7 +559,8 @@ begin
 
   if v_res_id is not null then
     -- Only the reservation this link was issued for, only if still a live
-    -- pending of this same contact.
+    -- pending of this same contact, and only while its event is still
+    -- bookable (unpublished or past since the booking → `unavailable`).
     update underclub.reservations r
        set status = 'confirmed',
            confirmed_at = now(),
@@ -566,15 +568,24 @@ begin
      where r.id = v_res_id
        and r.contact_id = v_contact_id
        and r.status = 'pending'
-       and r.pending_expires_at > now();
+       and r.pending_expires_at > now()
+       and exists (
+         select 1 from underclub.events e
+          where e.id = r.event_id
+            and e.status = 'published'
+            and e.date >= (now() at time zone 'Europe/Rome')::date
+       );
 
     if found then
       v_ticket := underclub.issue_ticket_access_token(v_res_id);
       v_res_outcome := 'confirmed';
     else
-      select r.status into v_res_status from underclub.reservations r where r.id = v_res_id;
-      -- A stale pending stays pending: booking again sends a fresh link.
-      v_res_outcome := case when v_res_status = 'pending' then 'expired' else 'unavailable' end;
+      -- A stale pending stays pending: booking again sends a fresh link. A
+      -- live pending whose event is no longer bookable is `unavailable`.
+      select r.status, r.pending_expires_at <= now()
+        into v_res_status, v_res_stale
+        from underclub.reservations r where r.id = v_res_id;
+      v_res_outcome := case when v_res_status = 'pending' and v_res_stale then 'expired' else 'unavailable' end;
     end if;
   end if;
 

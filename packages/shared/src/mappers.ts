@@ -16,6 +16,7 @@ import type {
   AdminReservationView,
   AdminScanResult,
   AdminScanResultCode,
+  ReservationStatus,
 } from './types';
 
 type ReservationsInsert = Database['underclub']['Tables']['reservations']['Insert'];
@@ -140,6 +141,7 @@ export function toTicketViewData(
     eventName: event.title,
     eventDate: event.date,
     entryName: entry.name,
+    status: reservation.status,
   };
 }
 
@@ -154,6 +156,7 @@ export function toTicketViewDataFromPublicTicket(row: PublicTicketRow): TicketVi
     eventName: row.event_title,
     eventDate: row.event_date,
     entryName: row.entry_name,
+    status: row.status as ReservationStatus,
   };
 }
 

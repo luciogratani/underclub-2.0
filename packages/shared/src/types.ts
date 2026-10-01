@@ -139,6 +139,8 @@ export interface TicketViewData {
   eventName: string;
   eventDate: string; // ISO (YYYY-MM-DD)
   entryName: string;
+  /** A cancelled reservation keeps its token: the page must not show a QR. */
+  status?: ReservationStatus;
 }
 
 /** Input data for the BookNow section (event context + available tiers). */
