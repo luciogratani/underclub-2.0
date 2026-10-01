@@ -1,7 +1,7 @@
 # DNS di `underclub.it` — cosa aggiungere al momento del wiring
 
-Preparato il 2026-10-01. Applicate il 2026-10-01 le sezioni C (DMARC), D
-(Postmaster) ed E (inoltro `info@`); A e B (Resend) restano da fare.
+Preparato il 2026-10-01. **Tutto applicato il 2026-10-01**: A e B da Resend
+(auto-configurazione Vercel, domini verificati), C, D ed E a mano.
 
 ## Dove sta il DNS
 
@@ -38,7 +38,7 @@ default Vercel. Nessun MX e nessun TXT prima delle sezioni D ed E.
 I nomi sono relativi a `underclub.it`: `send.reservations` significa
 `send.reservations.underclub.it`, e `@` è la root.
 
-### A. Email transazionali — `reservations.underclub.it` (Resend)
+### A. Email transazionali — `reservations.underclub.it` (Resend, APPLICATO 2026-10-01)
 
 | Nome | Tipo | Valore | Priorità |
 |---|---|---|---|
@@ -46,13 +46,17 @@ I nomi sono relativi a `underclub.it`: `send.reservations` significa
 | `send.reservations` | TXT | `v=spf1 include:amazonses.com ~all` | |
 | `resend._domainkey.reservations` | TXT | `p=…` **(da copiare da Resend)** | |
 
-### B. Email promozionali — `news.underclub.it` (Resend)
+### B. Email promozionali — `news.underclub.it` (Resend, APPLICATO 2026-10-01)
 
 | Nome | Tipo | Valore | Priorità |
 |---|---|---|---|
 | `send.news` | MX | `feedback-smtp.eu-west-1.amazonses.com` | 10 |
 | `send.news` | TXT | `v=spf1 include:amazonses.com ~all` | |
 | `resend._domainkey.news` | TXT | `p=…` **(da copiare da Resend)** | |
+
+A e B li ha scritti Resend con l'auto-configurazione Vercel, nella regione
+EU: i valori reali sono quelli in Resend → Domains e in `vercel dns ls
+underclub.it`. Le tabelle sopra sono quelle attese, a titolo di riferimento.
 
 Un sottodominio separato per le promozionali tiene la reputazione dei
 ticket al riparo da quella delle newsletter. Le email promozionali dovranno
