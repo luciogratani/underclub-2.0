@@ -1,6 +1,6 @@
 # DNS di `underclub.it` — cosa aggiungere al momento del wiring
 
-Preparato il 2026-10-01. Niente di questo file è ancora stato applicato.
+Preparato il 2026-10-01. Applicata solo la sezione D (Postmaster), il 2026-10-01.
 
 ## Dove sta il DNS
 
@@ -69,7 +69,7 @@ bloccare, e si stringe a `p=quarantine` dopo qualche settimana di invii puliti
 visti in Postmaster. Per ricevere i report aggregati serve `rua=mailto:…`
 verso una casella esistente (vedi E).
 
-### D. Google Postmaster Tools — verifica del dominio
+### D. Google Postmaster Tools — verifica del dominio (APPLICATO 2026-10-01)
 
 | Nome | Tipo | Valore |
 |---|---|---|
@@ -107,6 +107,7 @@ vercel dns add underclub.it resend._domainkey.news TXT 'p=DA_RESEND'
 
 vercel dns add underclub.it _dmarc TXT 'v=DMARC1; p=none;'
 
+# fatto il 2026-10-01:
 vercel dns add underclub.it @ TXT 'google-site-verification=w0Rk_jsgyx3ZWKurk8ShSLgI4nhgOYWHFzlD5w5w2Ww'
 vercel dns add underclub.it a4da624kvswx CNAME gv-ykmswailjaspup.dv.googlehosted.com
 ```
