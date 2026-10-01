@@ -125,7 +125,7 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 
 ### Domande aperte / prossimi step
 - [x] **Auth admin**: implementata con email+password (sezione 5). La RPC `scan_ticket_check_in` ora esegue correttamente per qualsiasi utente loggato (`authenticated`).
-- [ ] **Camera scanner**: wiring `BarcodeDetector` nel `/check-in` per scansione live, con fallback a input manuale.
+- [x] *(fatto il 2026-04-22, sezione 6)* **Camera scanner**: wiring `BarcodeDetector` nel `/check-in` per scansione live, con fallback a input manuale.
 - [ ] **Visibilita' qr_scanned_at** nelle liste admin (Reservations, Guest list, Analytics) → gia' presente nel mapper `toAdminReservationView`, manca solo il wiring UI quando quelle pagine verranno implementate.
 - [ ] **Vincolo evento/data**: al momento non applicato. Valutare se limitare i check-in a `events.date = current_date` o evento "attivo".
 - [ ] **Logging operativo**: chi ha scannerizzato e quando. Non in questa fase (admin unico).
@@ -396,8 +396,9 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
 ### Cosa c'è
 - **SQL** — `supabase/rls-history/2026-10-02-booking-endpoints.sql`: una funzione
   `ep_*` per operazione (prenota, attiva, link di accesso, sessione, logout, le mie
-  prenotazioni, disdetta), eseguibili solo da `service_role`; `get_public_ticket`
-  per la pagina ticket; `scan_ticket_check_in` riscritta.
+  prenotazioni, disdetta), eseguibili solo da `service_role`; `open_public_ticket`
+  per la pagina ticket; `scan_ticket_check_in` riscritta. Il secondo giro
+  (sotto) ha cambiato alcune di queste funzioni.
 - **Endpoint** — `apps/web/api/` (Vercel Functions) sopra handler puri in
   `apps/web/server/`. Cookie `uc_session` httpOnly 12 mesi a rinnovo, POST solo JSON
   con `Origin` ammesso, nessuna enumerazione delle email.
@@ -405,10 +406,17 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
   pagina `/activate`, blocco "booking as" con sessione, prezzo e orario limite delle
   formule, cattura della fonte. Flag spento → funnel di oggi.
 - **Admin** — il check-in mostra `pending` e l'avviso "formula scaduta".
-- **Test** — `supabase/tests/run.sh` (8 file, attacchi RLS e concorrenza reale) e
-  `pnpm --filter web test` (78 unit + 7 integrazione). Più un giro end-to-end in
-  Chrome headless contro il Postgres locale: prenotazione → link → attivazione →
-  cookie → ticket con QR → "already in".
+- **Test automatici** — `supabase/tests/run.sh` (12 file: attacchi RLS,
+  concorrenza reale, token derivato, recupero, limiti, pulizia) e
+  `pnpm --filter web test` (105 unit + 10 integrazione sul Postgres dell'harness).
+  Più giri end-to-end in Chrome headless contro il Postgres locale.
+- **Test manuale** (2026-10-01, sito pubblico, ricetta in
+  [`test-manuale-locale.md`](./test-manuale-locale.md)): sono passati prenotazione
+  anonima, link di conferma, ticket ed email del ticket, recupero da `/account`
+  dopo il logout, una nuova prenotazione mentre un'altra era in attesa (la
+  pending non tiene il posto) e la conferma tardiva oltre quota: 4 confermati su
+  3, SOLD OUT in home. L'overbooking minimo è confermato come scelta. Non
+  provati: check-in admin, BotID e cron, che serviranno il deploy di preview.
 
 ### Decisioni tecniche prese in autonomia
 - **La logica sta in SQL**, gli endpoint sono sottili: atomicità e race si
@@ -479,6 +487,9 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
   essere facile quanto il consenso dato con una spunta.
 
 ### Aperto
+- **Da decidere (piccolo)**: senza sessione `GET /api/session` risponde 401, come
+  da contratto, e Chrome lo mostra in rosso in console. Si può passare a `200` con
+  `null`: cambia solo l'aspetto della console.
 - **TODO futuro**: la sezione cookie della privacy non dice cosa salva nel
   browser lo script di BotID. Da verificare quando si rivedono i testi della
   privacy; non è una priorità adesso.

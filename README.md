@@ -91,7 +91,8 @@ docs/           → documentazione (vedi sotto)
 | [`docs/cursor_react_performance_and_bundle_siz.md`](docs/cursor_react_performance_and_bundle_siz.md) | Analisi bundle e runtime di `apps/web` con roadmap |
 | [`docs/modifica-struttura-public.md`](docs/modifica-struttura-public.md) | Refactor del funnel pubblico a colonna singola |
 | [`docs/lanyard-physics-ab.svg`](docs/lanyard-physics-ab.svg) | Confronto visivo fra i due motori fisici del lanyard |
-| `docs/security/` | Copie delle migrazioni RLS applicate |
+| [`docs/test-manuale-locale.md`](docs/test-manuale-locale.md) | Come provare a mano il flusso passwordless in locale, senza Supabase né Vercel |
+| `docs/security/` | Note sulle migrazioni RLS (quella del 2026-10-02 non è ancora applicata) |
 
 ## Database
 
