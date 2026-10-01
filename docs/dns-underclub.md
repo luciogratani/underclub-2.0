@@ -1,6 +1,7 @@
 # DNS di `underclub.it` — cosa aggiungere al momento del wiring
 
-Preparato il 2026-10-01. Applicata solo la sezione D (Postmaster), il 2026-10-01.
+Preparato il 2026-10-01. Applicate le sezioni D (Postmaster) ed E (inoltro
+`info@`), il 2026-10-01; A, B e C restano da fare.
 
 ## Dove sta il DNS
 
@@ -14,7 +15,7 @@ non serve.
 
 Record presenti oggi (`vercel dns ls underclub.it`): tre CAA (Google,
 Sectigo, Let's Encrypt), ALIAS sulla root e ALIAS wildcard `*`, tutti di
-default Vercel. **Nessun MX e nessun TXT.**
+default Vercel. Nessun MX e nessun TXT prima delle sezioni D ed E.
 
 ## Prima del wiring (non richiede il DNS)
 
@@ -79,18 +80,26 @@ verso una casella esistente (vedi E).
 Google offre i due metodi in alternativa: ne basta uno, metterli entrambi non
 fa danni.
 
-### E. Casella `info@underclub.it` — DA DECIDERE, bloccante
+### E. Casella `info@underclub.it` — inoltro ImprovMX (APPLICATO 2026-10-01)
 
 Il sito (privacy, `/info`, `/account`) indica `info@underclub.it` come
-indirizzo per la revoca dei consensi e per i contatti. **Oggi il dominio non
-ha MX, quindi le email a quell'indirizzo non arrivano.** Servono i record MX
-(e l'SPF sulla root) del provider che ospita la casella. Opzioni:
+indirizzo per la revoca dei consensi e per i contatti. La casella non è mai
+esistita (confermato dal proprietario del dominio): ora è un alias
+ImprovMX (piano gratuito, account di Lucio) che inoltra alla email personale
+di chi gestisce il sito. Nessuna casella vera: rispondere *come* `info@`
+richiederebbe "Invia come" con un SMTP (passo facoltativo, non fatto).
 
-- se la casella esiste già altrove, usare i valori di quel provider;
-- altrimenti un provider di posta (Google Workspace, Zoho, …) o un inoltro
-  verso una casella esistente (ImprovMX, Forward Email, …).
+| Nome | Tipo | Valore | Priorità |
+|---|---|---|---|
+| `@` | MX | `mx1.improvmx.com` | 10 |
+| `@` | MX | `mx2.improvmx.com` | 20 |
+| `@` | TXT | `v=spf1 include:spf.improvmx.com ~all` | |
 
-Quando la casella esiste, impostare su Vercel `EMAIL_REPLY_TO=info@underclub.it`.
+Se un giorno serve una casella vera (Google Workspace, Zoho, …) si cambiano
+solo questi tre record. L'SPF sulla root non interferisce con Resend, che usa
+i sottodomini `send.*`.
+
+Da impostare su Vercel: `EMAIL_REPLY_TO=info@underclub.it`.
 Le risposte alle email dei ticket arrivano lì: `reservations.underclub.it`
 non ha una casella.
 
@@ -107,7 +116,10 @@ vercel dns add underclub.it resend._domainkey.news TXT 'p=DA_RESEND'
 
 vercel dns add underclub.it _dmarc TXT 'v=DMARC1; p=none;'
 
-# fatto il 2026-10-01:
+# fatti il 2026-10-01:
+vercel dns add underclub.it @ MX mx1.improvmx.com 10
+vercel dns add underclub.it @ MX mx2.improvmx.com 20
+vercel dns add underclub.it @ TXT 'v=spf1 include:spf.improvmx.com ~all'
 vercel dns add underclub.it @ TXT 'google-site-verification=w0Rk_jsgyx3ZWKurk8ShSLgI4nhgOYWHFzlD5w5w2Ww'
 vercel dns add underclub.it a4da624kvswx CNAME gv-ykmswailjaspup.dv.googlehosted.com
 ```
@@ -124,6 +136,7 @@ dig +short MX send.reservations.underclub.it
 dig +short TXT resend._domainkey.reservations.underclub.it
 dig +short TXT _dmarc.underclub.it
 dig +short TXT underclub.it
+dig +short MX underclub.it
 dig +short CNAME a4da624kvswx.underclub.it
 ```
 
