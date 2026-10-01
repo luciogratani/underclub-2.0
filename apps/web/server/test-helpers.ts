@@ -12,6 +12,9 @@ export const RESERVATION_ID = '33333333-3333-4333-8333-333333333333';
 export const SESSION_TOKEN = 'sessSESSsessSESSsessSESSsessSESSsessSESS_-1';
 export const ACTIVATION_TOKEN = 'actvACTVactvACTVactvACTVactvACTVactvACTV-_2';
 export const TICKET_TOKEN = 'tickTICKtickTICKtickTICKtickTICKtickTICK-_3';
+export const TICKET_SECRET = 'test-ticket-secret-0123456789abcdefghij';
+export const IP_HASH_SECRET = 'test-ip-hash-secret-0123456789abcdefghij';
+export const CRON_SECRET = 'test-cron-secret-0123456789';
 
 export function testEnv(over: Partial<ServerEnv> = {}): ServerEnv {
   return {
@@ -24,18 +27,33 @@ export function testEnv(over: Partial<ServerEnv> = {}): ServerEnv {
     resendApiKey: null,
     supabaseUrl: null,
     supabaseServiceRoleKey: null,
+    ticketSecret: TICKET_SECRET,
+    ipHashSecret: IP_HASH_SECRET,
+    cronSecret: CRON_SECRET,
     ...over,
   };
 }
 
-export type FakeRpc = Rpc & { calls: Array<{ fn: keyof Rpc; args: unknown[] }> };
+/**
+ * `calls` records the business calls; `throttle` (the per-IP limit, allowed
+ * by default) is recorded apart in `throttleCalls` so it does not shift them.
+ */
+export type FakeRpc = Rpc & {
+  calls: Array<{ fn: keyof Rpc; args: unknown[] }>;
+  throttleCalls: Array<Parameters<Rpc['throttle']>>;
+};
 
 export function fakeRpc(impl: Partial<Rpc> = {}): FakeRpc {
   const calls: FakeRpc['calls'] = [];
+  const throttleCalls: FakeRpc['throttleCalls'] = [];
   const names: Array<keyof Rpc> = [
-    'requestBooking', 'activate', 'requestLogin', 'session', 'logout', 'myReservations', 'cancelReservation',
+    'requestBooking', 'activate', 'requestLogin', 'sessionOverview', 'logout', 'cancelReservation', 'cleanup',
   ];
-  const rpc = { calls } as FakeRpc;
+  const rpc = { calls, throttleCalls } as FakeRpc;
+  rpc.throttle = async (...args) => {
+    throttleCalls.push(args);
+    return impl.throttle ? impl.throttle(...args) : true;
+  };
   for (const name of names) {
     (rpc as unknown as Record<string, unknown>)[name] = async (...args: unknown[]) => {
       calls.push({ fn: name, args });
@@ -53,13 +71,19 @@ export interface TestDeps {
   email: CapturingTransport;
 }
 
-export function makeDeps(impl: Partial<Rpc> = {}, env: Partial<ServerEnv> = {}): TestDeps {
+export function makeDeps(
+  impl: Partial<Rpc> = {},
+  env: Partial<ServerEnv> = {},
+  extra: Partial<Pick<Deps, 'botCheck'>> = {},
+): TestDeps {
   const rpc = fakeRpc(impl);
   const email = createCapturingTransport();
-  return { rpc, email, deps: { rpc, email, env: testEnv(env), now: () => NOW } };
+  return { rpc, email, deps: { rpc, email, env: testEnv(env), now: () => NOW, botCheck: async () => false, ...extra } };
 }
 
 export interface ReqOptions {
+  /** Extra request headers (e.g. x-real-ip, authorization). */
+  headers?: Record<string, string>;
   origin?: string | null;
   contentType?: string | null;
   cookie?: string | null;
@@ -75,6 +99,7 @@ export function req(path: string, body?: unknown, o: ReqOptions = {}): Request {
   const type = o.contentType === undefined ? 'application/json' : o.contentType;
   if (type && method !== 'GET') headers.set('Content-Type', type);
   if (o.cookie) headers.set('Cookie', o.cookie);
+  for (const [k, v] of Object.entries(o.headers ?? {})) headers.set(k, v);
   const payload = method === 'GET' ? undefined : (o.rawBody ?? (body === undefined ? undefined : JSON.stringify(body)));
   return new Request(`${SITE}${path}`, { method, headers, body: payload });
 }

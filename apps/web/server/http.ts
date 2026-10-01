@@ -68,6 +68,11 @@ export function guardPost(request: Request, env: ServerEnv): Response | null {
   return null;
 }
 
+/** BotID verdict for the email-sending POSTs: 403 `bad_request` "bot", or null. */
+export async function guardBot(request: Request, deps: Deps): Promise<Response | null> {
+  return (await deps.botCheck(request)) ? apiError(403, 'bad_request', 'bot') : null;
+}
+
 async function readCapped(request: Request): Promise<string> {
   const declared = Number(request.headers.get('content-length') ?? '0');
   if (declared > MAX_BODY_BYTES) throw new HttpError(400, 'bad_request', 'Body too large');

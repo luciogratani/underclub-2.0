@@ -15,6 +15,7 @@ export type ApiErrorCode =
   | 'unauthorized'
   | 'not_found'
   | 'not_cancellable'
+  | 'rate_limited' // 429: too many requests from this network
   | 'server_error';
 
 export interface ApiError {
@@ -40,6 +41,7 @@ export type BookingResponse =
   | { status: 'already_booked'; reservationId: string; ticketUrl: null } // with session
   | { status: 'check_email' }; // without session: pending OR already booked (anti-enumeration)
 // sold_out / not_bookable / invalid_entry / invalid_input → error 409/409/400/400
+// too many requests from the same network → 429 rate_limited; bot → 403 bad_request
 
 // POST /api/auth/activate
 export interface ActivateRequest {
@@ -52,7 +54,7 @@ export type ActivateResponse =
   | { status: 'invalid' }
   | { status: 'expired' }; // 200 also for invalid/expired
 
-// POST /api/auth/login-link → always CheckEmailResponse
+// POST /api/auth/login-link → CheckEmailResponse (429 rate_limited per network, 403 for bots)
 export interface LoginLinkRequest {
   email: string;
 }
@@ -89,6 +91,8 @@ export interface MyReservation {
   entryPrice: number;
   entryValidUntil: string | null;
   qrScanned: boolean;
+  /** Ticket link (buildTicketUrl) when the server can rebuild it; null → the link is in the email. */
+  ticketUrl: string | null;
 }
 
 export interface SessionResponse {

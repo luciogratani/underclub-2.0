@@ -144,7 +144,7 @@ export async function fetchTicketData(
   if (BOOKING_API) {
     if (!supabase) return null;
     const { data, error } = await supabase
-      .rpc('get_public_ticket', { p_reservation_id: reservationId, p_token: ticketToken })
+      .rpc('open_public_ticket', { p_reservation_id: reservationId, p_token: ticketToken })
       .maybeSingle();
     // No row = token does not match: same outcome as the RLS path below.
     if (error || !data) return null;

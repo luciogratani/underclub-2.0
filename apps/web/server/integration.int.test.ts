@@ -17,8 +17,9 @@ import { handleSession } from './handlers/session.js';
 import { handleCancel } from './handlers/cancel.js';
 import { handleLoginLink } from './handlers/loginLink.js';
 import { handleLogout } from './handlers/logout.js';
+import { handleCronCleanup } from './handlers/cronCleanup.js';
 import type { Deps } from './deps.js';
-import { SITE, jsonOf, req, setCookies, testEnv } from './test-helpers.js';
+import { CRON_SECRET, SITE, TICKET_SECRET, jsonOf, req as baseReq, setCookies, testEnv, type ReqOptions } from './test-helpers.js';
 
 const url = process.env.TEST_PG_URL;
 if (!url) {
@@ -37,6 +38,11 @@ describe.skipIf(!url)('booking flow against the harness DB', () => {
     b: { event: '', entry: '' },
   };
   let cookie = '';
+  // Each run gets its own client "IP" so the per-IP buckets of earlier runs
+  // (the harness DB may be kept between runs) never interfere.
+  const ip = `it-${run}`;
+  const req = (path: string, body?: unknown, o: ReqOptions = {}) =>
+    baseReq(path, body, { ...o, headers: { 'x-real-ip': ip, ...o.headers } });
 
   function lastLink(kind: string): string {
     const mail = [...email.sent].reverse().find((m) => m.kind === kind);
@@ -52,7 +58,7 @@ describe.skipIf(!url)('booking flow against the harness DB', () => {
   }
 
   beforeAll(async () => {
-    rpc = createPgRpc(url!);
+    rpc = createPgRpc(url!, TICKET_SECRET);
     admin = new pg.Client({ connectionString: url });
     await admin.connect();
     for (const key of ['a', 'b'] as const) {
@@ -67,7 +73,7 @@ describe.skipIf(!url)('booking flow against the harness DB', () => {
       );
       ev[key] = { event: e.rows[0]!.id, entry: n.rows[0]!.id };
     }
-    deps = { rpc, email, env: testEnv() };
+    deps = { rpc, email, env: testEnv(), botCheck: async () => false };
   });
 
   afterAll(async () => {
@@ -102,6 +108,7 @@ describe.skipIf(!url)('booking flow against the harness DB', () => {
     const body = await jsonOf(res);
     expect(body).toMatchObject({ status: 'ok', reservation: 'confirmed' });
     expect(body.ticketUrl).toMatch(/^\/ticket\/[0-9a-f-]{36}\?t=/);
+    aTicketUrl = body.ticketUrl;
     cookie = cookieFrom(res);
     const mail = email.sent.at(-1)!;
     expect(mail.kind).toBe('ticket');
@@ -112,13 +119,17 @@ describe.skipIf(!url)('booking flow against the harness DB', () => {
     expect(await jsonOf(again)).toEqual({ status: 'invalid' });
   });
 
-  it('GET /api/session with the cookie', async () => {
+  let aTicketUrl = '';
+
+  it('GET /api/session with the cookie (one overview call, derived ticketUrl)', async () => {
     const res = await handleSession(req('/api/session', undefined, { method: 'GET', cookie }), deps);
     expect(res.status).toBe(200);
     const body = await jsonOf(res);
     expect(body.contact).toEqual({ email: address, fullName: 'Ada Integration', marketingConsent: true, profilingConsent: false });
     expect(body.reservations).toHaveLength(1);
     expect(body.reservations[0]).toMatchObject({ status: 'confirmed', eventTitle: `Integration A ${run}`, entryPrice: 10, qrScanned: false });
+    // The overview re-derives the same token the activation returned.
+    expect(body.reservations[0].ticketUrl).toBe(aTicketUrl);
     expect(setCookies(res)[0]).toContain('Max-Age=31536000');
   });
 
@@ -179,5 +190,49 @@ describe.skipIf(!url)('booking flow against the harness DB', () => {
     expect(setCookies(dead)[0]).toContain('Max-Age=0');
     // The other device's session is untouched.
     expect((await handleSession(req('/api/session', undefined, { method: 'GET', cookie: second }), deps)).status).toBe(200);
+  });
+
+  it('per-address limit: after 3 activation tokens in an hour → rate_limited, same check_email, no email', async () => {
+    const other = `limit-${run}@example.com`;
+    const book = await handleBooking(req('/api/reservations', { ...form(), email: other }), deps);
+    expect(await jsonOf(book)).toEqual({ status: 'check_email' });
+    for (let i = 0; i < 2; i += 1) {
+      await handleLoginLink(req('/api/auth/login-link', { email: other }, { headers: { 'x-real-ip': `${ip}-addr` } }), deps);
+    }
+    const sentTo = () => email.sent.filter((m) => m.to === other).length;
+    expect(sentTo()).toBe(3);
+    const limited = await handleLoginLink(req('/api/auth/login-link', { email: other }, { headers: { 'x-real-ip': `${ip}-addr` } }), deps);
+    expect(limited.status).toBe(200);
+    expect(await jsonOf(limited)).toEqual({ status: 'check_email' });
+    const rebook = await handleBooking(req('/api/reservations', { ...form(), eventId: ev.b.event, entryId: ev.b.entry, email: other }), deps);
+    expect(await jsonOf(rebook)).toEqual({ status: 'check_email' });
+    expect(sentTo()).toBe(3);
+  });
+
+  it('per-IP limit: the 6th login link from one IP in 10 minutes → 429; the DB only sees the hash', async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 6; i += 1) {
+      const res = await handleLoginLink(
+        req('/api/auth/login-link', { email: `nobody-${i}-${run}@example.com` }, { headers: { 'x-real-ip': `${ip}-burst` } }),
+        deps,
+      );
+      statuses.push(res.status);
+    }
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 429]);
+    const leaked = await admin.query(`select 1 from underclub.request_throttle where key_hash like $1`, [`%${ip}%`]);
+    expect(leaked.rowCount).toBe(0);
+  });
+
+  it('cron cleanup: 401 without the secret, counts with it', async () => {
+    const denied = await handleCronCleanup(req('/api/cron/cleanup', undefined, { method: 'GET' }), deps);
+    expect(denied.status).toBe(401);
+    const res = await handleCronCleanup(
+      req('/api/cron/cleanup', undefined, { method: 'GET', headers: { authorization: `Bearer ${CRON_SECRET}` } }),
+      deps,
+    );
+    expect(res.status).toBe(200);
+    const counts = await jsonOf(res);
+    expect(Object.values(counts).length).toBeGreaterThan(0);
+    for (const v of Object.values(counts)) expect(typeof v).toBe('number');
   });
 });

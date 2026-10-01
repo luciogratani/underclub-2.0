@@ -9,6 +9,8 @@
  * - Email always goes to the console transport: links are printed in the
  *   terminal, nothing is sent.
  * - Any http://localhost:<port> origin is accepted.
+ * - BotID never blocks (`notABot`); TICKET_SECRET / IP_HASH_SECRET /
+ *   CRON_SECRET fall back to dev-only defaults when unset (see env.ts).
  */
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readEnv } from './env.js';
@@ -17,6 +19,7 @@ import { createSupabaseRpc, type Rpc } from './rpc.js';
 import { apiError } from './http.js';
 import { routes } from './routes.js';
 import type { Deps } from './deps.js';
+import { notABot } from './botid.js';
 
 type EnvSource = Record<string, string | undefined>;
 
@@ -24,16 +27,18 @@ type EnvSource = Record<string, string | undefined>;
 const store = globalThis as typeof globalThis & { __ucDevRpc?: Map<string, Rpc> };
 store.__ucDevRpc ??= new Map();
 
-async function rpcFor(source: EnvSource): Promise<Rpc> {
+async function rpcFor(source: EnvSource, ticketSecret: string): Promise<Rpc> {
   const pgUrl = source.DEV_PG_URL?.trim();
-  const key = pgUrl ? `pg:${pgUrl}` : `supabase:${source.SUPABASE_URL ?? ''}`;
+  const target = pgUrl ? `pg:${pgUrl}` : `supabase:${source.SUPABASE_URL ?? ''}`;
+  // In-memory only: a changed secret in .env gets its own Rpc.
+  const key = `${target}|${ticketSecret}`;
   let rpc = store.__ucDevRpc!.get(key);
   if (!rpc) {
     if (pgUrl) {
       const { createPgRpc } = await import('./rpc-pg.js');
-      rpc = createPgRpc(pgUrl);
+      rpc = createPgRpc(pgUrl, ticketSecret);
     } else {
-      rpc = createSupabaseRpc(source.SUPABASE_URL ?? '', source.SUPABASE_SERVICE_ROLE_KEY ?? '');
+      rpc = createSupabaseRpc(source.SUPABASE_URL ?? '', source.SUPABASE_SERVICE_ROLE_KEY ?? '', ticketSecret);
     }
     store.__ucDevRpc!.set(key, rpc);
   }
@@ -47,7 +52,7 @@ async function devDeps(source: EnvSource, host: string): Promise<Deps> {
     EMAIL_TRANSPORT: 'console',
   };
   const env = readEnv(withDefaults, { dev: true, requireSupabase: !source.DEV_PG_URL?.trim() });
-  return { env, rpc: await rpcFor(source), email: createConsoleTransport() };
+  return { env, rpc: await rpcFor(source, env.ticketSecret), email: createConsoleTransport(), botCheck: notABot };
 }
 
 async function readBody(req: IncomingMessage): Promise<Buffer> {

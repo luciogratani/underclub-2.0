@@ -6,6 +6,7 @@ import { handleActivate } from './handlers/activate.js';
 import { handleLoginLink } from './handlers/loginLink.js';
 import { handleLogout } from './handlers/logout.js';
 import { handleSession } from './handlers/session.js';
+import { handleCronCleanup } from './handlers/cronCleanup.js';
 
 export const routes: Record<string, Handler> = {
   '/api/reservations': handleBooking,
@@ -14,4 +15,5 @@ export const routes: Record<string, Handler> = {
   '/api/auth/login-link': handleLoginLink,
   '/api/auth/logout': handleLogout,
   '/api/session': handleSession,
+  '/api/cron/cleanup': handleCronCleanup,
 };

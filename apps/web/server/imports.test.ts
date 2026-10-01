@@ -60,4 +60,27 @@ describe('runtime import rules', () => {
     );
     expect(bad).toEqual([]);
   });
+
+  it('botid: server code imports only botid/server, from server/botid.ts; src/ only botid/client/core', () => {
+    const serverBad = serverFiles.flatMap((f) =>
+      imports(f)
+        .filter((i) => /^botid(\/|$)/.test(i.spec))
+        .filter((i) => i.spec !== 'botid/server' || relative(webRoot, f) !== join('server', 'botid.ts'))
+        .map((i) => `${relative(webRoot, f)}: ${i.spec}`),
+    );
+    const clientBad = tsFiles(join(webRoot, 'src')).flatMap((f) =>
+      imports(f)
+        .filter((i) => /^botid(\/|$)/.test(i.spec) && i.spec !== 'botid/client/core')
+        .map((i) => `${relative(webRoot, f)}: ${i.spec}`),
+    );
+    expect([...serverBad, ...clientBad]).toEqual([]);
+  });
+
+  it('every api/ function has a route in server/routes.ts (dev parity)', () => {
+    const routes = readFileSync(join(webRoot, 'server', 'routes.ts'), 'utf8');
+    const missing = tsFiles(join(webRoot, 'api'))
+      .map((f) => '/' + relative(webRoot, f).replace(/\\/g, '/').replace(/\.ts$/, '').replace(/\/index$/, ''))
+      .filter((p) => !routes.includes(`'${p}'`));
+    expect(missing).toEqual([]);
+  });
 });

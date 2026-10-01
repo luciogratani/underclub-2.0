@@ -11,7 +11,8 @@ import type { Deps } from '../deps.js';
 async function eventFor(deps: Deps, sessionToken: string, reservationId: string): Promise<EventInfo> {
   const empty: EventInfo = { title: null, date: null, time: null, entryName: null };
   try {
-    const r = (await deps.rpc.myReservations(sessionToken)).find((x) => x.reservation_id === reservationId);
+    const overview = await deps.rpc.sessionOverview(sessionToken);
+    const r = overview?.reservations.find((x) => x.reservation_id === reservationId);
     return r ? { title: r.event_title, date: r.event_date, time: r.event_time, entryName: r.entry_name } : empty;
   } catch {
     return empty;

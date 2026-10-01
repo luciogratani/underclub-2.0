@@ -1,15 +1,21 @@
-/** POST /api/auth/login-link { email } → ep_request_login. Always "check_email". */
+/** POST /api/auth/login-link { email } → ep_request_login. "check_email" unless refused (403 bot, 429 per IP). */
 import type { CheckEmailResponse } from '@underclub/shared';
-import { guardPost, json, readJsonObject, safeHandler } from '../http.js';
+import { guardBot, guardPost, json, readJsonObject, safeHandler } from '../http.js';
+import { LOGIN_LINK_IP_LIMIT, enforceIpLimit } from '../throttle.js';
 import { validateLoginLink } from '../validate.js';
 import { activationLink } from '../links.js';
 import { loginEmail } from '../emails/templates.js';
 
 export const handleLoginLink = safeHandler('login-link', 'POST', async (request, deps) => {
-  const guard = guardPost(request, deps.env);
+  const guard = guardPost(request, deps.env) ?? (await guardBot(request, deps));
   if (guard) return guard;
 
   const email = validateLoginLink(await readJsonObject(request));
+  const limited = await enforceIpLimit(request, deps, LOGIN_LINK_IP_LIMIT);
+  if (limited) return limited;
+
+  // `unknown` and `rate_limited` (per-address limit) send nothing and answer
+  // like `sent`: the response never reveals whether the address is known.
   const row = await deps.rpc.requestLogin(email);
 
   if (row.outcome === 'sent' && row.activation_token) {

@@ -8,27 +8,36 @@
 import { createClient } from '@supabase/supabase-js';
 // Type-only: @underclub/shared ships raw .ts source, a runtime import would
 // not resolve inside a Vercel function.
-import type { Database } from '@underclub/shared';
+import type { Database, EpCleanupCounts, EpSessionOverview, EpSessionOverviewReservation } from '@underclub/shared';
 
 type Fns = Database['underclub']['Functions'];
 
-export type BookingArgs = Fns['ep_request_booking']['Args'];
+/** Booking arguments as the handler builds them; the Rpc adds `p_ticket_secret`. */
+export type BookingArgs = Omit<Fns['ep_request_booking']['Args'], 'p_ticket_secret'>;
 export type BookingRow = Fns['ep_request_booking']['Returns'][number];
 export type ActivateRow = Fns['ep_activate']['Returns'][number];
 export type LoginRow = Fns['ep_request_login']['Returns'][number];
-export type SessionRow = Fns['ep_session']['Returns'][number];
-export type MyReservationRow = Fns['ep_my_reservations']['Returns'][number];
+export type SessionOverview = EpSessionOverview;
+export type OverviewReservation = EpSessionOverviewReservation;
 export type CancelOutcome = Fns['ep_cancel_reservation']['Returns'];
+export type CleanupCounts = EpCleanupCounts;
 
+/**
+ * The ticket secret is bound when the Rpc is created and added to the calls
+ * that derive ticket tokens, so handlers (and their logs) never see it.
+ */
 export interface Rpc {
   requestBooking(args: BookingArgs): Promise<BookingRow>;
   activate(token: string): Promise<ActivateRow>;
   requestLogin(email: string): Promise<LoginRow>;
-  /** null when the session is not valid. */
-  session(token: string): Promise<SessionRow | null>;
+  /** Contact + upcoming reservations; null when the session is not valid. */
+  sessionOverview(token: string): Promise<SessionOverview | null>;
   logout(token: string): Promise<boolean>;
-  myReservations(token: string): Promise<MyReservationRow[]>;
   cancelReservation(token: string, reservationId: string): Promise<CancelOutcome>;
+  /** One hit on a fixed window; true while still within the limit. */
+  throttle(keyHash: string, action: string, limit: number, windowSeconds: number): Promise<boolean>;
+  /** Periodic cleanup: deleted row counts. */
+  cleanup(): Promise<CleanupCounts>;
 }
 
 /** Error from the database layer. The message never contains arguments. */
@@ -45,7 +54,7 @@ function single<T>(fn: string, rows: T[] | null): T {
   return row;
 }
 
-export function createSupabaseRpc(url: string, serviceRoleKey: string): Rpc {
+export function createSupabaseRpc(url: string, serviceRoleKey: string, ticketSecret: string): Rpc {
   const client = createClient<Database, 'underclub'>(url, serviceRoleKey, {
     db: { schema: 'underclub' },
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
@@ -60,26 +69,31 @@ export function createSupabaseRpc(url: string, serviceRoleKey: string): Rpc {
 
   return {
     async requestBooking(args) {
-      return single('ep_request_booking', await call('ep_request_booking', args));
+      return single('ep_request_booking', await call('ep_request_booking', { ...args, p_ticket_secret: ticketSecret }));
     },
     async activate(token) {
-      return single('ep_activate', await call('ep_activate', { p_token: token }));
+      return single('ep_activate', await call('ep_activate', { p_token: token, p_ticket_secret: ticketSecret }));
     },
     async requestLogin(email) {
       return single('ep_request_login', await call('ep_request_login', { p_email: email }));
     },
-    async session(token) {
-      const rows = await call('ep_session', { p_token: token });
-      return rows?.[0] ?? null;
+    async sessionOverview(token) {
+      return (await call('ep_session_overview', { p_token: token, p_ticket_secret: ticketSecret })) ?? null;
     },
     async logout(token) {
       return Boolean(await call('ep_logout', { p_token: token }));
     },
-    async myReservations(token) {
-      return (await call('ep_my_reservations', { p_token: token })) ?? [];
-    },
     async cancelReservation(token, reservationId) {
       return call('ep_cancel_reservation', { p_token: token, p_reservation_id: reservationId });
+    },
+    async throttle(keyHash, action, limit, windowSeconds) {
+      const allowed = await call('ep_throttle', {
+        p_key_hash: keyHash, p_action: action, p_limit: limit, p_window_seconds: windowSeconds,
+      });
+      return allowed === true;
+    },
+    async cleanup() {
+      return (await call('ep_cleanup', {})) ?? {};
     },
   };
 }

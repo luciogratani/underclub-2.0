@@ -145,8 +145,8 @@ export function toTicketViewData(
   };
 }
 
-/** Row shape returned by the `get_public_ticket` RPC. */
-type PublicTicketRow = Functions['get_public_ticket']['Returns'][number];
+/** Row shape returned by the `open_public_ticket` RPC. */
+type PublicTicketRow = Functions['open_public_ticket']['Returns'][number];
 
 export function toTicketViewDataFromPublicTicket(row: PublicTicketRow): TicketViewData {
   return {

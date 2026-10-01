@@ -3,6 +3,39 @@
  * Keeps queries type-safe without needing the Supabase CLI codegen.
  * Update this file whenever the schema changes.
  */
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
+/** jsonb returned by `ep_session_overview` (null when the session is not valid). */
+export interface EpSessionOverview {
+  contact: {
+    email: string;
+    full_name: string;
+    marketing_consent: boolean;
+    profiling_consent: boolean;
+    session_expires_at: string;
+  };
+  reservations: EpSessionOverviewReservation[];
+}
+
+export interface EpSessionOverviewReservation {
+  reservation_id: string;
+  status: 'confirmed' | 'pending';
+  event_id: string;
+  event_title: string;
+  event_date: string;
+  event_time: string;
+  entry_name: string;
+  entry_price: number;
+  entry_valid_until: string | null;
+  qr_scanned_at: string | null;
+  created_at: string;
+  /** Derived ticket token: only for confirmed bookings of the new model, else null. */
+  ticket_token: string | null;
+}
+
+/** jsonb returned by `ep_cleanup`: deleted row counts by kind. */
+export type EpCleanupCounts = Record<string, number>;
+
 export interface Database {
   underclub: {
     Tables: {
@@ -318,6 +351,29 @@ export interface Database {
           },
         ];
       };
+      // Fixed-window hit counters for the per-IP limits (`ep_throttle`).
+      // key_hash = HMAC-SHA256(IP, IP_HASH_SECRET): the clear IP never gets here.
+      request_throttle: {
+        Row: {
+          key_hash: string;
+          action: string;
+          window_start: string;
+          hits: number;
+        };
+        Insert: {
+          key_hash: string;
+          action: string;
+          window_start: string;
+          hits?: number;
+        };
+        Update: {
+          key_hash?: string;
+          action?: string;
+          window_start?: string;
+          hits?: number;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -368,8 +424,9 @@ export interface Database {
           formula_expired: boolean | null;
         }[];
       };
-      // Anon + authenticated. Zero rows when the token does not match.
-      get_public_ticket: {
+      // Anon + authenticated. Zero rows when the token does not match; on a
+      // match it also marks a confirmed, unscanned ticket as opened.
+      open_public_ticket: {
         Args: {
           p_reservation_id: string;
           p_token: string;
@@ -400,6 +457,8 @@ export interface Database {
           p_consent_marketing: boolean | null;
           p_consent_profiling: boolean | null;
           p_source: string | null;
+          // TICKET_SECRET (>= 32 chars): derives the ticket token.
+          p_ticket_secret: string;
         };
         Returns: {
           outcome:
@@ -409,7 +468,9 @@ export interface Database {
             | 'sold_out'
             | 'not_bookable'
             | 'invalid_entry'
-            | 'invalid_input';
+            | 'invalid_input'
+            // Per-address limit reached (no-session path): nothing written.
+            | 'rate_limited';
           reservation_id: string | null;
           ticket_token: string | null;
           activation_token: string | null;
@@ -424,6 +485,7 @@ export interface Database {
       ep_activate: {
         Args: {
           p_token: string;
+          p_ticket_secret: string;
         };
         Returns: {
           outcome: 'ok' | 'invalid' | 'expired';
@@ -441,25 +503,18 @@ export interface Database {
           p_email: string;
         };
         Returns: {
-          outcome: 'sent' | 'unknown';
+          outcome: 'sent' | 'unknown' | 'rate_limited';
           activation_token: string | null;
           contact_full_name: string | null;
         }[];
       };
-      // Zero rows when the session is not valid.
-      ep_session: {
+      // null when the session is not valid; renews it at most once a day.
+      ep_session_overview: {
         Args: {
           p_token: string;
+          p_ticket_secret: string;
         };
-        Returns: {
-          contact_id: string;
-          email: string;
-          full_name: string;
-          date_of_birth: string;
-          marketing_consent: boolean;
-          profiling_consent: boolean;
-          session_expires_at: string;
-        }[];
+        Returns: EpSessionOverview | null;
       };
       ep_logout: {
         Args: {
@@ -467,31 +522,27 @@ export interface Database {
         };
         Returns: boolean;
       };
-      // Zero rows when the session is not valid.
-      ep_my_reservations: {
-        Args: {
-          p_token: string;
-        };
-        Returns: {
-          reservation_id: string;
-          status: 'confirmed' | 'pending';
-          event_id: string;
-          event_title: string;
-          event_date: string;
-          event_time: string;
-          entry_name: string;
-          entry_price: number;
-          entry_valid_until: string | null;
-          qr_scanned_at: string | null;
-          created_at: string;
-        }[];
-      };
       ep_cancel_reservation: {
         Args: {
           p_token: string;
           p_reservation_id: string;
         };
         Returns: 'ok' | 'invalid_session' | 'not_found' | 'not_cancellable';
+      };
+      // Per-IP fixed window: true while hits <= p_limit after this hit.
+      ep_throttle: {
+        Args: {
+          p_key_hash: string;
+          p_action: string;
+          p_limit: number;
+          p_window_seconds: number;
+        };
+        Returns: boolean;
+      };
+      // Periodic cleanup (Vercel Cron): deleted row counts.
+      ep_cleanup: {
+        Args: Record<PropertyKey, never>;
+        Returns: EpCleanupCounts;
       };
     };
     Enums: {

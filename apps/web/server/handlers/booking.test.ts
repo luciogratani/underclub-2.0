@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { handleBooking } from './booking.js';
 import {
-  ACTIVATION_TOKEN, ENTRY_ID, EVENT_ID, RESERVATION_ID, SESSION_TOKEN, SITE, TICKET_TOKEN,
+  ACTIVATION_TOKEN, ENTRY_ID, EVENT_ID, IP_HASH_SECRET, RESERVATION_ID, SESSION_TOKEN, SITE, TICKET_SECRET, TICKET_TOKEN,
   bookingRow, jsonOf, makeDeps, req, setCookies,
 } from '../test-helpers.js';
+import { ipKeyHash } from '../throttle.js';
 import type { BookingRow } from '../rpc.js';
 
 const form = {
@@ -276,5 +277,72 @@ describe('POST /api/reservations — outcomes', () => {
     const res = await handleBooking(req('/api/reservations', form), deps);
     expect(res.headers.get('content-type')).toContain('application/json');
     expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+});
+
+describe('POST /api/reservations — abuse limits', () => {
+  it('rate_limited from the DB (per address) → identical to pending, and no email', async () => {
+    const pending = setup({ outcome: 'pending', activation_token: ACTIVATION_TOKEN });
+    const limited = setup({ outcome: 'rate_limited', reservation_id: null });
+    const ra = await handleBooking(req('/api/reservations', form), pending.deps);
+    const rb = await handleBooking(req('/api/reservations', form), limited.deps);
+    expect(rb.status).toBe(200);
+    expect(await rb.text()).toBe(await ra.text());
+    expect([...rb.headers.entries()]).toEqual([...ra.headers.entries()]);
+    expect(limited.email.sent).toHaveLength(0);
+  });
+
+  it('per-IP limit: booking 20 / 600 s keyed on HMAC-SHA256(x-real-ip), never the raw IP', async () => {
+    const { deps, rpc } = setup({ activation_token: ACTIVATION_TOKEN });
+    const ip = '198.51.100.23';
+    await handleBooking(
+      req('/api/reservations', form, { headers: { 'x-real-ip': ip, 'x-forwarded-for': '203.0.113.1' } }),
+      deps,
+    );
+    const key = ipKeyHash(ip, IP_HASH_SECRET);
+    expect(key).toMatch(/^[0-9a-f]{64}$/);
+    expect(rpc.throttleCalls).toEqual([[key, 'booking', 20, 600]]);
+    const everything = JSON.stringify([rpc.calls, rpc.throttleCalls]);
+    expect(everything).not.toContain(ip);
+    // The ticket secret is bound inside the Rpc, never passed by the handler.
+    expect(everything).not.toContain(TICKET_SECRET);
+  });
+
+  it('over the per-IP limit → 429 rate_limited, no booking call, no email', async () => {
+    const { deps, rpc, email } = makeDeps({ throttle: async () => false, requestBooking: async () => bookingRow() });
+    const res = await handleBooking(req('/api/reservations', form), deps);
+    expect(res.status).toBe(429);
+    expect(await jsonOf(res)).toEqual({ error: 'rate_limited' });
+    expect(res.headers.get('retry-after')).toBe('600');
+    expect(rpc.calls).toHaveLength(0);
+    expect(email.sent).toHaveLength(0);
+  });
+
+  it('invalid input is refused before counting against the IP', async () => {
+    const { deps, rpc } = setup({});
+    await handleBooking(req('/api/reservations', { ...form, email: 'nope' }), deps);
+    expect(rpc.throttleCalls).toHaveLength(0);
+  });
+
+  it('bot → 403 bad_request "bot" with no DB call; the CSRF guard still comes first', async () => {
+    const { deps, rpc } = makeDeps({}, {}, { botCheck: async () => true });
+    const res = await handleBooking(req('/api/reservations', form), deps);
+    expect(res.status).toBe(403);
+    expect(await jsonOf(res)).toEqual({ error: 'bad_request', message: 'bot' });
+    expect(rpc.calls).toHaveLength(0);
+    expect(rpc.throttleCalls).toHaveLength(0);
+    const foreign = await handleBooking(req('/api/reservations', form, { origin: 'https://evil.example' }), deps);
+    expect(await jsonOf(foreign)).toEqual({ error: 'bad_origin' });
+  });
+
+  it('the bot check receives the request', async () => {
+    const seen: Request[] = [];
+    const { deps } = makeDeps({ requestBooking: async () => bookingRow({ activation_token: ACTIVATION_TOKEN }) }, {}, {
+      botCheck: async (r) => { seen.push(r); return false; },
+    });
+    const res = await handleBooking(req('/api/reservations', form), deps);
+    expect(res.status).toBe(200);
+    expect(seen).toHaveLength(1);
+    expect(new URL(seen[0]!.url).pathname).toBe('/api/reservations');
   });
 });

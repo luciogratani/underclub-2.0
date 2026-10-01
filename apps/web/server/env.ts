@@ -22,6 +22,12 @@ export interface ServerEnv {
   resendApiKey: string | null;
   supabaseUrl: string | null;
   supabaseServiceRoleKey: string | null;
+  /** Passed to the DB on every call that derives a ticket token (>= 32 chars). */
+  ticketSecret: string;
+  /** HMAC key for the client IP before it reaches the throttle table (>= 32 chars). */
+  ipHashSecret: string;
+  /** Bearer token Vercel Cron sends to /api/cron/cleanup (>= 16 chars). */
+  cronSecret: string;
 }
 
 export class ConfigError extends Error {
@@ -44,6 +50,20 @@ function clean(value: string | undefined): string | null {
   const v = value?.trim();
   return v ? v : null;
 }
+
+/**
+ * Secrets required on any Vercel deployment. Locally (dev server, tests,
+ * plain `node`) a clearly-named default is used when unset; a value that is
+ * set is always length-checked. The ticket secret minimum matches the DB,
+ * which rejects shorter ones.
+ */
+const SECRETS = [
+  { name: 'TICKET_SECRET', key: 'ticketSecret', min: 32, dev: 'dev-only-ticket-secret-never-use-on-a-deployment' },
+  { name: 'IP_HASH_SECRET', key: 'ipHashSecret', min: 32, dev: 'dev-only-ip-hash-secret-never-use-on-a-deployment' },
+  { name: 'CRON_SECRET', key: 'cronSecret', min: 16, dev: 'dev-only-cron-secret-never-use-on-a-deployment' },
+] as const;
+
+type SecretKey = (typeof SECRETS)[number]['key'];
 
 function toOrigin(raw: string, name: string): string {
   let url: URL;
@@ -97,6 +117,19 @@ export function readEnv(source: EnvSource, options: ReadEnvOptions = {}): Server
   }
   emailFrom ??= 'Underclub <reservations@localhost>';
 
+  const secrets = {} as Record<SecretKey, string>;
+  for (const secret of SECRETS) {
+    const value = clean(source[secret.name]);
+    if (!value) {
+      if (deployed) missing.push(secret.name);
+      secrets[secret.key] = secret.dev;
+    } else if (value.length < secret.min) {
+      throw new ConfigError(`${secret.name} must be at least ${secret.min} characters`);
+    } else {
+      secrets[secret.key] = value;
+    }
+  }
+
   if (missing.length > 0) {
     throw new ConfigError(`missing env: ${missing.join(', ')}`);
   }
@@ -120,5 +153,6 @@ export function readEnv(source: EnvSource, options: ReadEnvOptions = {}): Server
     resendApiKey,
     supabaseUrl,
     supabaseServiceRoleKey,
+    ...secrets,
   };
 }

@@ -3,11 +3,14 @@ import { readEnv, type ServerEnv } from './env.js';
 import { createEmailTransport, type EmailTransport } from './email.js';
 import { createSupabaseRpc, type Rpc } from './rpc.js';
 import { apiError } from './http.js';
+import { vercelBotCheck, type BotCheck } from './botid.js';
 
 export interface Deps {
   rpc: Rpc;
   email: EmailTransport;
   env: ServerEnv;
+  /** BotID on the email-sending POSTs: true → refuse (403). Never blocks in dev/tests. */
+  botCheck: BotCheck;
   /** Injectable clock (tests). */
   now?: () => Date;
 }
@@ -22,8 +25,9 @@ export function depsFromProcessEnv(): Deps {
   const env = readEnv(process.env);
   cached = {
     env,
-    rpc: createSupabaseRpc(env.supabaseUrl!, env.supabaseServiceRoleKey!),
+    rpc: createSupabaseRpc(env.supabaseUrl!, env.supabaseServiceRoleKey!, env.ticketSecret),
     email: createEmailTransport(env),
+    botCheck: vercelBotCheck,
   };
   return cached;
 }

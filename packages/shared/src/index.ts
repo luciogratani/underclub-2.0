@@ -32,7 +32,13 @@ export {
   type AdminScanResult,
 } from './types';
 
-export { type Database } from './database';
+export {
+  type Database,
+  type Json,
+  type EpSessionOverview,
+  type EpSessionOverviewReservation,
+  type EpCleanupCounts,
+} from './database';
 
 export {
   createSupabaseClient,

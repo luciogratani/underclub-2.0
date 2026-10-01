@@ -1,10 +1,11 @@
-/** GET /api/session → ep_session + ep_my_reservations. */
+/** GET /api/session → ep_session_overview (one call: contact + reservations). */
 import type { MyReservation, SessionResponse } from '@underclub/shared';
 import { clearedSessionCookie, readSessionCookie, sessionCookie } from '../cookies.js';
 import { apiError, json, safeHandler } from '../http.js';
-import type { MyReservationRow } from '../rpc.js';
+import { buildTicketUrl } from '../links.js';
+import type { OverviewReservation } from '../rpc.js';
 
-function toMyReservation(r: MyReservationRow): MyReservation {
+export function toMyReservation(r: OverviewReservation): MyReservation {
   return {
     reservationId: r.reservation_id,
     status: r.status,
@@ -15,6 +16,8 @@ function toMyReservation(r: MyReservationRow): MyReservation {
     entryPrice: Number(r.entry_price),
     entryValidUntil: r.entry_valid_until,
     qrScanned: r.qr_scanned_at !== null,
+    // Only derivable tickets come with a token; the others are in the email.
+    ticketUrl: r.ticket_token ? buildTicketUrl(r.reservation_id, r.ticket_token) : null,
   };
 }
 
@@ -24,10 +27,10 @@ export const handleSession = safeHandler('session', 'GET', async (request, deps)
     return apiError(401, 'unauthorized', undefined, cookie.sent ? { setCookie: [clearedSessionCookie()] } : {});
   }
 
-  const contact = await deps.rpc.session(cookie.token);
-  if (!contact) return apiError(401, 'unauthorized', undefined, { setCookie: [clearedSessionCookie()] });
+  const overview = await deps.rpc.sessionOverview(cookie.token);
+  if (!overview) return apiError(401, 'unauthorized', undefined, { setCookie: [clearedSessionCookie()] });
 
-  const reservations = await deps.rpc.myReservations(cookie.token);
+  const { contact } = overview;
   const res: SessionResponse = {
     contact: {
       email: contact.email,
@@ -35,7 +38,7 @@ export const handleSession = safeHandler('session', 'GET', async (request, deps)
       marketingConsent: contact.marketing_consent,
       profilingConsent: contact.profiling_consent,
     },
-    reservations: reservations.map(toMyReservation),
+    reservations: (overview.reservations ?? []).map(toMyReservation),
   };
   return json(200, res, { setCookie: [sessionCookie(cookie.token)] });
 });

@@ -5,6 +5,7 @@ import { activationEmail, alreadyBookedEmail, escapeHtml, loginEmail, ticketEmai
 import { createConsoleTransport, createResendTransport } from './email.js';
 import { readSessionCookie } from './cookies.js';
 import { HttpError } from './http.js';
+import { BOOKING_IP_LIMIT, LOGIN_LINK_IP_LIMIT, clientIp, ipKeyHash } from './throttle.js';
 
 describe('validate', () => {
   it('source slugs follow the DB CHECK rule or become null', () => {
@@ -56,11 +57,18 @@ describe('env', () => {
     expect(env.allowedOrigins).toEqual(['https://underclub.it']);
   });
 
+  const secrets = {
+    TICKET_SECRET: 't'.repeat(32),
+    IP_HASH_SECRET: 'i'.repeat(32),
+    CRON_SECRET: 'c'.repeat(16),
+  };
+
   it('requires Resend settings in production and refuses the console transport', () => {
-    expect(() => readEnv({ ...base, VERCEL_ENV: 'production' })).toThrow(/RESEND_API_KEY, EMAIL_FROM/);
-    expect(() => readEnv({ ...base, VERCEL_ENV: 'production', EMAIL_TRANSPORT: 'console' })).toThrow(ConfigError);
+    expect(() => readEnv({ ...base, ...secrets, VERCEL_ENV: 'production' })).toThrow(/RESEND_API_KEY, EMAIL_FROM/);
+    expect(() => readEnv({ ...base, ...secrets, VERCEL_ENV: 'production', EMAIL_TRANSPORT: 'console' })).toThrow(ConfigError);
     const env = readEnv({
       ...base,
+      ...secrets,
       VERCEL_ENV: 'production',
       RESEND_API_KEY: 're_x',
       EMAIL_FROM: 'Underclub <reservations@underclub.it>',
@@ -76,9 +84,71 @@ describe('env', () => {
     expect(() => readEnv({ ...base, VERCEL_ENV: 'preview', EMAIL_TRANSPORT: 'console' })).toThrow(ConfigError);
   });
 
+  const resend = { RESEND_API_KEY: 're_x', EMAIL_FROM: 'Underclub <r@underclub.it>' };
+
+  it.each(['production', 'preview'])('requires TICKET_SECRET, IP_HASH_SECRET, CRON_SECRET on a %s deployment', (vercelEnv) => {
+    expect(() => readEnv({ ...base, ...resend, VERCEL_ENV: vercelEnv })).toThrow(
+      'missing env: TICKET_SECRET, IP_HASH_SECRET, CRON_SECRET',
+    );
+    const env = readEnv({ ...base, ...resend, ...secrets, VERCEL_ENV: vercelEnv });
+    expect(env.ticketSecret).toBe(secrets.TICKET_SECRET);
+    expect(env.ipHashSecret).toBe(secrets.IP_HASH_SECRET);
+    expect(env.cronSecret).toBe(secrets.CRON_SECRET);
+  });
+
+  it('also off Vercel when NODE_ENV=production', () => {
+    expect(() => readEnv({ ...base, ...resend, NODE_ENV: 'production' })).toThrow(/TICKET_SECRET/);
+  });
+
+  it('rejects secrets shorter than their minimum, deployed or not', () => {
+    for (const [name, min] of [['TICKET_SECRET', 32], ['IP_HASH_SECRET', 32], ['CRON_SECRET', 16]] as const) {
+      const short = { ...secrets, [name]: 'x'.repeat(min - 1) };
+      expect(() => readEnv({ ...base, ...resend, ...short, VERCEL_ENV: 'production' })).toThrow(`${name} must be at least ${min}`);
+      expect(() => readEnv({ ...base, ...short })).toThrow(ConfigError);
+    }
+  });
+
+  it('uses dev-only defaults locally (dev server and tests), never on a deployment', () => {
+    for (const env of [readEnv({ ...base }), readEnv({ PUBLIC_SITE_URL: 'http://localhost:5173' }, { dev: true, requireSupabase: false })]) {
+      expect(env.ticketSecret).toMatch(/^dev-only-/);
+      expect(env.ticketSecret.length).toBeGreaterThanOrEqual(32);
+      expect(env.ipHashSecret).toMatch(/^dev-only-/);
+      expect(env.ipHashSecret.length).toBeGreaterThanOrEqual(32);
+      expect(env.cronSecret).toMatch(/^dev-only-/);
+    }
+    // The dev server is never "deployed", even with VERCEL_ENV in its .env.
+    expect(readEnv({ ...base, VERCEL_ENV: 'production' }, { dev: true }).ticketSecret).toMatch(/^dev-only-/);
+  });
+
   it('reports every missing variable by name', () => {
     expect(() => readEnv({})).toThrow('missing env: PUBLIC_SITE_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
     expect(() => readEnv({ PUBLIC_SITE_URL: 'http://localhost:5173' }, { dev: true, requireSupabase: false })).not.toThrow();
+  });
+});
+
+describe('per-IP throttle helpers', () => {
+  const r = (headers: Record<string, string>) => new Request('https://x.it', { headers });
+
+  it('takes x-real-ip, else the first x-forwarded-for, else unknown', () => {
+    expect(clientIp(r({ 'x-real-ip': ' 198.51.100.1 ', 'x-forwarded-for': '203.0.113.5' }))).toBe('198.51.100.1');
+    expect(clientIp(r({ 'x-forwarded-for': ' 203.0.113.5 , 10.0.0.1' }))).toBe('203.0.113.5');
+    expect(clientIp(r({ 'x-forwarded-for': '' }))).toBe('unknown');
+    expect(clientIp(r({}))).toBe('unknown');
+  });
+
+  it('hashes the IP with HMAC-SHA256 (hex), keyed by the secret', () => {
+    // Reference value: echo -n 198.51.100.1 | openssl dgst -sha256 -hmac key
+    const h = ipKeyHash('198.51.100.1', 'key');
+    expect(h).toBe('87cde6626453d58d704dbaf44f8bae6db2bf41880ff8f499f32c71504ad3f3e1');
+    expect(h).not.toContain('198.51.100.1');
+    expect(ipKeyHash('198.51.100.1', 'key')).toBe(h);
+    expect(ipKeyHash('198.51.100.1', 'other')).not.toBe(h);
+    expect(ipKeyHash('198.51.100.2', 'key')).not.toBe(h);
+  });
+
+  it('limits as agreed: booking 20 / 10 min, login_link 5 / 10 min', () => {
+    expect(BOOKING_IP_LIMIT).toEqual({ action: 'booking', limit: 20, windowSeconds: 600 });
+    expect(LOGIN_LINK_IP_LIMIT).toEqual({ action: 'login_link', limit: 5, windowSeconds: 600 });
   });
 });
 

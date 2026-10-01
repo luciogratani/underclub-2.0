@@ -1,7 +1,8 @@
 /** POST /api/reservations → ep_request_booking. */
 import type { BookingResponse } from '@underclub/shared';
 import { clearedSessionCookie, readSessionCookie, sessionCookie } from '../cookies.js';
-import { apiError, guardPost, json, readJsonObject, safeHandler } from '../http.js';
+import { apiError, guardBot, guardPost, json, readJsonObject, safeHandler } from '../http.js';
+import { BOOKING_IP_LIMIT, enforceIpLimit } from '../throttle.js';
 import { validateBooking } from '../validate.js';
 import { absoluteUrl, activationLink, buildTicketUrl } from '../links.js';
 import { activationEmail, alreadyBookedEmail, ticketEmail, type EventInfo } from '../emails/templates.js';
@@ -12,7 +13,7 @@ function eventInfo(row: BookingRow): EventInfo {
 }
 
 export const handleBooking = safeHandler('reservations', 'POST', async (request, deps) => {
-  const guard = guardPost(request, deps.env);
+  const guard = guardPost(request, deps.env) ?? (await guardBot(request, deps));
   if (guard) return guard;
 
   const body = await readJsonObject(request);
@@ -24,6 +25,10 @@ export const handleBooking = safeHandler('reservations', 'POST', async (request,
   // someone else's form into a confirmed booking on the cookie's account.
   const formBooking = input.fullName !== null || input.dateOfBirth !== null || input.email !== null;
   const sessionToken = formBooking ? null : cookie.token;
+
+  // Per-IP limit before any DB write of the booking itself.
+  const limited = await enforceIpLimit(request, deps, BOOKING_IP_LIMIT);
+  if (limited) return limited;
 
   const row = await deps.rpc.requestBooking({
     p_session_token: sessionToken,
@@ -55,6 +60,10 @@ export const handleBooking = safeHandler('reservations', 'POST', async (request,
     case 'invalid_input':
       // Only the no-session path can miss identity fields.
       return apiError(400, 'invalid_input', 'fullName, dateOfBirth and email are required', { setCookie: clearIfSent });
+    case 'rate_limited':
+      // Per-address limit (no-session path): answer exactly like `pending`,
+      // without an email, so the limit does not reveal the address is known.
+      return checkEmail();
 
     case 'confirmed': {
       if (!row.reservation_id || !row.ticket_token) throw new Error('confirmed without reservation/ticket');

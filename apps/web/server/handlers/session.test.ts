@@ -1,21 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import { handleSession } from './session.js';
 import { handleCancel } from './cancel.js';
-import { RESERVATION_ID, SESSION_TOKEN, jsonOf, makeDeps, req, setCookies } from '../test-helpers.js';
-import type { SessionRow } from '../rpc.js';
+import { RESERVATION_ID, SESSION_TOKEN, TICKET_TOKEN, jsonOf, makeDeps, req, setCookies } from '../test-helpers.js';
+import type { OverviewReservation, SessionOverview } from '../rpc.js';
 
 const CLEARED = 'uc_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax';
 const SET = `uc_session=${SESSION_TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`;
 const cookie = `uc_session=${SESSION_TOKEN}`;
+const OTHER_ID = '55555555-5555-4555-8555-555555555555';
 
-const contact: SessionRow = {
-  contact_id: '44444444-4444-4444-8444-444444444444',
-  email: 'ada@example.com',
-  full_name: 'Ada Lovelace',
-  date_of_birth: '1990-05-17',
-  marketing_consent: true,
-  profiling_consent: false,
-  session_expires_at: '2027-10-01T10:00:00.000Z',
+const pendingRow: OverviewReservation = {
+  reservation_id: RESERVATION_ID,
+  status: 'pending',
+  event_id: '11111111-1111-4111-8111-111111111111',
+  event_title: 'Opening Night',
+  event_date: '2026-10-10',
+  event_time: '23:00:00',
+  entry_name: 'Ridotto',
+  entry_price: '12.50' as unknown as number,
+  entry_valid_until: '2026-10-11T00:30:00.000Z',
+  qr_scanned_at: '2026-10-10T23:10:00.000Z',
+  created_at: '2026-10-01T10:00:00.000Z',
+  ticket_token: null,
+};
+
+const overview: SessionOverview = {
+  contact: {
+    email: 'ada@example.com',
+    full_name: 'Ada Lovelace',
+    marketing_consent: true,
+    profiling_consent: false,
+    session_expires_at: '2027-10-01T10:00:00.000Z',
+  },
+  reservations: [
+    pendingRow,
+    {
+      ...pendingRow,
+      reservation_id: OTHER_ID,
+      status: 'confirmed',
+      entry_price: 10,
+      entry_valid_until: null,
+      qr_scanned_at: null,
+      ticket_token: TICKET_TOKEN,
+    },
+  ],
 };
 
 describe('GET /api/session', () => {
@@ -28,34 +56,18 @@ describe('GET /api/session', () => {
     expect(rpc.calls).toHaveLength(0);
   });
 
-  it('invalid session → 401 and cookie cleared', async () => {
-    const { deps } = makeDeps({ session: async () => null });
+  it('invalid session (overview null) → 401 and cookie cleared', async () => {
+    const { deps } = makeDeps({ sessionOverview: async () => null });
     const res = await handleSession(req('/api/session', undefined, { method: 'GET', cookie }), deps);
     expect(res.status).toBe(401);
     expect(setCookies(res)).toEqual([CLEARED]);
   });
 
-  it('valid session → contact + reservations, cookie renewed', async () => {
-    const { deps } = makeDeps({
-      session: async () => contact,
-      myReservations: async () => [
-        {
-          reservation_id: RESERVATION_ID,
-          status: 'pending',
-          event_id: '11111111-1111-4111-8111-111111111111',
-          event_title: 'Opening Night',
-          event_date: '2026-10-10',
-          event_time: '23:00:00',
-          entry_name: 'Ridotto',
-          entry_price: '12.50' as unknown as number,
-          entry_valid_until: '2026-10-11T00:30:00.000Z',
-          qr_scanned_at: '2026-10-10T23:10:00.000Z',
-          created_at: '2026-10-01T10:00:00.000Z',
-        },
-      ],
-    });
+  it('valid session → one RPC, contact + reservations with ticketUrl null/present, cookie renewed', async () => {
+    const { deps, rpc } = makeDeps({ sessionOverview: async () => overview });
     const res = await handleSession(req('/api/session', undefined, { method: 'GET', cookie }), deps);
     expect(res.status).toBe(200);
+    expect(rpc.calls).toEqual([{ fn: 'sessionOverview', args: [SESSION_TOKEN] }]);
     expect(await jsonOf(res)).toEqual({
       contact: { email: 'ada@example.com', fullName: 'Ada Lovelace', marketingConsent: true, profilingConsent: false },
       reservations: [
@@ -69,10 +81,29 @@ describe('GET /api/session', () => {
           entryPrice: 12.5,
           entryValidUntil: '2026-10-11T00:30:00.000Z',
           qrScanned: true,
+          ticketUrl: null,
+        },
+        {
+          reservationId: OTHER_ID,
+          status: 'confirmed',
+          eventTitle: 'Opening Night',
+          eventDate: '2026-10-10',
+          eventTime: '23:00:00',
+          entryName: 'Ridotto',
+          entryPrice: 10,
+          entryValidUntil: null,
+          qrScanned: false,
+          ticketUrl: `/ticket/${OTHER_ID}?t=${encodeURIComponent(TICKET_TOKEN)}`,
         },
       ],
     });
     expect(setCookies(res)).toEqual([SET]);
+  });
+
+  it('a session without upcoming reservations → empty list', async () => {
+    const { deps } = makeDeps({ sessionOverview: async () => ({ ...overview, reservations: [] }) });
+    const body = await jsonOf(await handleSession(req('/api/session', undefined, { method: 'GET', cookie }), deps));
+    expect(body.reservations).toEqual([]);
   });
 
   it('POST is not allowed', async () => {

@@ -3,9 +3,10 @@ import { handleActivate } from './activate.js';
 import { handleLoginLink } from './loginLink.js';
 import { handleLogout } from './logout.js';
 import {
-  ACTIVATION_TOKEN, RESERVATION_ID, SESSION_TOKEN, SITE, TICKET_TOKEN, jsonOf, makeDeps, req, setCookies,
+  ACTIVATION_TOKEN, IP_HASH_SECRET, RESERVATION_ID, SESSION_TOKEN, SITE, TICKET_TOKEN, jsonOf, makeDeps, req, setCookies,
 } from '../test-helpers.js';
-import type { ActivateRow, MyReservationRow } from '../rpc.js';
+import { ipKeyHash } from '../throttle.js';
+import type { ActivateRow, OverviewReservation, SessionOverview } from '../rpc.js';
 
 const CLEARED = 'uc_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax';
 const SET = `uc_session=${SESSION_TOKEN}; Path=/; Max-Age=31536000; HttpOnly; Secure; SameSite=Lax`;
@@ -24,7 +25,7 @@ function activateRow(over: Partial<ActivateRow>): ActivateRow {
   };
 }
 
-const myRes: MyReservationRow = {
+const myRes: OverviewReservation = {
   reservation_id: RESERVATION_ID,
   status: 'confirmed',
   event_id: '11111111-1111-4111-8111-111111111111',
@@ -36,6 +37,18 @@ const myRes: MyReservationRow = {
   entry_valid_until: null,
   qr_scanned_at: null,
   created_at: '2026-10-01T10:00:00.000Z',
+  ticket_token: TICKET_TOKEN,
+};
+
+const overview: SessionOverview = {
+  contact: {
+    email: 'ada@example.com',
+    full_name: 'Ada Lovelace',
+    marketing_consent: false,
+    profiling_consent: false,
+    session_expires_at: '2027-10-01T10:00:00.000Z',
+  },
+  reservations: [myRes],
 };
 
 describe('POST /api/auth/activate', () => {
@@ -75,7 +88,7 @@ describe('POST /api/auth/activate', () => {
     const { deps, email, rpc } = makeDeps({
       activate: async () =>
         activateRow({ reservation_outcome: 'confirmed', reservation_id: RESERVATION_ID, ticket_token: TICKET_TOKEN }),
-      myReservations: async () => [myRes],
+      sessionOverview: async () => overview,
     });
     const res = await handleActivate(req('/api/auth/activate', { token: ACTIVATION_TOKEN }), deps);
     const ticketUrl = `/ticket/${RESERVATION_ID}?t=${encodeURIComponent(TICKET_TOKEN)}`;
@@ -93,7 +106,7 @@ describe('POST /api/auth/activate', () => {
     const { deps, email } = makeDeps({
       activate: async () =>
         activateRow({ reservation_outcome: 'confirmed', reservation_id: RESERVATION_ID, ticket_token: TICKET_TOKEN }),
-      myReservations: async () => { throw new Error('boom'); },
+      sessionOverview: async () => { throw new Error('boom'); },
     });
     email.failWith = new Error('down');
     const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -159,6 +172,44 @@ describe('POST /api/auth/login-link', () => {
     const { deps } = makeDeps();
     const res = await handleLoginLink(req('/api/auth/login-link', { email: 'a@b.it' }, { origin: 'null' }), deps);
     expect(res.status).toBe(403);
+  });
+
+  it('rate_limited from the DB (per address) → same check_email as sent, no email', async () => {
+    const sent = makeDeps({
+      requestLogin: async () => ({ outcome: 'sent', activation_token: ACTIVATION_TOKEN, contact_full_name: 'Ada' }),
+    });
+    const limited = makeDeps({
+      requestLogin: async () => ({ outcome: 'rate_limited', activation_token: null, contact_full_name: null }),
+    });
+    const [a, b] = await Promise.all(
+      [sent, limited].map((d) => handleLoginLink(req('/api/auth/login-link', { email: 'ada@example.com' }), d.deps)),
+    );
+    expect(b!.status).toBe(a!.status);
+    expect(await b!.text()).toBe(await a!.text());
+    expect(limited.email.sent).toHaveLength(0);
+  });
+
+  it('per-IP limit: login_link 5 / 600 s on the HMAC of the IP; over it → 429 without the DB call', async () => {
+    const { deps, rpc, email } = makeDeps({ throttle: async () => false });
+    const res = await handleLoginLink(
+      req('/api/auth/login-link', { email: 'ada@example.com' }, { headers: { 'x-forwarded-for': '203.0.113.9, 10.0.0.1' } }),
+      deps,
+    );
+    expect(res.status).toBe(429);
+    expect(await jsonOf(res)).toEqual({ error: 'rate_limited' });
+    expect(rpc.throttleCalls).toEqual([[ipKeyHash('203.0.113.9', IP_HASH_SECRET), 'login_link', 5, 600]]);
+    expect(JSON.stringify(rpc.throttleCalls)).not.toContain('203.0.113.9');
+    expect(rpc.calls).toHaveLength(0);
+    expect(email.sent).toHaveLength(0);
+  });
+
+  it('bot → 403 bad_request "bot", before reading the body or touching the DB', async () => {
+    const { deps, rpc } = makeDeps({}, {}, { botCheck: async () => true });
+    const res = await handleLoginLink(req('/api/auth/login-link', { email: 'ada@example.com' }), deps);
+    expect(res.status).toBe(403);
+    expect(await jsonOf(res)).toEqual({ error: 'bad_request', message: 'bot' });
+    expect(rpc.calls).toHaveLength(0);
+    expect(rpc.throttleCalls).toHaveLength(0);
   });
 });
 
