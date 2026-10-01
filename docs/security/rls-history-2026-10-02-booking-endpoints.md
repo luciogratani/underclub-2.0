@@ -25,7 +25,7 @@ passi è una sola transazione, e l'endpoint resta sottile.
 | Funzione | Cosa fa |
 | --- | --- |
 | `ep_request_booking` | Con sessione: `confirmed` subito + ticket token. Senza: contatto dal form, `pending` 30 minuti + link di attivazione. |
-| `ep_activate` | Consuma il link, verifica l'email, applica i consensi, crea la sessione, conferma **solo** la `pending` da cui è partito. |
+| `ep_activate` | Consuma il link, verifica l'email, applica i consensi, crea la sessione, conferma **solo** la `pending` da cui è partito, e solo se l'evento è ancora pubblicato e non passato (altrimenti `unavailable`). |
 | `ep_request_login` | Link di accesso se il contatto esiste (`sent`), altrimenti `unknown`. |
 | `ep_session` / `ep_logout` | Lettura e rinnovo della sessione; revoca. |
 | `ep_my_reservations` | Prenotazioni future, `confirmed` o `pending` non scadute. |

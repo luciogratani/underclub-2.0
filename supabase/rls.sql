@@ -12,7 +12,7 @@
 --   7. supabase/rls-history/2026-10-02-booking-endpoints.sql
 --
 -- pgcrypto: every call is qualified as `extensions.*` (step 3 was fixed on
--- 2026-10-02; before that its unqualified `digest` aborted the file on a fresh
+-- 2026-10-01, together with step 7; before that its unqualified `digest` aborted the file on a fresh
 -- database without `extensions` on the search_path). The chain now applies
 -- with `search_path = public` only — measured by supabase/tests/run.sh, which
 -- replays the whole chain on a throwaway cluster.

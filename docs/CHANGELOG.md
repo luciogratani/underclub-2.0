@@ -5,6 +5,59 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-01 (sera) — Endpoint passwordless, funnel dietro flag, test
+
+Branch `feat/passwordless-booking`. Il modello dati della voce sotto prende vita:
+endpoint serverless, funnel che sa dire "controlla la posta", check-in che
+conosce le `pending`. **Niente applicato su Supabase né deployato**: i passi per
+andare in produzione sono nella sezione 9 di [`prossimi-passi.md`](./prossimi-passi.md).
+
+### Aggiunto
+
+- **`supabase/rls-history/2026-10-02-booking-endpoints.sql`** (passo 7 della
+  catena; il nome lo ordina dopo quello del mattino):
+  - funzioni `ep_*` per prenotazione, attivazione, link di accesso, sessione,
+    logout, le mie prenotazioni, disdetta. Solo `service_role`, ognuna una
+    transazione, con lock consultivi su persona+evento e sulla quota;
+  - `get_public_ticket` per la pagina ticket, che legge il nome da `contacts` e
+    regge il futuro drop delle colonne legacy;
+  - `scan_ticket_check_in` riscritta: esito `pending`, colonna `formula_expired`.
+- **Endpoint Vercel** in `apps/web/api/` sopra handler puri in `apps/web/server/`:
+  cookie `uc_session` httpOnly a rinnovo, POST solo JSON con `Origin` ammesso,
+  risposte identiche per email nuove e già prenotate, email via Resend.
+- **Funnel web dietro `VITE_BOOKING_API=1`**: consensi separati, "check your
+  inbox", pagina `/activate`, blocco "booking as", prezzo e orario limite delle
+  formule, cattura di `?src=` / `utm_source`. Bozze di privacy e data notice.
+- **Admin**: card `pending` e avviso "formula scaduta" nel check-in.
+- **Tipi condivisi**: `pending`, tabelle e RPC nuove, contratto HTTP in
+  `packages/shared/src/api.ts`.
+- **Test**: `supabase/tests/run.sh` (catena completa su Postgres 16 usa e getta,
+  8 file con attacchi RLS e concorrenza via dblink) e vitest per gli endpoint
+  (78 unit + 7 integrazione sullo stesso Postgres).
+
+### Corretto
+
+- **`issue_ticket_access_token` era eseguibile da `anon`**: chi aveva l'id di una
+  prenotazione poteva ruotarne il token e riceverne uno valido. Revocata nella
+  migrazione nuova: **in produzione resta aperta finché non la si applica**.
+- Il file del 2026-04-17 ora qualifica `digest` e `gen_random_bytes` con
+  `extensions`, e `rls.sql` è rieseguibile.
+- Il ticket token non viene più stampato in console dopo la prenotazione.
+- Un errore di prenotazione non svuota più il form.
+
+### Scelte non ovvie
+
+- Il link email apre `/activate`, che fa **POST**: un GET verrebbe consumato dai
+  link-scanner delle caselle prima dell'utente.
+- I consensi del form valgono **solo all'apertura del link**, e una prenotazione
+  anonima non modifica mai un contatto esistente.
+- Una prenotazione col form **ignora il cookie di sessione**, così un cookie
+  rimasto non prenota a nome di qualcun altro.
+- Il trasporto email `console` (stampa i link) è rifiutato su **ogni** deploy
+  Vercel, preview compresi.
+
+---
+
 ## 2026-10-01 — Schema per registrazione, sessioni e formule d'ingresso
 
 Il flusso pubblico passa da "compila e vai" a utenti registrati con sessione e

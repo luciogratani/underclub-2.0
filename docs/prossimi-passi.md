@@ -40,7 +40,7 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 ### Ticket
 - [x] **Route `/ticket/:id`**: carica la prenotazione per UUID; passa `TicketViewData` a `Lanyard` al posto del mock.
 - [x] **Tracking apertura**: alla prima visita aggiorna `ticket_opened_at` se ancora null.
-- [ ] **Email con link**: flusso serverless (es. Vercel) che invia mail con link `https://…/ticket/{reservationId}` dopo insert prenotazione.
+- [x] **Email con link**: gli endpoint serverless mandano il link del ticket a ogni conferma (sezione 9). Attivi solo col flag `VITE_BOOKING_API`.
 
 ### Coerenza UX
 - [x] Allineamento copy e campi al modello DB (date ISO, orari, nomi tier) tramite mapper centralizzati.
@@ -70,7 +70,7 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 ### Infrastruttura
 - [x] **Variabili ambiente locali**: creati `apps/web/.env` e `apps/admin/.env` con `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 - [ ] **Variabili ambiente su Vercel** + **Redirect URLs** in Supabase Auth per entrambi i domini.
-- [ ] **Serverless** (invio email, webhook): progetto Vercel + segreti (`RESEND_API_KEY`, ecc.) fuori dal bundle client.
+- [x] **Serverless**: endpoint in `apps/web/api/` (sezione 9). *Restano da configurare su Vercel i segreti e il dominio Resend.*
 
 ---
 
@@ -327,14 +327,14 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
   **Non ancora applicata sul Supabase reale.**
 
 ### Trappole trovate nello stress test (preesistenti, non introdotte adesso)
-- [ ] **Lo step 3 della catena può abortire su un DB nuovo.** La migrazione di
+- [x] *(risolto 2026-10-01: `digest` e `gen_random_bytes` qualificati con `extensions`)* **Lo step 3 della catena può abortire su un DB nuovo.** La migrazione di
   aprile dichiara `hash_ticket_token` come funzione `language sql` con `digest`
   non qualificato, e quei corpi vengono validati alla creazione: se pgcrypto sta
   in `extensions` e non è nel `search_path`, il file si ferma **prima** di creare
   le policy del token e le grant finali, e la pagina ticket resta senza policy.
   Con `search_path = underclub, public, extensions` passa tutto. Da decidere se
   qualificare `digest` nel file di aprile, come già fa la v2.
-- [ ] **`rls.sql` non è rieseguibile**: si ferma sul primo `create policy` già
+- [x] *(risolto 2026-10-01: `drop policy if exists` prima di ogni policy)* **`rls.sql` non è rieseguibile**: si ferma sul primo `create policy` già
   esistente. È fail-safe, ma non è idempotente come il changelog di settembre
   lasciava intendere.
 - [ ] **Data di nascita nel futuro accettata**: nessun vincolo la blocca e
@@ -344,30 +344,30 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
   email su quella serata. Sostituito da un indice parziale.
 
 ### Tre cose che il nuovo modello rompe
-- [ ] **`scan_ticket_check_in` fraintende una `pending`**: gestisce `cancelled`,
+- [x] *(2026-10-01: esito `pending`, e il token del ticket nasce solo alla conferma)* **`scan_ticket_check_in` fraintende una `pending`**: gestisce `cancelled`,
   poi aggiorna solo se `status = 'confirmed'`, e una `pending` col token
   uscirebbe come `already_scanned` con timestamp vuoto. Soluzione scelta:
   **emettere il token del ticket solo alla conferma**, così una `pending` non ha
   QR.
-- [ ] **La stessa RPC legge `full_name` dalla prenotazione**, colonna che la
+- [x] *(2026-10-01: nome da `contacts` con fallback che regge il drop, più `formula_expired`)* **La stessa RPC legge `full_name` dalla prenotazione**, colonna che la
   pulizia elimina: va riscritta con il join su `contacts`, oltre ad aggiungere
   l'esito "formula scaduta" per la cassa.
-- [ ] **La union `status` nei tipi condivisi non conosce `pending`**:
+- [x] *(2026-10-01)* **La union `status` nei tipi condivisi non conosce `pending`**:
   `packages/shared/src/database.ts` (quattro punti, incluso il ritorno di
   `create_public_reservation`) e le costanti in `types.ts`.
 
 ### Conseguenze sul funnel pubblico
-- [ ] La quarta sezione assume la conferma immediata ("YOU'RE IN"). Chi prenota
+- [x] *(2026-10-01, dietro flag)* La quarta sezione assume la conferma immediata ("YOU'RE IN"). Chi prenota
   **senza sessione non è dentro**: serve la variante "controlla la posta", e
   `goToSummary` in `App.tsx` cambia di conseguenza.
-- [ ] Pagina privacy e overlay del data notice vanno riscritti con i due
+- [x] *(2026-10-01, bozza dietro flag: da rivedere)* Pagina privacy e overlay del data notice vanno riscritti con i due
   consensi nuovi.
-- [ ] **Cattura della fonte**: `source` resta vuoto finché non c'è chi lo
+- [x] *(2026-10-01: `?src=` o `utm_source`, normalizzato a slug, tenuto per la visita)* **Cattura della fonte**: `source` resta vuoto finché non c'è chi lo
   scrive. Serve leggere `?src=...` (o gli `utm_*`) all'atterraggio, tenerlo per
   la visita e passarlo all'endpoint di prenotazione. Se la stagione parte prima
   degli endpoint, le prime serate non avranno dati di provenienza: in quel caso
   meglio aggiungere il parametro alla RPC attuale come tappabuchi.
-- [ ] `BookNow` si allarga (consensi, stati della prenotazione): è l'occasione
+- [ ] *(2026-10-01: si è allargato — consensi, blocco "booking as", prezzi — ma lo split non è stato fatto)* `BookNow` si allarga (consensi, stati della prenotazione): è l'occasione
   per lo split già pianificato al punto 14 della roadmap performance, invece di
   rifarlo due volte.
 - [ ] Il **menu** rimasto in sospeso dal 18 settembre va fatto **dopo**
@@ -386,35 +386,100 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
 
 ---
 
-## Ordine suggerito (prossimi passi rimasti)
+## 9. Endpoint passwordless e funnel (implementati 2026-10-01, non ancora in produzione)
 
-Riordinato il 2026-10-01: **prima il nuovo modello dati, poi l'admin.** L'ordine
-precedente partiva dal CRUD eventi, che oggi andrebbe rifatto subito dopo per i
-campi nuovi delle formule d'ingresso.
+Branch `feat/passwordless-booking`. La migrazione porta la data 2026-10-02 nel
+nome solo per ordinarsi dopo quella del 2026-10-01: è stata scritta lo stesso
+giorno. Tutto verificato in locale, **niente è stato
+applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.md).
 
-1. Applicare la migrazione del 2026-10-01 sul Supabase reale. Prima di lanciarla,
-   controllare che `digest` risolva (vedi le trappole nella sezione 8): la
-   migrazione nuova non ne dipende, ma la catena di aprile sì.
-2. **Endpoint serverless su Vercel**: richiesta del link, attivazione, sessione
-   in cookie, prenotazione, disdetta. Email transazionale con Resend sui due
-   sottodomini (`reservations.` transazionale, `news.` promozioni).
-3. Allineare `packages/shared` (union `status`, tipi dei contatti, mapper) e poi
-   `BookNow` + quarta sezione del funnel, consensi inclusi.
-4. Riscrivere `scan_ticket_check_in`: join su `contacts` ed esito per formula
-   scaduta. Poi eseguire la pulizia in fondo alla migrazione.
-5. Admin: **lista eventi + CRUD eventi** (lineup + formule con prezzo, quota e
-   scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
-6. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
-   funzionare anche senza QR.
-7. Menu del sito pubblico, con le voci dell'account.
-8. **Analytics** admin quando ci sarà dato reale.
-9. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
-10. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
-    limite ai tentativi, suono e coda offline per lo scanner.
+### Cosa c'è
+- **SQL** — `supabase/rls-history/2026-10-02-booking-endpoints.sql`: una funzione
+  `ep_*` per operazione (prenota, attiva, link di accesso, sessione, logout, le mie
+  prenotazioni, disdetta), eseguibili solo da `service_role`; `get_public_ticket`
+  per la pagina ticket; `scan_ticket_check_in` riscritta.
+- **Endpoint** — `apps/web/api/` (Vercel Functions) sopra handler puri in
+  `apps/web/server/`. Cookie `uc_session` httpOnly 12 mesi a rinnovo, POST solo JSON
+  con `Origin` ammesso, nessuna enumerazione delle email.
+- **Funnel** — dietro `VITE_BOOKING_API=1`: consensi separati, "check your inbox",
+  pagina `/activate`, blocco "booking as" con sessione, prezzo e orario limite delle
+  formule, cattura della fonte. Flag spento → funnel di oggi.
+- **Admin** — il check-in mostra `pending` e l'avviso "formula scaduta".
+- **Test** — `supabase/tests/run.sh` (8 file, attacchi RLS e concorrenza reale) e
+  `pnpm --filter web test` (78 unit + 7 integrazione). Più un giro end-to-end in
+  Chrome headless contro il Postgres locale: prenotazione → link → attivazione →
+  cookie → ticket con QR → "already in".
+
+### Decisioni tecniche prese in autonomia
+- **La logica sta in SQL**, gli endpoint sono sottili: atomicità e race si
+  risolvono in una transazione e si testano con psql.
+- **Il link email apre una pagina che fa POST**, non un GET che consuma il token:
+  i link-scanner delle caselle (Outlook & co.) lo brucerebbero prima dell'utente.
+- **I consensi del form valgono solo all'apertura del link**, e un contatto
+  esistente non viene mai modificato da una prenotazione anonima: chi digita
+  l'email di un altro non può rinominarlo né concedere consensi a suo nome.
+- **Una prenotazione col form ignora il cookie di sessione**: un cookie rimasto
+  (logout fallito, telefono condiviso) non trasforma mai il form di qualcun altro
+  in una prenotazione sull'account del cookie.
+- **Email del ticket a ogni conferma**: il token del ticket non è salvato in
+  chiaro, quindi l'email è l'unica copia durevole del link.
+- **Fix di sicurezza preesistente**: `issue_ticket_access_token` era chiamabile da
+  `anon` via PostgREST; chi conosceva l'id di una prenotazione poteva ruotarne il
+  token e riceverne uno valido. Revocata. **Il buco è aperto in produzione finché
+  la migrazione non viene applicata.**
+
+### Da fare a mano per andare in produzione
+1. Applicare su Supabase, nell'ordine, `2026-10-01-contacts-sessions-formulas.sql` e
+   `2026-10-02-booking-endpoints.sql` (le altre del README sono già applicate).
+   Prima, provare la catena con `supabase/tests/run.sh`.
+2. Resend: verificare il dominio di invio (`reservations.`) e creare la API key.
+3. Vercel, progetto web: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sensibile),
+   `PUBLIC_SITE_URL`, `ALLOWED_ORIGINS` (es. il `www.`), `RESEND_API_KEY`,
+   `EMAIL_FROM`. Sui preview servono le stesse email (il trasporto `console` è
+   rifiutato su ogni deploy) e il loro origin in `ALLOWED_ORIGINS`.
+4. Provare un deploy di preview: le funzioni non sono mai state eseguite su Vercel,
+   solo in locale (stessi handler).
+5. Rivedere i testi marcati `COPY-DRAFT` (UI, email, privacy) e accendere
+   `VITE_BOOKING_API=1`.
+6. A endpoint vivi: la pulizia in fondo alla migrazione del 2026-10-01 (prima va
+   tolta da `ep_request_booking` la scrittura delle colonne legacy, step 1b).
+
+### Aperto
+- **Recupero del ticket da sessione**: con `already_booked` il sito non può
+  mostrare il QR, perché il token in chiaro non esiste più; resta l'email. Va
+  deciso se ruotare il token su richiesta (invalida il link vecchio) o salvarlo
+  cifrato. Collegato al menu "la mia prenotazione".
+- **Limite ai tentativi** (rimandato per scelta): oggi chiunque può far partire
+  email di attivazione verso qualunque indirizzo, una alla volta per richiesta.
+- `markTicketOpened` scrive ancora dalla policy RLS col token di aprile: va
+  portato su una RPC prima di ritirare quelle policy.
+- `GET /api/session` fa due RPC e rinnova due volte a ogni caricamento; la lista
+  prenotazioni non è ancora usata dalla UI.
+- Con sessione i consensi non si possono cambiare dal sito (manca l'endpoint).
 
 ---
 
-*Ultimo aggiornamento: 2026-10-01 — prese le decisioni su registrazione,
-sessioni passwordless e formule d'ingresso (sezione 8); schema nuovo scritto e
-verificato in locale, non ancora applicato su Supabase. Ordine dei prossimi
-passi invertito: prima il modello dati e gli endpoint, poi l'admin.*
+## Ordine suggerito (prossimi passi rimasti)
+
+Aggiornato il 2026-10-01: il modello dati, gli endpoint e il funnel esistono sul
+branch `feat/passwordless-booking`, manca la messa in produzione.
+
+1. **Messa in produzione degli endpoint**: i passi 1-5 di "Da fare a mano" nella
+   sezione 9 (migrazioni, Resend, env Vercel, preview, copy, flag).
+2. Pulizia in fondo alla migrazione del 2026-10-01, dopo lo step 1b.
+3. Admin: **lista eventi + CRUD eventi** (lineup + formule con prezzo, quota e
+   scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
+4. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
+   funzionare anche senza QR.
+5. Menu del sito pubblico, con le voci dell'account e il recupero del ticket
+   (sezione 9, "Aperto").
+6. **Analytics** admin quando ci sarà dato reale.
+7. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
+8. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
+   limite ai tentativi, suono e coda offline per lo scanner.
+
+---
+
+*Ultimo aggiornamento: 2026-10-01 — endpoint passwordless, funnel dietro flag,
+test SQL e degli endpoint (sezione 9). Niente ancora applicato su Supabase né
+deployato.*

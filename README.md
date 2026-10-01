@@ -45,13 +45,23 @@ cp apps/admin/.env.example apps/admin/.env
 | `pnpm build:admin` | Build solo admin |
 | `pnpm preview:web` | Preview build web |
 | `pnpm preview:admin` | Preview build admin |
+| `pnpm --filter web test` | Test degli endpoint (vitest). Con `TEST_PG_URL` gira anche l'integrazione su Postgres |
+| `supabase/tests/run.sh` | Catena SQL completa + test su un Postgres 16 usa e getta (`--keep` lo lascia acceso e stampa `TEST_PG_URL`) |
 
 ## Variabili d'ambiente
 
 - **apps/web** e **apps/admin**: in `.env` (vedi `.env.example`)
   - `VITE_SUPABASE_URL` — URL progetto Supabase
   - `VITE_SUPABASE_ANON_KEY` — chiave anonima (pubblica, sicura con RLS)
-- Per le **serverless** (es. invio email) userai variabili nel progetto Vercel (es. `RESEND_API_KEY`), non nelle app frontend.
+- **apps/web**, flag `VITE_BOOKING_API=1`: il funnel usa gli endpoint passwordless in `apps/web/api/`
+  invece della RPC diretta. Spento di default.
+- **Endpoint serverless** (`apps/web/api/`, solo lato server, mai con prefisso `VITE_`; elenco commentato in
+  `apps/web/.env.example`): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLIC_SITE_URL`,
+  `ALLOWED_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_TRANSPORT`.
+  Su qualunque deploy Vercel (anche preview) le email partono solo via Resend: il trasporto `console`,
+  che stampa i link di accesso, è ammesso solo in locale.
+- In locale `DEV_PG_URL` fa girare gli endpoint del dev server contro il Postgres di
+  `supabase/tests/run.sh --keep`, senza toccare Supabase.
 
 ## Deploy su Vercel
 
@@ -85,13 +95,15 @@ docs/           → documentazione (vedi sotto)
 ## Database
 
 Su un database Supabase nuovo gli script vanno eseguiti **in quest'ordine**, tutti
-e cinque (l'elenco è ripetuto in testa a `rls.sql`):
+e sette (l'elenco è ripetuto in testa a `rls.sql`):
 
 1. `supabase/schema.sql`
 2. `supabase/rls.sql`
 3. `supabase/rls-history/2026-04-17-ultra-strict-ticket-token.sql`
 4. `supabase/rls-history/2026-04-17-ultra-strict-ticket-token-v2.sql`
 5. `supabase/rls-history/2026-04-21-ticket-check-in.sql`
+6. `supabase/rls-history/2026-10-01-contacts-sessions-formulas.sql`
+7. `supabase/rls-history/2026-10-02-booking-endpoints.sql`
 
 Fermarsi allo step 2 lascia la pagina ticket non funzionante, ma non espone mai
 le prenotazioni: `rls.sql` è fail-closed su quella tabella.
