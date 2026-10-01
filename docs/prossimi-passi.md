@@ -471,11 +471,17 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
   web non usa più le policy di aprile); `GET /api/session` è una sola RPC e la
   sessione si riscrive al massimo una volta al giorno.
 
+### Decisioni dopo il secondo giro
+- **I consensi non si cambiano dal sito, e resterà così** (decisione
+  2026-10-01). `/account` li mostra in sola lettura; la revoca passa
+  dall'indirizzo indicato nella privacy. Quando partiranno le email
+  promozionali, ognuna dovrà avere il suo link di disiscrizione: la revoca deve
+  essere facile quanto il consenso dato con una spunta.
+
 ### Aperto
-- Con sessione i consensi non si possono cambiare dal sito (manca l'endpoint):
-  oggi si revocano scrivendo all'indirizzo della privacy.
-- La sezione cookie della privacy non dice cosa salva lo script di BotID nel
-  browser: da verificare insieme a chi rivede i testi.
+- **TODO futuro**: la sezione cookie della privacy non dice cosa salva nel
+  browser lo script di BotID. Da verificare quando si rivedono i testi della
+  privacy; non è una priorità adesso.
 - Il menu è nascosto sulla sezione Book Now (copriva il bottone Confirm sugli
   schermi piccoli) e assente su ticket, `/activate` e `/info`.
 
@@ -493,11 +499,10 @@ branch `feat/passwordless-booking`, manca la messa in produzione.
    scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
 4. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
    funzionare anche senza QR.
-5. Endpoint per cambiare i consensi dalla pagina `/account`.
-6. **Analytics** admin quando ci sarà dato reale.
-7. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
-8. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
-   limite ai tentativi, suono e coda offline per lo scanner.
+5. **Analytics** admin quando ci sarà dato reale.
+6. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
+7. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
+   suono e coda offline per lo scanner, privacy di BotID (sezione 9, "Aperto").
 
 ---
 
