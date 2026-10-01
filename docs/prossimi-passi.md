@@ -370,7 +370,7 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
 - [ ] *(2026-10-01: si è allargato — consensi, blocco "booking as", prezzi — ma lo split non è stato fatto)* `BookNow` si allarga (consensi, stati della prenotazione): è l'occasione
   per lo split già pianificato al punto 14 della roadmap performance, invece di
   rifarlo due volte.
-- [ ] Il **menu** rimasto in sospeso dal 18 settembre va fatto **dopo**
+- [x] *(2026-10-01, dietro flag: sezione 9)* Il **menu** rimasto in sospeso dal 18 settembre va fatto **dopo**
   l'autenticazione: con gli account nascono voci che prima non esistevano (la
   mia prenotazione, uscita dall'account). Il bottone info è già stato rimosso
   dalla Hero, quindi al momento `/info` non è raggiungibile dalla home.
@@ -435,27 +435,47 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
 2. Resend: verificare il dominio di invio (`reservations.`) e creare la API key.
 3. Vercel, progetto web: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sensibile),
    `PUBLIC_SITE_URL`, `ALLOWED_ORIGINS` (es. il `www.`), `RESEND_API_KEY`,
-   `EMAIL_FROM`. Sui preview servono le stesse email (il trasporto `console` è
-   rifiutato su ogni deploy) e il loro origin in `ALLOWED_ORIGINS`.
+   `EMAIL_FROM`, più tre segreti generati con `openssl rand -base64 48`:
+   `TICKET_SECRET` (**non va mai cambiato a cuor leggero**: invalida tutti i QR
+   emessi), `IP_HASH_SECRET`, `CRON_SECRET`. Sui preview servono le stesse email
+   (il trasporto `console` è rifiutato su ogni deploy) e il loro origin in
+   `ALLOWED_ORIGINS`. Verificare che l'OIDC di Vercel sia attivo (serve a BotID)
+   e che il cron giornaliero `/api/cron/cleanup` compaia nel progetto.
 4. Provare un deploy di preview: le funzioni non sono mai state eseguite su Vercel,
    solo in locale (stessi handler).
 5. Rivedere i testi marcati `COPY-DRAFT` (UI, email, privacy) e accendere
    `VITE_BOOKING_API=1`.
 6. A endpoint vivi: la pulizia in fondo alla migrazione del 2026-10-01 (prima va
-   tolta da `ep_request_booking` la scrittura delle colonne legacy, step 1b).
+   tolta da `ep_request_booking` la scrittura delle colonne legacy, step 1b; lo
+   step 1c chiude del tutto `reservations` ad `anon`).
+
+### Secondo giro (stesso giorno): recupero, limiti, debito
+- **Recupero del ticket**: il token del ticket ora è **derivato** (HMAC dell'id
+  prenotazione con `TICKET_SECRET`, segreto che il DB non vede mai), quindi con la
+  sessione il QR si ricalcola quando serve e il link nell'email resta valido. Le
+  prenotazioni del flusso vecchio si recuperano dall'email: il contatto nasce al
+  primo "recover booking" e le righe vengono collegate; il loro QR resta solo
+  nell'email originale.
+- **UI** (dietro flag): menu con `MY BOOKINGS` / `RECOVER BOOKING`, `INFO`,
+  `PRIVACY`, `LOG OUT`; pagina `/account` (prenotazioni, ticket, disdetta,
+  consensi in lettura, logout; senza sessione il form di recupero); bottone
+  ticket in home quando c'è una prenotazione confermata.
+- **Limiti**: 3 email all'ora e 10 al giorno per indirizzo (in silenzio, non
+  rivela nulla); per IP 20 prenotazioni e 5 link di accesso ogni 10 minuti (429),
+  con l'IP salvato solo come HMAC; **BotID** di Vercel sui due moduli.
+- **Pulizia notturna** (`/api/cron/cleanup`, 04:00): link scaduti, sessioni
+  vecchie, contatori, contatti mai confermati dopo 7 giorni.
+- **Debito**: `open_public_ticket` legge e segna l'apertura in una chiamata (il
+  web non usa più le policy di aprile); `GET /api/session` è una sola RPC e la
+  sessione si riscrive al massimo una volta al giorno.
 
 ### Aperto
-- **Recupero del ticket da sessione**: con `already_booked` il sito non può
-  mostrare il QR, perché il token in chiaro non esiste più; resta l'email. Va
-  deciso se ruotare il token su richiesta (invalida il link vecchio) o salvarlo
-  cifrato. Collegato al menu "la mia prenotazione".
-- **Limite ai tentativi** (rimandato per scelta): oggi chiunque può far partire
-  email di attivazione verso qualunque indirizzo, una alla volta per richiesta.
-- `markTicketOpened` scrive ancora dalla policy RLS col token di aprile: va
-  portato su una RPC prima di ritirare quelle policy.
-- `GET /api/session` fa due RPC e rinnova due volte a ogni caricamento; la lista
-  prenotazioni non è ancora usata dalla UI.
-- Con sessione i consensi non si possono cambiare dal sito (manca l'endpoint).
+- Con sessione i consensi non si possono cambiare dal sito (manca l'endpoint):
+  oggi si revocano scrivendo all'indirizzo della privacy.
+- La sezione cookie della privacy non dice cosa salva lo script di BotID nel
+  browser: da verificare insieme a chi rivede i testi.
+- Il menu è nascosto sulla sezione Book Now (copriva il bottone Confirm sugli
+  schermi piccoli) e assente su ticket, `/activate` e `/info`.
 
 ---
 
@@ -471,8 +491,7 @@ branch `feat/passwordless-booking`, manca la messa in produzione.
    scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
 4. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
    funzionare anche senza QR.
-5. Menu del sito pubblico, con le voci dell'account e il recupero del ticket
-   (sezione 9, "Aperto").
+5. Endpoint per cambiare i consensi dalla pagina `/account`.
 6. **Analytics** admin quando ci sarà dato reale.
 7. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
 8. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,

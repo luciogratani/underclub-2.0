@@ -57,7 +57,8 @@ cp apps/admin/.env.example apps/admin/.env
   invece della RPC diretta. Spento di default.
 - **Endpoint serverless** (`apps/web/api/`, solo lato server, mai con prefisso `VITE_`; elenco commentato in
   `apps/web/.env.example`): `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUBLIC_SITE_URL`,
-  `ALLOWED_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_TRANSPORT`.
+  `ALLOWED_ORIGINS`, `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_TRANSPORT`,
+  `TICKET_SECRET`, `IP_HASH_SECRET`, `CRON_SECRET`.
   Su qualunque deploy Vercel (anche preview) le email partono solo via Resend: il trasporto `console`,
   che stampa i link di accesso, è ammesso solo in locale.
 - In locale `DEV_PG_URL` fa girare gli endpoint del dev server contro il Postgres di

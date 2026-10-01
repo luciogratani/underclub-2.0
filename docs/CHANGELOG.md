@@ -5,7 +5,32 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
-## 2026-10-01 (sera) — Endpoint passwordless, funnel dietro flag, test
+## 2026-10-01 (pomeriggio) — Recupero del ticket, limiti ai tentativi, menu
+
+Stesso branch, dopo la prima revisione. Dettagli nella sezione 9 di
+[`prossimi-passi.md`](./prossimi-passi.md), "Secondo giro".
+
+### Aggiunto
+- **Token del ticket derivato** (HMAC con `TICKET_SECRET`): chi ha la sessione
+  ritrova il QR in ogni momento e il link nell'email resta valido.
+- **Menu, `/account` e bottone ticket in home** (dietro flag), con il recupero
+  della prenotazione via email, anche per quelle del flusso vecchio.
+- **Limiti**: per indirizzo in SQL (3/ora, 10/giorno, silenzioso), per IP con
+  HMAC dell'indirizzo (429), BotID di Vercel su prenotazione e link di accesso.
+- **Pulizia notturna** via Vercel Cron: link, sessioni, contatori e contatti mai
+  confermati dopo 7 giorni.
+
+### Cambiato
+- `open_public_ticket` sostituisce `get_public_ticket` e segna la prima apertura
+  nella stessa chiamata; `ep_session_overview` sostituisce `ep_session` +
+  `ep_my_reservations`; il rinnovo della sessione si scrive al massimo una volta
+  al giorno.
+- Nuove variabili obbligatorie su Vercel: `TICKET_SECRET`, `IP_HASH_SECRET`,
+  `CRON_SECRET`.
+
+---
+
+## 2026-10-01 (notte) — Endpoint passwordless, funnel dietro flag, test
 
 Branch `feat/passwordless-booking`. Il modello dati della voce sotto prende vita:
 endpoint serverless, funnel che sa dire "controlla la posta", check-in che
