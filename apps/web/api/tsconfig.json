@@ -1,0 +1,6 @@
+{
+  // Picked up by Vercel when it compiles the functions in this folder (it
+  // uses the tsconfig.json nearest to each entrypoint), so they build with
+  // the server settings instead of the browser ones in ../tsconfig.json.
+  "extends": "../tsconfig.server.json"
+}

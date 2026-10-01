@@ -1,9 +1,31 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
+/**
+ * Dev only: serve `/api/*` with the same handlers as the Vercel Functions in
+ * `api/`, loaded through Vite's SSR loader (see server/dev.ts). Server env is
+ * read with an empty prefix, so it stays on the Node side.
+ */
+function apiDevServer(): Plugin {
+  return {
+    name: 'underclub-api-dev',
+    apply: 'serve',
+    configureServer(server) {
+      const env = loadEnv(server.config.mode, server.config.envDir || server.config.root, '')
+      server.middlewares.use((req, res, next) => {
+        if (!req.url?.startsWith('/api/')) return next()
+        server
+          .ssrLoadModule('/server/dev.ts')
+          .then((mod) => mod.handleDevRequest(req, res, env))
+          .catch(next)
+      })
+    },
+  }
+}
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [apiDevServer(), react(), tailwindcss()],
   server: {
     port: 5173,
   },
