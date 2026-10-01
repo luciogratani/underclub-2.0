@@ -436,8 +436,10 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
 3. Vercel, progetto web: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sensibile),
    `PUBLIC_SITE_URL`, `ALLOWED_ORIGINS` (es. il `www.`), `RESEND_API_KEY`,
    `EMAIL_FROM`, più tre segreti generati con `openssl rand -base64 48`:
-   `TICKET_SECRET` (**non va mai cambiato a cuor leggero**: invalida tutti i QR
-   emessi), `IP_HASH_SECRET`, `CRON_SECRET`. Sui preview servono le stesse email
+   `TICKET_SECRET` (da non cambiare senza motivo: i QR e i link già inviati
+   restano validi, ma per le prenotazioni confermate prima del cambio "MY
+   BOOKINGS" non ricostruisce più il ticket e rimanda all'email),
+   `IP_HASH_SECRET`, `CRON_SECRET`. Sui preview servono le stesse email
    (il trasporto `console` è rifiutato su ogni deploy) e il loro origin in
    `ALLOWED_ORIGINS`. Verificare che l'OIDC di Vercel sia attivo (serve a BotID)
    e che il cron giornaliero `/api/cron/cleanup` compaia nel progetto.
