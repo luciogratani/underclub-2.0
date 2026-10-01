@@ -24,6 +24,7 @@ export function testEnv(over: Partial<ServerEnv> = {}): ServerEnv {
     allowLocalhostOrigins: false,
     emailTransport: 'console',
     emailFrom: 'Underclub <test@underclub.it>',
+    emailReplyTo: null,
     resendApiKey: null,
     supabaseUrl: null,
     supabaseServiceRoleKey: null,

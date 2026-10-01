@@ -19,6 +19,8 @@ export interface ServerEnv {
   allowLocalhostOrigins: boolean;
   emailTransport: EmailTransportKind;
   emailFrom: string;
+  /** Optional Reply-To: the sending subdomain has no inbox. */
+  emailReplyTo: string | null;
   resendApiKey: string | null;
   supabaseUrl: string | null;
   supabaseServiceRoleKey: string | null;
@@ -116,6 +118,7 @@ export function readEnv(source: EnvSource, options: ReadEnvOptions = {}): Server
     if (!emailFrom) missing.push('EMAIL_FROM');
   }
   emailFrom ??= 'Underclub <reservations@localhost>';
+  const emailReplyTo = clean(source.EMAIL_REPLY_TO);
 
   const secrets = {} as Record<SecretKey, string>;
   for (const secret of SECRETS) {
@@ -150,6 +153,7 @@ export function readEnv(source: EnvSource, options: ReadEnvOptions = {}): Server
     allowLocalhostOrigins: dev,
     emailTransport,
     emailFrom,
+    emailReplyTo,
     resendApiKey,
     supabaseUrl,
     supabaseServiceRoleKey,

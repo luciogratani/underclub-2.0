@@ -30,6 +30,7 @@ export class EmailError extends Error {
 export interface ResendOptions {
   apiKey: string;
   from: string;
+  replyTo?: string | null;
   fetch?: typeof fetch;
   timeoutMs?: number;
 }
@@ -52,6 +53,7 @@ export function createResendTransport(options: ResendOptions): EmailTransport {
             subject: message.subject,
             html: message.html,
             text: message.text,
+            ...(options.replyTo ? { reply_to: options.replyTo } : {}),
             tags: [{ name: 'kind', value: message.kind }],
           }),
           signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
@@ -107,7 +109,7 @@ export function createCapturingTransport(): CapturingTransport {
 
 export function createEmailTransport(env: ServerEnv): EmailTransport {
   if (env.emailTransport === 'resend') {
-    return createResendTransport({ apiKey: env.resendApiKey!, from: env.emailFrom });
+    return createResendTransport({ apiKey: env.resendApiKey!, from: env.emailFrom, replyTo: env.emailReplyTo });
   }
   return createConsoleTransport();
 }

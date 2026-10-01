@@ -208,6 +208,13 @@ describe('email transports', () => {
     expect(url).toBe('https://api.resend.com/emails');
     expect((init.headers as Record<string, string>).Authorization).toBe('Bearer re_test');
     expect(JSON.parse(init.body as string)).toMatchObject({ from: 'U <r@u.it>', to: ['a@b.it'], subject: 'S', html: '<p>h</p>', text: 't' });
+    expect(JSON.parse(init.body as string)).not.toHaveProperty('reply_to');
+
+    const withReply = vi.fn(async () => new Response('{"id":"2"}', { status: 200 }));
+    await createResendTransport({ apiKey: 're_test', from: 'U <r@u.it>', replyTo: 'info@u.it', fetch: withReply as unknown as typeof fetch })
+      .send({ kind: 'ticket', to: 'a@b.it', subject: 'S', html: 'h', text: 't' });
+    const [, replyInit] = withReply.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(replyInit.body as string).reply_to).toBe('info@u.it');
 
     const failing = createResendTransport({
       apiKey: 're_test',

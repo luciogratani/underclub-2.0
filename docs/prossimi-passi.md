@@ -441,6 +441,7 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
    `2026-10-02-booking-endpoints.sql` (le altre del README sono già applicate).
    Prima, provare la catena con `supabase/tests/run.sh`.
 2. Resend: verificare il dominio di invio (`reservations.`) e creare la API key.
+   Record DNS, Postmaster e casella `info@` in [`dns-underclub.md`](./dns-underclub.md).
 3. Vercel, progetto web: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sensibile),
    `PUBLIC_SITE_URL`, `ALLOWED_ORIGINS` (es. il `www.`), `RESEND_API_KEY`,
    `EMAIL_FROM`, più tre segreti generati con `openssl rand -base64 48`:
