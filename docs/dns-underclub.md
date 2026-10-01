@@ -1,7 +1,7 @@
 # DNS di `underclub.it` — cosa aggiungere al momento del wiring
 
-Preparato il 2026-10-01. Applicate le sezioni D (Postmaster) ed E (inoltro
-`info@`), il 2026-10-01; A, B e C restano da fare.
+Preparato il 2026-10-01. Applicate il 2026-10-01 le sezioni C (DMARC), D
+(Postmaster) ed E (inoltro `info@`); A e B (Resend) restano da fare.
 
 ## Dove sta il DNS
 
@@ -59,7 +59,7 @@ ticket al riparo da quella delle newsletter. Le email promozionali dovranno
 avere il link di disiscrizione con un clic (header `List-Unsubscribe`),
 richiesto da Gmail e Yahoo e già deciso per la revoca dei consensi.
 
-### C. DMARC — tutto il dominio
+### C. DMARC — tutto il dominio (APPLICATO 2026-10-01)
 
 | Nome | Tipo | Valore |
 |---|---|---|
@@ -67,8 +67,9 @@ richiesto da Gmail e Yahoo e già deciso per la revoca dei consensi.
 
 Vale anche per i sottodomini. Si parte da `p=none`, che osserva senza
 bloccare, e si stringe a `p=quarantine` dopo qualche settimana di invii puliti
-visti in Postmaster. Per ricevere i report aggregati serve `rua=mailto:…`
-verso una casella esistente (vedi E).
+visti in Postmaster. Niente `rua=` per scelta: i report aggregati
+arriverebbero ogni giorno su `info@`, cioè nella casella personale; per
+il monitoraggio basta Postmaster.
 
 ### D. Google Postmaster Tools — verifica del dominio (APPLICATO 2026-10-01)
 
@@ -114,9 +115,8 @@ vercel dns add underclub.it send.news MX feedback-smtp.eu-west-1.amazonses.com 1
 vercel dns add underclub.it send.news TXT 'v=spf1 include:amazonses.com ~all'
 vercel dns add underclub.it resend._domainkey.news TXT 'p=DA_RESEND'
 
-vercel dns add underclub.it _dmarc TXT 'v=DMARC1; p=none;'
-
 # fatti il 2026-10-01:
+vercel dns add underclub.it _dmarc TXT 'v=DMARC1; p=none;'
 vercel dns add underclub.it @ MX mx1.improvmx.com 10
 vercel dns add underclub.it @ MX mx2.improvmx.com 20
 vercel dns add underclub.it @ TXT 'v=spf1 include:spf.improvmx.com ~all'
