@@ -386,12 +386,13 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
 
 ---
 
-## 9. Endpoint passwordless e funnel (implementati 2026-10-01, non ancora in produzione)
+## 9. Endpoint passwordless e funnel (implementati 2026-10-01, DB in produzione, sito non ancora deployato)
 
 Branch `feat/passwordless-booking`. La migrazione porta la data 2026-10-02 nel
 nome solo per ordinarsi dopo quella del 2026-10-01: è stata scritta lo stesso
-giorno. Tutto verificato in locale, **niente è stato
-applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.md).
+giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
+(passo 1 sotto); il sito nuovo non è ancora deployato. Dettagli in
+[`CHANGELOG.md`](./CHANGELOG.md).
 
 ### Cosa c'è
 - **SQL** — `supabase/rls-history/2026-10-02-booking-endpoints.sql`: una funzione
@@ -433,15 +434,21 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
   chiaro, quindi l'email è l'unica copia durevole del link.
 - **Fix di sicurezza preesistente**: `issue_ticket_access_token` era chiamabile da
   `anon` via PostgREST; chi conosceva l'id di una prenotazione poteva ruotarne il
-  token e riceverne uno valido. Revocata. **Il buco è aperto in produzione finché
-  la migrazione non viene applicata.**
+  token e riceverne uno valido. Revocata, e chiusa in produzione il 2026-10-01.
 
 ### Da fare a mano per andare in produzione
-1. Applicare su Supabase, nell'ordine, `2026-10-01-contacts-sessions-formulas.sql` e
-   `2026-10-02-booking-endpoints.sql` (le altre del README sono già applicate).
-   Prima, provare la catena con `supabase/tests/run.sh`.
-2. Resend: verificare il dominio di invio (`reservations.`) e creare la API key.
-   Record DNS, Postmaster e casella `info@` in [`dns-underclub.md`](./dns-underclub.md).
+1. ~~Applicare le migrazioni~~ — **fatto il 2026-10-01**, prima un dry-run
+   (`begin` … `rollback`), poi dopo il backup `pgdumpall_20261001_1417.sql.gz`.
+   Supabase è self-hosted (VPS, schema `underclub`), e le migrazioni vanno
+   lanciate come **`supabase_admin`**, proprietario di tutti gli oggetti dello
+   schema: `postgres` lì non è superuser (`must be owner of table`).
+   Come, a grandi linee:
+   `(echo 'begin;'; cat file1.sql file2.sql; echo 'commit;'; echo "notify pgrst, 'reload schema';") | ssh root@<vps> "docker exec -i supabase-db psql -U supabase_admin -d postgres -v ON_ERROR_STOP=1 -q"`.
+   La 2026-10-02 dà a `service_role` l'usage sullo schema, che in produzione
+   mancava (senza, PostgREST risponde 403 alla service key).
+2. ~~Resend e DNS~~ — **fatto il 2026-10-01**: `reservations.` e `news.`
+   verificati, DMARC, Postmaster, inoltro `info@`. Tutto in
+   [`dns-underclub.md`](./dns-underclub.md). Manca la API key.
 3. Vercel, progetto web: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (sensibile),
    `PUBLIC_SITE_URL`, `ALLOWED_ORIGINS` (es. il `www.`), `RESEND_API_KEY`,
    `EMAIL_FROM`, più tre segreti generati con `openssl rand -base64 48`:
@@ -502,10 +509,12 @@ applicato su Supabase né deployato**. Dettagli in [`CHANGELOG.md`](./CHANGELOG.
 ## Ordine suggerito (prossimi passi rimasti)
 
 Aggiornato il 2026-10-01: il modello dati, gli endpoint e il funnel esistono sul
-branch `feat/passwordless-booking`, manca la messa in produzione.
+branch `feat/passwordless-booking`; DB e DNS sono in produzione.
 
-1. **Messa in produzione degli endpoint**: i passi 1-5 di "Da fare a mano" nella
-   sezione 9 (migrazioni, Resend, env Vercel, preview, copy, flag).
+1. **Messa in produzione degli endpoint**: i passi 3-5 di "Da fare a mano" nella
+   sezione 9 (env Vercel, preview, copy, flag), poi lo spostamento di
+   `underclub.it` dal vecchio progetto Vercel `underclub` (da ignorare, nessun
+   dato da migrare) a `underclub-2-0-web`.
 2. Pulizia in fondo alla migrazione del 2026-10-01, dopo lo step 1b.
 3. Admin: **lista eventi + CRUD eventi** (lineup + formule con prezzo, quota e
    scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
@@ -519,5 +528,5 @@ branch `feat/passwordless-booking`, manca la messa in produzione.
 ---
 
 *Ultimo aggiornamento: 2026-10-01 — endpoint passwordless, funnel dietro flag,
-test SQL e degli endpoint (sezione 9). Niente ancora applicato su Supabase né
-deployato.*
+test SQL e degli endpoint (sezione 9). Migrazioni applicate e DNS completo;
+sito nuovo non ancora deployato.*

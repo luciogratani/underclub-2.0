@@ -5,6 +5,27 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-01 (sera) — Migrazioni in produzione, DNS
+
+### Produzione
+- Applicate sul Supabase self-hosted `2026-10-01-contacts-sessions-formulas.sql`
+  e `2026-10-02-booking-endpoints.sql`, come `supabase_admin`, dopo dry-run e
+  backup. Chiuso il buco di `issue_ticket_access_token`.
+- DNS di `underclub.it` (zona su Vercel): Resend per `reservations.` e
+  `news.`, DMARC `p=none`, Google Postmaster, `info@` inoltrata con ImprovMX.
+  Dettagli in [`dns-underclub.md`](./dns-underclub.md).
+
+### Corretto
+- `service_role` non aveva usage sullo schema `underclub` in produzione:
+  grant aggiunto alla migrazione 2026-10-02; il bootstrap dei test ora
+  rispecchia la produzione e il test dei privilegi lo controlla.
+
+### Aggiunto
+- `EMAIL_REPLY_TO` (facoltativa): Reply-To delle email, perché il
+  sottodominio di invio non ha una casella.
+
+---
+
 ## 2026-10-01 (pomeriggio) — Recupero del ticket, limiti ai tentativi, menu
 
 Stesso branch, dopo la prima revisione. Dettagli nella sezione 9 di
