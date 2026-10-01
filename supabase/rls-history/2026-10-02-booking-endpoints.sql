@@ -3,12 +3,27 @@
 --
 -- Purpose:
 --   1) The SQL side of the serverless endpoints (Vercel, service key):
---      booking, activation link, log-in link, session, my reservations,
+--      booking, activation link, log-in link, session overview, log-out,
 --      cancellation. One `ep_*` function per operation, so every multi-step
 --      write is a single transaction and the endpoints stay thin.
---   2) `get_public_ticket`: the ticket page reads its row by id + token
---      through one RPC, with the name coming from `contacts`.
---   3) Rewrite `scan_ticket_check_in` (step 1 of the 2026-10-01 cleanup):
+--   2) Derived ticket token: a reservation confirmed by the endpoints gets
+--      HMAC(reservation id, TICKET_SECRET) as its ticket token, so "my
+--      bookings" can rebuild the ticket link without ever storing it. The
+--      secret lives in the endpoint's env, never in the database.
+--   3) `ep_session_overview`: contact + upcoming reservations (with the
+--      rebuilt ticket links) in one call; the session is renewed at most once
+--      a day.
+--   4) `ep_request_login` recovers legacy bookings: an address that only has
+--      contact-less (pre-endpoint) confirmed reservations gets a contact,
+--      built from its latest booking, and those rows are linked to it.
+--   5) Abuse limits: at most N activation links per contact per hour / day
+--      (`rate_limited` outcome), and a per-IP fixed-window counter
+--      (`request_throttle` + `ep_throttle`) the endpoints call before working.
+--   6) `ep_cleanup`: the daily cron's purge (expired links, dead sessions, old
+--      throttle windows, contacts never verified).
+--   7) `open_public_ticket`: the ticket page reads its row by id + token and
+--      marks it opened in one RPC, with the name coming from `contacts`.
+--   8) Rewrite `scan_ticket_check_in` (step 1 of the 2026-10-01 cleanup):
 --      name from `contacts`, a `pending` outcome, the expired-formula flag.
 --
 -- Run AFTER:
@@ -19,10 +34,11 @@
 --   - 2026-04-21-ticket-check-in.sql
 --   - 2026-10-01-contacts-sessions-formulas.sql
 --
--- Re-runnable: `add column if not exists`, `create or replace`, and a
--- drop-then-create for the one function whose return type changes. Once this
--- file has run, 2026-04-21 must NOT be replayed: it would fail on the changed
--- return type of `scan_ticket_check_in` (fail-safe, nothing is altered).
+-- Re-runnable: `if not exists`, `create or replace`, and drop-then-create for
+-- every function whose signature or return type changed (functions replaced
+-- by this version are dropped too). Once this file has run, 2026-04-21 must
+-- NOT be replayed: it would fail on the changed return type of
+-- `scan_ticket_check_in` (fail-safe, nothing is altered).
 --
 -- Still ADDITIVE: the anon booking path (`anon_insert_reservation`,
 -- `create_public_reservation`) and the x-ticket-token policies keep working.
@@ -32,17 +48,71 @@
 --     explicitly: exposing the schema sets default privileges that grant
 --     every new function to anon and authenticated directly, so revoking from
 --     `public` alone would leave them callable from the browser.
---   - `get_public_ticket`: anon + authenticated. Possession of the ticket
+--   - `open_public_ticket`: anon + authenticated. Possession of the ticket
 --     token is the authorization, exactly as with the x-ticket-token policy.
 --   - `scan_ticket_check_in`: authenticated (admin) only, as before.
---   - Every token (activation, session, ticket) is 32 random bytes from
---     pgcrypto, handed out once in clear and stored only as
---     `hash_ticket_token(token)`.
+--   - Activation and session tokens are 32 random bytes from pgcrypto. Ticket
+--     tokens are derived (HMAC-SHA256 of the reservation id, keyed with the
+--     endpoint's TICKET_SECRET) for reservations confirmed by the endpoints,
+--     random for the legacy anon path. Every token is handed out in clear and
+--     stored only as `hash_ticket_token(token)`.
 --   - Time: "today" is the date in Europe/Rome, not the server's UTC date, so
 --     an event stays bookable until midnight in Italy.
 
 -- ---------------------------------------------------------------------------
--- 1) New columns
+-- 0) Tunables — the numbers behind the limits and the purge
+-- ---------------------------------------------------------------------------
+-- Tiny immutable functions instead of literals scattered in the code: change
+-- the number here and re-run the file. Not callable through the API.
+
+-- Activation links (booking + log-in, used or not) one contact may receive in
+-- the last hour / the last 24 hours. Past either cap the request answers
+-- `rate_limited` and nothing is written or sent. Counted per CONTACT: an
+-- address without a contact is never limited here (the per-IP throttle covers
+-- it). Keeps a stranger from flooding someone's inbox through the form.
+create or replace function underclub.cfg_tokens_per_hour()
+returns int language sql immutable as $$ select 3 $$;
+
+create or replace function underclub.cfg_tokens_per_day()
+returns int language sql immutable as $$ select 10 $$;
+
+-- A session is pushed forward (last_used_at, expires_at = now + 12 months) at
+-- most once per this interval; in between it is only validated. Saves a write
+-- on every page view; the 12-month window loses at most a day.
+create or replace function underclub.cfg_session_renew_every()
+returns interval language sql immutable as $$ select interval '1 day' $$;
+
+-- ep_cleanup retention. Activation links are deleted this long after their
+-- expiry; with a 30-minute link that is always past the 24h rate-limit
+-- window, so the purge never lowers a live count.
+create or replace function underclub.cfg_token_retention()
+returns interval language sql immutable as $$ select interval '1 day' $$;
+
+-- Sessions revoked, or expired, longer ago than this are deleted.
+create or replace function underclub.cfg_session_retention()
+returns interval language sql immutable as $$ select interval '30 days' $$;
+
+-- Per-IP throttle windows that started longer ago than this are deleted (the
+-- longest window the endpoints use is minutes).
+create or replace function underclub.cfg_throttle_retention()
+returns interval language sql immutable as $$ select interval '1 day' $$;
+
+-- A contact never verified (no activation link ever opened) and without any
+-- confirmed reservation is deleted this long after creation, together with
+-- its pending/cancelled reservations. Stated in the privacy notice.
+create or replace function underclub.cfg_unverified_contact_ttl()
+returns interval language sql immutable as $$ select interval '7 days' $$;
+
+revoke all on function underclub.cfg_tokens_per_hour()        from public, anon, authenticated, service_role;
+revoke all on function underclub.cfg_tokens_per_day()         from public, anon, authenticated, service_role;
+revoke all on function underclub.cfg_session_renew_every()    from public, anon, authenticated, service_role;
+revoke all on function underclub.cfg_token_retention()        from public, anon, authenticated, service_role;
+revoke all on function underclub.cfg_session_retention()      from public, anon, authenticated, service_role;
+revoke all on function underclub.cfg_throttle_retention()     from public, anon, authenticated, service_role;
+revoke all on function underclub.cfg_unverified_contact_ttl() from public, anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 1) New columns and tables
 -- ---------------------------------------------------------------------------
 
 -- First successful activation. Null = the email was never proven, i.e. the
@@ -56,6 +126,31 @@ alter table underclub.contacts
 alter table underclub.activation_tokens
   add column if not exists consent_marketing boolean,
   add column if not exists consent_profiling boolean;
+
+-- The per-contact rate limit counts recent tokens of one contact.
+create index if not exists idx_activation_tokens_contact_created
+  on underclub.activation_tokens (contact_id, created_at);
+
+-- Per-IP fixed-window counters. `key_hash` is HMAC-SHA256(IP, IP_HASH_SECRET)
+-- in hex, computed by the endpoint: the clear IP never reaches the database.
+-- `action` names the endpoint ('booking', 'login_link'); `window_start` is the
+-- aligned start of the window. Purged by ep_cleanup.
+create table if not exists underclub.request_throttle (
+  key_hash     text        not null,
+  action       text        not null,
+  window_start timestamptz not null,
+  hits         int         not null default 0,
+  primary key (key_hash, action, window_start)
+);
+
+create index if not exists idx_request_throttle_window
+  on underclub.request_throttle (window_start);
+
+-- Fail-closed, same as the 2026-10-01 tables: RLS on, no policy, and the
+-- default grants of the exposed schema taken back. Only ep_throttle and
+-- ep_cleanup (security definer) touch it.
+alter table underclub.request_throttle enable row level security;
+revoke all on underclub.request_throttle from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- 2) Internal helpers (not callable through the API)
@@ -80,9 +175,89 @@ as $$
   );
 $$;
 
--- Validates a session token and, if valid, pushes it forward 12 months in the
--- same statement (rolling session). Both out params are null when the token is
--- unknown, revoked or expired.
+-- TICKET_SECRET arrives as a parameter on every call that may need it. A
+-- missing or short secret is a deployment error, not an outcome: raise, so the
+-- endpoint fails loudly (500) instead of minting guessable tickets.
+create or replace function underclub.require_ticket_secret(p_secret text)
+returns void
+language plpgsql
+immutable
+as $$
+begin
+  if p_secret is null or length(p_secret) < 32 then
+    raise exception 'ticket secret missing or shorter than 32 characters'
+      using errcode = '22023';  -- invalid_parameter_value
+  end if;
+end;
+$$;
+
+-- Ticket token of a reservation confirmed by the endpoints. Exact recipe:
+--   base64url_nopad( hmac_sha256( key = UTF-8 bytes of p_secret,
+--                                 msg = UTF-8 bytes of p_reservation_id::text ) )
+-- i.e. pgcrypto's bytea overload `hmac(data bytea, key bytea, 'sha256')`, the
+-- uuid in its canonical lowercase text form, standard base64 with
+-- '+' → '-', '/' → '_' and the '=' padding stripped (43 chars). Deterministic:
+-- the same reservation and secret always give the same token, so the token
+-- never needs to be stored to be shown again. Only the database computes it;
+-- the endpoint just passes the secret.
+create or replace function underclub.derive_ticket_token(p_reservation_id uuid, p_secret text)
+returns text
+language plpgsql
+immutable
+set search_path = underclub, public, extensions
+as $$
+begin
+  perform underclub.require_ticket_secret(p_secret);
+  if p_reservation_id is null then
+    return null;
+  end if;
+  return replace(
+    replace(
+      replace(
+        encode(
+          extensions.hmac(
+            convert_to(p_reservation_id::text, 'UTF8'),
+            convert_to(p_secret, 'UTF8'),
+            'sha256'::text
+          ),
+          'base64'
+        ),
+        '+', '-'
+      ),
+      '/', '_'
+    ),
+    '=', ''
+  );
+end;
+$$;
+
+-- Stores the hash of the derived token on the reservation and returns the
+-- token. Replaces `issue_ticket_access_token` for the endpoints' confirmations.
+create or replace function underclub.issue_derived_ticket_token(p_reservation_id uuid, p_secret text)
+returns text
+language plpgsql
+security definer
+set search_path = underclub, public, extensions
+as $$
+declare
+  v_token text := underclub.derive_ticket_token(p_reservation_id, p_secret);
+begin
+  update underclub.reservations r
+     set ticket_access_token_hash = underclub.hash_ticket_token(v_token)
+   where r.id = p_reservation_id;
+
+  if not found then
+    raise exception 'reservation % not found', p_reservation_id using errcode = 'P0002';
+  end if;
+
+  return v_token;
+end;
+$$;
+
+-- Validates a session token. Both out params are null when the token is
+-- unknown, revoked or expired. A valid session is pushed forward 12 months
+-- (rolling) only if its last renewal is older than `cfg_session_renew_every`;
+-- otherwise it is just validated (same output, no write).
 create or replace function underclub.renew_contact_session(
   p_token text,
   out contact_id uuid,
@@ -93,19 +268,33 @@ security definer
 set search_path = underclub, public, extensions
 as $$
 #variable_conflict use_column
+declare
+  v_hash text;
 begin
   if p_token is null or btrim(p_token) = '' then
     return;
   end if;
 
+  v_hash := underclub.hash_ticket_token(p_token);
+
   update underclub.contact_sessions s
      set last_used_at = now(),
          expires_at   = now() + interval '12 months'
-   where s.token_hash = underclub.hash_ticket_token(p_token)
+   where s.token_hash = v_hash
      and s.revoked_at is null
      and s.expires_at > now()
+     and s.last_used_at < now() - underclub.cfg_session_renew_every()
   returning s.contact_id, s.expires_at
        into renew_contact_session.contact_id, renew_contact_session.expires_at;
+
+  if not found then
+    select s.contact_id, s.expires_at
+      into renew_contact_session.contact_id, renew_contact_session.expires_at
+      from underclub.contact_sessions s
+     where s.token_hash = v_hash
+       and s.revoked_at is null
+       and s.expires_at > now();
+  end if;
 end;
 $$;
 
@@ -134,6 +323,24 @@ begin
 end;
 $$;
 
+-- True when the contact already received the maximum number of activation
+-- links in the last hour or day (see the tunables at the top). Exact only
+-- under `lock_contact` on that contact's address, which every issuer holds.
+create or replace function underclub.activation_rate_limited(p_contact_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = underclub, public, extensions
+as $$
+  select count(*) filter (where t.created_at > now() - interval '1 hour')
+           >= underclub.cfg_tokens_per_hour()
+      or count(*) >= underclub.cfg_tokens_per_day()
+    from underclub.activation_tokens t
+   where t.contact_id = p_contact_id
+     and t.created_at > now() - interval '24 hours';
+$$;
+
 -- Serializes everything one person does on one event (booking, re-booking,
 -- activation), so check-then-write sequences cannot interleave. Keyed on the
 -- normalized email, not the contact id, because a first booking must be
@@ -150,10 +357,103 @@ as $$
   );
 $$;
 
+-- Serializes everything that creates, links, deletes or issues links for the
+-- contact of one address, across events: contact creation (booking, legacy
+-- recovery), the per-contact rate limit, the purge. Lock order everywhere:
+-- person+event (lock_booking) first, then this, then the entry lock.
+create or replace function underclub.lock_contact(p_email text)
+returns void
+language sql
+volatile
+as $$
+  select pg_advisory_xact_lock(hashtext('underclub.contact'), hashtext(p_email));
+$$;
+
+-- The contact of a normalized address: the existing one, or one recovered
+-- from legacy bookings. Recovery happens only when no contact exists and the
+-- address has at least one contact-less `confirmed` reservation for an event
+-- dated today or later: the contact is created from the most recent such row
+-- (name, date of birth; never verified) and EVERY contact-less row with that
+-- address is linked to it. Null when there is neither.
+--
+-- Legacy columns are read through to_jsonb(r): once the cleanup drops them
+-- this simply finds nothing, instead of failing every log-in request.
+-- Caller must hold lock_contact(p_email) (taken again here, re-entrant).
+create or replace function underclub.adopt_legacy_contact(p_email text)
+returns uuid
+language plpgsql
+security definer
+set search_path = underclub, public, extensions
+as $$
+declare
+  v_id   uuid;
+  v_name text;
+  v_dob  date;
+begin
+  if p_email is null or p_email <> lower(btrim(p_email)) or position('@' in p_email) <= 1 then
+    return null;
+  end if;
+
+  perform underclub.lock_contact(p_email);
+
+  select c.id into v_id from underclub.contacts c where c.email = p_email;
+  if v_id is not null then
+    return v_id;
+  end if;
+
+  select btrim(x.j ->> 'full_name'), (x.j ->> 'date_of_birth')::date
+    into v_name, v_dob
+    from underclub.reservations r
+    join underclub.events e on e.id = r.event_id
+    cross join lateral (select to_jsonb(r) as j) x
+   where r.contact_id is null
+     and r.status = 'confirmed'
+     and e.date >= (now() at time zone 'Europe/Rome')::date
+     and lower(btrim(x.j ->> 'email')) = p_email
+     and nullif(btrim(x.j ->> 'full_name'), '') is not null
+     and x.j ->> 'date_of_birth' is not null
+   order by r.created_at desc
+   limit 1;
+
+  if v_name is null then
+    return null;
+  end if;
+
+  insert into underclub.contacts (email, full_name, date_of_birth)
+  values (p_email, v_name, v_dob)
+  returning id into v_id;
+
+  -- All contact-less rows of the address, any status or date. The legacy
+  -- unique index is on the RAW email, so 'A@x.it' and 'a@x.it' may both be
+  -- active on one event; the contact index allows one, so only the latest
+  -- active row per event is linked (cancelled rows never collide).
+  update underclub.reservations r
+     set contact_id = v_id
+   where r.contact_id is null
+     and lower(btrim(to_jsonb(r) ->> 'email')) = p_email
+     and (r.status = 'cancelled'
+          or r.id in (
+            select distinct on (x.event_id) x.id
+              from underclub.reservations x
+             where x.contact_id is null
+               and x.status <> 'cancelled'
+               and lower(btrim(to_jsonb(x) ->> 'email')) = p_email
+             order by x.event_id, x.created_at desc));
+
+  return v_id;
+end;
+$$;
+
 revoke all on function underclub.new_opaque_token() from public, anon, authenticated, service_role;
+revoke all on function underclub.require_ticket_secret(text) from public, anon, authenticated, service_role;
+revoke all on function underclub.derive_ticket_token(uuid, text) from public, anon, authenticated, service_role;
+revoke all on function underclub.issue_derived_ticket_token(uuid, text) from public, anon, authenticated, service_role;
 revoke all on function underclub.renew_contact_session(text) from public, anon, authenticated, service_role;
 revoke all on function underclub.issue_activation_token(uuid, uuid, boolean, boolean) from public, anon, authenticated, service_role;
+revoke all on function underclub.activation_rate_limited(uuid) from public, anon, authenticated, service_role;
 revoke all on function underclub.lock_booking(text, uuid) from public, anon, authenticated, service_role;
+revoke all on function underclub.lock_contact(text) from public, anon, authenticated, service_role;
+revoke all on function underclub.adopt_legacy_contact(text) from public, anon, authenticated, service_role;
 
 -- Pre-existing exposure closed here: `issue_ticket_access_token` was never
 -- revoked, so with the schema exposed anon could call it with any reservation
@@ -162,11 +462,26 @@ revoke all on function underclub.lock_booking(text, uuid) from public, anon, aut
 revoke all on function underclub.issue_ticket_access_token(uuid) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 3) ep_request_booking
+-- 3) Functions replaced by this version
+-- ---------------------------------------------------------------------------
+-- New signatures (the ticket secret) or merged into one call. Dropped so a
+-- stale overload can never be called by mistake.
+
+drop function if exists underclub.ep_request_booking(text, uuid, uuid, text, date, text, boolean, boolean, text);
+drop function if exists underclub.ep_activate(text);
+drop function if exists underclub.ep_session(text);
+drop function if exists underclub.ep_my_reservations(text);
+drop function if exists underclub.get_public_ticket(uuid, text);
+
+-- ---------------------------------------------------------------------------
+-- 4) ep_request_booking
 -- ---------------------------------------------------------------------------
 -- With a valid session the booking is confirmed on the spot. Without one the
 -- form data identifies (or creates) the contact, the booking is `pending` for
 -- 30 minutes and the activation link confirms it.
+--
+-- outcome: confirmed | pending | already_booked | sold_out | not_bookable |
+--          invalid_entry | invalid_input | rate_limited (form path only)
 
 create or replace function underclub.ep_request_booking(
   p_session_token text,
@@ -177,7 +492,8 @@ create or replace function underclub.ep_request_booking(
   p_email text,
   p_consent_marketing boolean,
   p_consent_profiling boolean,
-  p_source text
+  p_source text,
+  p_ticket_secret text
 )
 returns table (
   outcome           text,
@@ -218,6 +534,9 @@ declare
   v_ticket        text;
   v_activation    text;
 begin
+  -- 0. Configuration error, not an outcome.
+  perform underclub.require_ticket_secret(p_ticket_secret);
+
   -- 1. Event and entry. Looked up first so their labels are returned even
   --    when the answer is a refusal.
   select true, e.status, e.title, e.date, e.time
@@ -262,8 +581,14 @@ begin
     select c.email into v_contact_email from underclub.contacts c where c.id = v_contact_id;
   end if;
 
-  -- Lock order everywhere: person+event first, then entry.
+  -- Lock order everywhere: person+event, then contact, then entry.
   perform underclub.lock_booking(v_contact_email, p_event_id);
+  if not v_has_session then
+    -- The form path may create the contact and issues links: both must be
+    -- exact against requests for the same address on OTHER events and
+    -- against log-in requests.
+    perform underclub.lock_contact(v_contact_email);
+  end if;
 
   -- Without a session the contact may not exist yet; it is created only once
   -- the request is known to lead somewhere (below), never on a refusal.
@@ -271,6 +596,15 @@ begin
     into v_contact_id, v_contact_name, v_contact_dob
     from underclub.contacts c
    where c.email = v_contact_email;
+
+  -- 2b. Per-address cap on activation links (tunables at the top). Checked
+  --     under the locks so the count is exact; nothing is written or issued.
+  if not v_has_session and v_contact_id is not null
+     and underclub.activation_rate_limited(v_contact_id) then
+    return query select 'rate_limited'::text, null::uuid, null::text, null::text,
+      v_contact_email, v_contact_name, v_event_title, v_event_date, v_event_time, v_entry_name;
+    return;
+  end if;
 
   -- Keep the source only if it already is a valid slug; never fail on it.
   v_source := case
@@ -297,11 +631,19 @@ begin
   if v_res_id is not null then
     if not v_has_session then
       -- "You're already in": the email carries a log-in link instead. A
-      -- legacy-only address has no contact yet: create it to hang the link on.
+      -- legacy-only address has no contact yet: recover it from its legacy
+      -- bookings (same as ep_request_login), so the link leads to them.
       if v_contact_id is null then
-        insert into underclub.contacts (email, full_name, date_of_birth)
-        values (v_contact_email, v_name, p_date_of_birth)
-        returning id, full_name, date_of_birth into v_contact_id, v_contact_name, v_contact_dob;
+        v_contact_id := underclub.adopt_legacy_contact(v_contact_email);
+        if v_contact_id is null then
+          -- Defensive only: a confirmed legacy row on a bookable event always
+          -- qualifies for recovery.
+          insert into underclub.contacts (email, full_name, date_of_birth)
+          values (v_contact_email, v_name, p_date_of_birth)
+          returning id into v_contact_id;
+        end if;
+        select c.full_name, c.date_of_birth into v_contact_name, v_contact_dob
+          from underclub.contacts c where c.id = v_contact_id;
       end if;
       v_activation := underclub.issue_activation_token(v_contact_id, null, null, null);
     end if;
@@ -327,8 +669,8 @@ begin
 
   -- First booking from this address: create the contact from the form. An
   -- existing contact is never modified here: whoever types an address must
-  -- not be able to rename its owner or touch their consents. The booking lock
-  -- already serializes same-address requests, so no conflict is expected.
+  -- not be able to rename its owner or touch their consents. The contact lock
+  -- serializes every creator of this address, so no conflict is expected.
   if v_contact_id is null then
     insert into underclub.contacts (email, full_name, date_of_birth)
     values (v_contact_email, v_name, p_date_of_birth)
@@ -377,7 +719,7 @@ begin
         returning id into v_res_id;
       end if;
 
-      v_ticket := underclub.issue_ticket_access_token(v_res_id);
+      v_ticket := underclub.issue_derived_ticket_token(v_res_id, p_ticket_secret);
 
       return query select 'confirmed'::text, v_res_id, v_ticket, null::text,
         v_contact_email, v_contact_name, v_event_title, v_event_date, v_event_time, v_entry_name;
@@ -429,13 +771,13 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 4) ep_activate
+-- 5) ep_activate
 -- ---------------------------------------------------------------------------
 -- Opens an activation link: proves the email, applies the consents carried by
 -- the token, starts a session and confirms the ONE pending reservation the
 -- link was issued for. No quota check here (overbooking accepted, 2026-10-01).
 
-create or replace function underclub.ep_activate(p_token text)
+create or replace function underclub.ep_activate(p_token text, p_ticket_secret text)
 returns table (
   outcome            text,
   reservation_outcome text,
@@ -469,6 +811,8 @@ declare
   v_email       text;
   v_name        text;
 begin
+  perform underclub.require_ticket_secret(p_ticket_secret);
+
   if p_token is null or btrim(p_token) = '' then
     return query select 'invalid'::text, null::text, null::text, null::uuid,
       null::uuid, null::text, null::text, null::text;
@@ -577,7 +921,7 @@ begin
        );
 
     if found then
-      v_ticket := underclub.issue_ticket_access_token(v_res_id);
+      v_ticket := underclub.issue_derived_ticket_token(v_res_id, p_ticket_secret);
       v_res_outcome := 'confirmed';
     else
       -- A stale pending stays pending: booking again sends a fresh link. A
@@ -595,10 +939,13 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 5) ep_request_login
+-- 6) ep_request_login
 -- ---------------------------------------------------------------------------
 -- The endpoint answers "check your email" either way (no enumeration); the
 -- outcome only tells it whether there is an email to send.
+--   sent         contact exists (or was just recovered from legacy bookings)
+--   unknown      no contact and nothing to recover; nothing written
+--   rate_limited per-address cap reached; nothing written, nothing to send
 
 create or replace function underclub.ep_request_login(p_email text)
 returns table (
@@ -612,17 +959,34 @@ set search_path = underclub, public, extensions
 as $$
 #variable_conflict use_column
 declare
+  v_email      text := lower(btrim(p_email));
   v_contact_id uuid;
   v_name       text;
 begin
-  select c.id, c.full_name into v_contact_id, v_name
-    from underclub.contacts c
-   where c.email = lower(btrim(p_email));
+  if v_email is null or position('@' in v_email) <= 1 then
+    return query select 'unknown'::text, null::text, null::text;
+    return;
+  end if;
+
+  -- Two log-in requests for the same never-seen legacy address must not both
+  -- create the contact: serialized here, the second finds the first's row.
+  perform underclub.lock_contact(v_email);
+
+  v_contact_id := underclub.adopt_legacy_contact(v_email);
 
   if v_contact_id is null then
     return query select 'unknown'::text, null::text, null::text;
     return;
   end if;
+
+  -- A freshly recovered contact has no tokens yet, so a limited answer never
+  -- follows a write.
+  if underclub.activation_rate_limited(v_contact_id) then
+    return query select 'rate_limited'::text, null::text, null::text;
+    return;
+  end if;
+
+  select c.full_name into v_name from underclub.contacts c where c.id = v_contact_id;
 
   return query select 'sent'::text,
     underclub.issue_activation_token(v_contact_id, null, null, null),
@@ -631,43 +995,90 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 6) ep_session / ep_logout
+-- 7) ep_session_overview / ep_logout
 -- ---------------------------------------------------------------------------
+-- One call for the account area: the contact and its upcoming reservations.
+-- Null when the session is not valid. Shape (snake_case keys, always present):
+--   { "contact": { "email", "full_name", "marketing_consent",
+--                  "profiling_consent", "session_expires_at" },
+--     "reservations": [ { "reservation_id", "status", "event_id",
+--                         "event_title", "event_date", "event_time",
+--                         "entry_name", "entry_price", "entry_valid_until",
+--                         "qr_scanned_at", "created_at", "ticket_token" } ] }
+-- reservations: events dated today or later (Europe/Rome), `confirmed` or a
+-- live `pending`, by event date/time. `ticket_token` is the derived token
+-- only when the row is confirmed AND its stored hash is the hash of that
+-- derived token; otherwise null (legacy random ticket, pending, or a ticket
+-- issued under another secret: its link stays the one in the email).
 
-create or replace function underclub.ep_session(p_token text)
-returns table (
-  contact_id         uuid,
-  email              text,
-  full_name          text,
-  date_of_birth      date,
-  marketing_consent  boolean,
-  profiling_consent  boolean,
-  session_expires_at timestamptz
-)
+create or replace function underclub.ep_session_overview(p_token text, p_ticket_secret text)
+returns jsonb
 language plpgsql
 security definer
 set search_path = underclub, public, extensions
 as $$
-#variable_conflict use_column
 declare
-  v_session record;
+  v_session      record;
+  v_contact      jsonb;
+  v_reservations jsonb;
 begin
+  perform underclub.require_ticket_secret(p_ticket_secret);
+
   v_session := underclub.renew_contact_session(p_token);
   if v_session.contact_id is null then
-    return;
+    return null;
   end if;
 
-  return query
-  select c.id, c.email, c.full_name, c.date_of_birth,
-         (c.marketing_consent_at is not null
-           and (c.marketing_consent_revoked_at is null
-                or c.marketing_consent_revoked_at < c.marketing_consent_at)),
-         (c.profiling_consent_at is not null
-           and (c.profiling_consent_revoked_at is null
-                or c.profiling_consent_revoked_at < c.profiling_consent_at)),
-         v_session.expires_at
+  select jsonb_build_object(
+           'email',              c.email,
+           'full_name',          c.full_name,
+           'marketing_consent',  (c.marketing_consent_at is not null
+                                   and (c.marketing_consent_revoked_at is null
+                                        or c.marketing_consent_revoked_at < c.marketing_consent_at)),
+           'profiling_consent',  (c.profiling_consent_at is not null
+                                   and (c.profiling_consent_revoked_at is null
+                                        or c.profiling_consent_revoked_at < c.profiling_consent_at)),
+           'session_expires_at', v_session.expires_at)
+    into v_contact
     from underclub.contacts c
    where c.id = v_session.contact_id;
+
+  if v_contact is null then
+    return null;
+  end if;
+
+  select coalesce(
+           jsonb_agg(
+             jsonb_build_object(
+               'reservation_id',    r.id,
+               'status',            r.status,
+               'event_id',          e.id,
+               'event_title',       e.title,
+               'event_date',        e.date,
+               'event_time',        e.time,
+               'entry_name',        ee.name,
+               'entry_price',       ee.price,
+               'entry_valid_until', ee.valid_until,
+               'qr_scanned_at',     r.qr_scanned_at,
+               'created_at',        r.created_at,
+               'ticket_token',      case
+                                      when r.status = 'confirmed'
+                                       and r.ticket_access_token_hash = underclub.hash_ticket_token(d.token)
+                                      then d.token
+                                    end)
+             order by e.date, e.time, r.created_at),
+           '[]'::jsonb)
+    into v_reservations
+    from underclub.reservations r
+    join underclub.events e         on e.id = r.event_id
+    join underclub.event_entries ee on ee.id = r.entry_id
+    cross join lateral (select underclub.derive_ticket_token(r.id, p_ticket_secret) as token) d
+   where r.contact_id = v_session.contact_id
+     and e.date >= (now() at time zone 'Europe/Rome')::date
+     and (r.status = 'confirmed'
+          or (r.status = 'pending' and r.pending_expires_at > now()));
+
+  return jsonb_build_object('contact', v_contact, 'reservations', v_reservations);
 end;
 $$;
 
@@ -687,49 +1098,8 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 7) ep_my_reservations / ep_cancel_reservation
+-- 8) ep_cancel_reservation
 -- ---------------------------------------------------------------------------
-
-create or replace function underclub.ep_my_reservations(p_token text)
-returns table (
-  reservation_id    uuid,
-  status            text,
-  event_id          uuid,
-  event_title       text,
-  event_date        date,
-  event_time        time,
-  entry_name        text,
-  entry_price       numeric,
-  entry_valid_until timestamptz,
-  qr_scanned_at     timestamptz,
-  created_at        timestamptz
-)
-language plpgsql
-security definer
-set search_path = underclub, public, extensions
-as $$
-#variable_conflict use_column
-declare
-  v_contact_id uuid;
-begin
-  v_contact_id := (underclub.renew_contact_session(p_token)).contact_id;
-  if v_contact_id is null then
-    return;
-  end if;
-
-  return query
-  select r.id, r.status, e.id, e.title, e.date, e.time,
-         ee.name, ee.price, ee.valid_until, r.qr_scanned_at, r.created_at
-    from underclub.reservations r
-    join underclub.events e         on e.id = r.event_id
-    join underclub.event_entries ee on ee.id = r.entry_id
-   where r.contact_id = v_contact_id
-     and e.date >= (now() at time zone 'Europe/Rome')::date
-     and (r.status = 'confirmed'
-          or (r.status = 'pending' and r.pending_expires_at > now()))
-   order by e.date, e.time, r.created_at;
-end;
-$$;
 
 create or replace function underclub.ep_cancel_reservation(p_token text, p_reservation_id uuid)
 returns text
@@ -785,33 +1155,177 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- 8) Grants for the endpoints: service_role only
+-- 9) ep_throttle — per-IP fixed window
+-- ---------------------------------------------------------------------------
+-- One hit for (key, action) in the current window; true while the window's
+-- hits, this one included, are within `p_limit`. Windows are aligned on the
+-- epoch (`floor(epoch / window) * window`), so every caller agrees on where a
+-- window starts. The upsert is atomic: concurrent hits on the same window
+-- serialize on the primary key and each sees its own count.
+
+create or replace function underclub.ep_throttle(
+  p_key_hash text,
+  p_action text,
+  p_limit int,
+  p_window_seconds int
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = underclub, public, extensions
+as $$
+declare
+  v_window timestamptz;
+  v_hits   int;
+begin
+  if p_key_hash is null or p_key_hash = ''
+     or p_action is null or p_action = ''
+     or p_limit is null or p_limit < 0
+     or p_window_seconds is null or p_window_seconds <= 0 then
+    raise exception 'ep_throttle: invalid arguments' using errcode = '22023';
+  end if;
+
+  v_window := to_timestamp(
+    (floor(extract(epoch from now()) / p_window_seconds) * p_window_seconds)::double precision);
+
+  insert into underclub.request_throttle as t (key_hash, action, window_start, hits)
+  values (p_key_hash, p_action, v_window, 1)
+  on conflict (key_hash, action, window_start)
+  do update set hits = t.hits + 1
+  returning t.hits into v_hits;
+
+  return v_hits <= p_limit;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 10) ep_cleanup — daily purge (Vercel Cron → /api/cron/cleanup)
+-- ---------------------------------------------------------------------------
+-- Returns the deleted counts:
+--   { "activation_tokens", "contact_sessions", "request_throttle",
+--     "reservations", "contacts" }
+-- Retention numbers are the tunables at the top. `activation_tokens` and
+-- `contact_sessions` count only the rows deleted directly; those of a purged
+-- contact go with it by cascade and are not counted.
+--
+-- Unverified contacts: never verified, older than the TTL, no `confirmed`
+-- reservation (any date), and no activation link still usable (someone may
+-- be opening it right now). Their pending/cancelled reservations go first,
+-- then the contact. Each one is taken under its contact lock with a TRY
+-- (a busy address is simply left for tomorrow) and re-checked under it, so a
+-- booking running for that address cannot lose its contact mid-way.
+
+create or replace function underclub.ep_cleanup()
+returns jsonb
+language plpgsql
+security definer
+set search_path = underclub, public, extensions
+as $$
+declare
+  v_tokens   bigint;
+  v_sessions bigint;
+  v_throttle bigint;
+  v_res      bigint := 0;
+  v_contacts bigint := 0;
+  v_n        bigint;
+  v_c        record;
+begin
+  delete from underclub.activation_tokens t
+   where t.expires_at < now() - underclub.cfg_token_retention();
+  get diagnostics v_tokens = row_count;
+
+  delete from underclub.contact_sessions s
+   where s.revoked_at < now() - underclub.cfg_session_retention()
+      or s.expires_at < now() - underclub.cfg_session_retention();
+  get diagnostics v_sessions = row_count;
+
+  delete from underclub.request_throttle t
+   where t.window_start < now() - underclub.cfg_throttle_retention();
+  get diagnostics v_throttle = row_count;
+
+  for v_c in
+    select c.id, c.email
+      from underclub.contacts c
+     where c.verified_at is null
+       and c.created_at < now() - underclub.cfg_unverified_contact_ttl()
+       and not exists (select 1 from underclub.reservations r
+                        where r.contact_id = c.id and r.status = 'confirmed')
+       and not exists (select 1 from underclub.activation_tokens t
+                        where t.contact_id = c.id and t.used_at is null and t.expires_at > now())
+     order by c.created_at
+  loop
+    continue when not pg_try_advisory_xact_lock(hashtext('underclub.contact'), hashtext(v_c.email));
+
+    -- Re-check under the lock: a request may have committed in between.
+    continue when exists (
+      select 1 from underclub.contacts c
+       where c.id = v_c.id
+         and (c.verified_at is not null
+              or exists (select 1 from underclub.reservations r
+                          where r.contact_id = c.id and r.status = 'confirmed')
+              or exists (select 1 from underclub.activation_tokens t
+                          where t.contact_id = c.id and t.used_at is null and t.expires_at > now())));
+
+    delete from underclub.reservations r
+     where r.contact_id = v_c.id
+       and r.status in ('pending', 'cancelled');
+    get diagnostics v_n = row_count;
+    v_res := v_res + v_n;
+
+    delete from underclub.contacts c where c.id = v_c.id;
+    get diagnostics v_n = row_count;
+    v_contacts := v_contacts + v_n;
+  end loop;
+
+  return jsonb_build_object(
+    'activation_tokens', v_tokens,
+    'contact_sessions',  v_sessions,
+    'request_throttle',  v_throttle,
+    'reservations',      v_res,
+    'contacts',          v_contacts);
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- 11) Grants for the endpoints: service_role only
 -- ---------------------------------------------------------------------------
 
-revoke all on function underclub.ep_request_booking(text, uuid, uuid, text, date, text, boolean, boolean, text) from public, anon, authenticated;
-revoke all on function underclub.ep_activate(text)                    from public, anon, authenticated;
+revoke all on function underclub.ep_request_booking(text, uuid, uuid, text, date, text, boolean, boolean, text, text) from public, anon, authenticated;
+revoke all on function underclub.ep_activate(text, text)              from public, anon, authenticated;
 revoke all on function underclub.ep_request_login(text)               from public, anon, authenticated;
-revoke all on function underclub.ep_session(text)                     from public, anon, authenticated;
+revoke all on function underclub.ep_session_overview(text, text)      from public, anon, authenticated;
 revoke all on function underclub.ep_logout(text)                      from public, anon, authenticated;
-revoke all on function underclub.ep_my_reservations(text)             from public, anon, authenticated;
 revoke all on function underclub.ep_cancel_reservation(text, uuid)    from public, anon, authenticated;
+revoke all on function underclub.ep_throttle(text, text, int, int)    from public, anon, authenticated;
+revoke all on function underclub.ep_cleanup()                         from public, anon, authenticated;
 
-grant execute on function underclub.ep_request_booking(text, uuid, uuid, text, date, text, boolean, boolean, text) to service_role;
-grant execute on function underclub.ep_activate(text)                 to service_role;
+grant execute on function underclub.ep_request_booking(text, uuid, uuid, text, date, text, boolean, boolean, text, text) to service_role;
+grant execute on function underclub.ep_activate(text, text)           to service_role;
 grant execute on function underclub.ep_request_login(text)            to service_role;
-grant execute on function underclub.ep_session(text)                  to service_role;
+grant execute on function underclub.ep_session_overview(text, text)   to service_role;
 grant execute on function underclub.ep_logout(text)                   to service_role;
-grant execute on function underclub.ep_my_reservations(text)          to service_role;
 grant execute on function underclub.ep_cancel_reservation(text, uuid) to service_role;
+grant execute on function underclub.ep_throttle(text, text, int, int) to service_role;
+grant execute on function underclub.ep_cleanup()                      to service_role;
 
 -- ---------------------------------------------------------------------------
--- 9) get_public_ticket — ticket page, by id + token
+-- 12) open_public_ticket — ticket page, by id + token, marks it opened
 -- ---------------------------------------------------------------------------
+-- Replaces `get_public_ticket` + the client-side `ticket_opened_at` update
+-- (which went through the April RLS policies): one call, no dependency on
+-- those policies. Zero rows when the token does not match.
+--
+-- Marks the ticket opened (`ticket_opened_at = now()`) when it is confirmed,
+-- not scanned and not opened yet. The returned `ticket_opened_at` is the value
+-- BEFORE this call's update: null means "this is the first opening". The row
+-- is read `for update`, so of two simultaneous first openings exactly one sees
+-- null and the other sees the first one's timestamp.
+--
 -- Legacy name/email are read through to_jsonb(r) on purpose: a direct
 -- `r.full_name` would make this function fail the moment the cleanup drops
 -- those columns; the jsonb lookup just yields null for contact rows.
 
-create or replace function underclub.get_public_ticket(p_reservation_id uuid, p_token text)
+create or replace function underclub.open_public_ticket(p_reservation_id uuid, p_token text)
 returns table (
   reservation_id   uuid,
   status           text,
@@ -825,36 +1339,53 @@ returns table (
 )
 language plpgsql
 security definer
-stable
+volatile
 set search_path = underclub, public, extensions
 as $$
 #variable_conflict use_column
+declare
+  v_row record;
 begin
-  return query
   select r.id,
          r.status,
-         coalesce(c.full_name, to_jsonb(r) ->> 'full_name'),
-         coalesce(c.email,     to_jsonb(r) ->> 'email'),
-         e.title,
-         e.date,
-         ee.name,
+         coalesce(c.full_name, to_jsonb(r) ->> 'full_name') as full_name,
+         coalesce(c.email,     to_jsonb(r) ->> 'email')     as email,
+         e.title as event_title,
+         e.date  as event_date,
+         ee.name as entry_name,
          r.ticket_opened_at,
          r.qr_scanned_at
+    into v_row
     from underclub.reservations r
     join underclub.events e         on e.id = r.event_id
     join underclub.event_entries ee on ee.id = r.entry_id
     left join underclub.contacts c  on c.id = r.contact_id
    where r.id = p_reservation_id
      and r.ticket_access_token_hash is not null
-     and r.ticket_access_token_hash = underclub.hash_ticket_token(p_token);
+     and r.ticket_access_token_hash = underclub.hash_ticket_token(p_token)
+     for update of r;
+
+  if v_row.id is null then
+    return;
+  end if;
+
+  if v_row.status = 'confirmed' and v_row.qr_scanned_at is null and v_row.ticket_opened_at is null then
+    update underclub.reservations r
+       set ticket_opened_at = now()
+     where r.id = v_row.id;
+  end if;
+
+  return query select v_row.id, v_row.status, v_row.full_name, v_row.email,
+    v_row.event_title, v_row.event_date, v_row.entry_name,
+    v_row.ticket_opened_at, v_row.qr_scanned_at;
 end;
 $$;
 
-revoke all on function underclub.get_public_ticket(uuid, text) from public;
-grant execute on function underclub.get_public_ticket(uuid, text) to anon, authenticated;
+revoke all on function underclub.open_public_ticket(uuid, text) from public;
+grant execute on function underclub.open_public_ticket(uuid, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- 10) scan_ticket_check_in — rewritten (cleanup step 1 of 2026-10-01)
+-- 13) scan_ticket_check_in — rewritten (cleanup step 1 of 2026-10-01)
 -- ---------------------------------------------------------------------------
 -- Return type gains `formula_expired`, which `create or replace` cannot do:
 -- drop and recreate, then restore the grants (authenticated only).
@@ -958,8 +1489,9 @@ grant execute on function underclub.scan_ticket_check_in(text) to authenticated;
 -- Verification
 -- ---------------------------------------------------------------------------
 --   -- must be false for anon/authenticated, true for service_role
---   select has_function_privilege('anon', 'underclub.ep_session(text)', 'execute');
---   select has_function_privilege('anon', 'underclub.get_public_ticket(uuid, text)', 'execute');  -- true
---   select has_function_privilege('anon', 'underclub.scan_ticket_check_in(text)', 'execute');     -- false
+--   select has_function_privilege('anon', 'underclub.ep_session_overview(text, text)', 'execute');
+--   select has_function_privilege('anon', 'underclub.open_public_ticket(uuid, text)', 'execute');  -- true
+--   select has_function_privilege('anon', 'underclub.scan_ticket_check_in(text)', 'execute');      -- false
+--   select has_table_privilege('anon', 'underclub.request_throttle', 'select');                     -- false
 --
 -- Full behavioural suite: supabase/tests/run.sh (throwaway local cluster).

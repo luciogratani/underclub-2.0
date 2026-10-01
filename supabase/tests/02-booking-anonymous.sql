@@ -21,7 +21,7 @@ begin
   -- First booking: contact created from the form (normalized), pending row,
   -- activation token, no ticket token, consents NOT applied yet.
   select * into r from underclub.ep_request_booking(
-    null, E, N_UNL, '  Mario Rossi ', '1990-05-01', '  Mario@Example.COM ', true, true, 'meta-ads');
+    null, E, N_UNL, '  Mario Rossi ', '1990-05-01', '  Mario@Example.COM ', true, true, 'meta-ads', test.secret());
 
   assert r.outcome = 'pending', format('outcome %s', r.outcome);
   assert r.reservation_id is not null, 'reservation id';
@@ -60,7 +60,7 @@ begin
   -- Booking again while pending: same row, entry updated, old link burned,
   -- name/dob from the form ignored, invalid source does not clear the old one.
   select * into r2 from underclub.ep_request_booking(
-    null, E, N_Q1, 'Impostor Name', '2001-01-01', 'mario@example.com', false, false, 'Not A Slug!');
+    null, E, N_Q1, 'Impostor Name', '2001-01-01', 'mario@example.com', false, false, 'Not A Slug!', test.secret());
 
   assert r2.outcome = 'pending', format('rebook outcome %s', r2.outcome);
   assert r2.reservation_id = r.reservation_id, 'pending reused';
@@ -83,16 +83,20 @@ begin
   update underclub.reservations set pending_expires_at = now() - interval '1 hour'
    where id = r.reservation_id;
   select * into r2 from underclub.ep_request_booking(
-    null, E, N_UNL, 'Mario Rossi', '1990-05-01', 'mario@example.com', null, null, 'pr-giulia');
+    null, E, N_UNL, 'Mario Rossi', '1990-05-01', 'mario@example.com', null, null, 'pr-giulia', test.secret());
   assert r2.outcome = 'pending' and r2.reservation_id = r.reservation_id, 'stale pending reused';
   select * into res from underclub.reservations where id = r.reservation_id;
   assert res.pending_expires_at = now() + interval '30 minutes', 'deadline refreshed';
   assert res.source = 'pr-giulia', 'valid new source replaces the old one';
 
+  -- Three links already sent to this address in the last hour: age them
+  -- out of the rate-limit window (covered in 11-rate-limits.sql).
+  perform test.age_tokens('mario@example.com');
+
   -- Existing contact + anonymous booking on another event: name/dob untouched.
   select * into r2 from underclub.ep_request_booking(
     null, '10000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000051',
-    'Someone Else', '1970-01-01', 'MARIO@example.com', true, true, null);
+    'Someone Else', '1970-01-01', 'MARIO@example.com', true, true, null, test.secret());
   assert r2.outcome = 'pending' and r2.contact_full_name = 'Mario Rossi', 'other event pending';
   select * into c from underclub.contacts where email = 'mario@example.com';
   assert c.full_name = 'Mario Rossi' and c.date_of_birth = '1990-05-01'
@@ -101,49 +105,49 @@ begin
 
   -- Invalid source slug on a fresh booking becomes null, never an error.
   select * into r from underclub.ep_request_booking(
-    null, E, N_UNL, 'Luisa Bianchi', '1995-02-02', 'luisa@example.com', null, null, 'Volantino X');
+    null, E, N_UNL, 'Luisa Bianchi', '1995-02-02', 'luisa@example.com', null, null, 'Volantino X', test.secret());
   assert r.outcome = 'pending', 'luisa pending';
   assert (select source from underclub.reservations where id = r.reservation_id) is null, 'invalid slug -> null';
   select * into r from underclub.ep_request_booking(
     null, '10000000-0000-0000-0000-000000000005', '20000000-0000-0000-0000-000000000051',
-    'Luisa Bianchi', '1995-02-02', 'luisa@example.com', null, null, 'x');
+    'Luisa Bianchi', '1995-02-02', 'luisa@example.com', null, null, 'x', test.secret());
   assert (select source from underclub.reservations where id = r.reservation_id) is null, 'too short slug -> null';
 
   -- A bogus session token falls back to the form path.
   select * into r from underclub.ep_request_booking(
-    'not-a-session', E, N_UNL, 'Gino', '1999-09-09', 'gino@example.com', false, false, null);
+    'not-a-session', E, N_UNL, 'Gino', '1999-09-09', 'gino@example.com', false, false, null, test.secret());
   assert r.outcome = 'pending', 'invalid session -> form path';
 
   -- invalid_input: missing or malformed form data, no contact created.
-  select * into r from underclub.ep_request_booking(null, E, N_UNL, null, '1990-01-01', 'x1@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_UNL, null, '1990-01-01', 'x1@example.com', null, null, null, test.secret());
   assert r.outcome = 'invalid_input' and r.event_title = 'Future Night' and r.entry_name = 'Intero', 'missing name';
-  select * into r from underclub.ep_request_booking(null, E, N_UNL, '   ', '1990-01-01', 'x2@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_UNL, '   ', '1990-01-01', 'x2@example.com', null, null, null, test.secret());
   assert r.outcome = 'invalid_input', 'blank name';
-  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', null, 'x3@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', null, 'x3@example.com', null, null, null, test.secret());
   assert r.outcome = 'invalid_input', 'missing dob';
-  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', '1990-01-01', null, null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', '1990-01-01', null, null, null, null, test.secret());
   assert r.outcome = 'invalid_input', 'missing email';
-  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', '1990-01-01', 'no-at-sign', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', '1990-01-01', 'no-at-sign', null, null, null, test.secret());
   assert r.outcome = 'invalid_input', 'malformed email';
-  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', '1990-01-01', '@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_UNL, 'X', '1990-01-01', '@example.com', null, null, null, test.secret());
   assert r.outcome = 'invalid_input', 'empty local part';
   assert r.reservation_id is null and r.activation_token is null, 'nothing issued on invalid_input';
   assert (select count(*) from underclub.contacts where email like 'x_@example.com') = 0, 'no contact on invalid_input';
 
   -- not_bookable: past, draft, unknown event. Labels still returned when known.
-  select * into r from underclub.ep_request_booking(null, E_PAST, N_PAST, 'A', '1990-01-01', 'p@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E_PAST, N_PAST, 'A', '1990-01-01', 'p@example.com', null, null, null, test.secret());
   assert r.outcome = 'not_bookable' and r.event_title = 'Past Night' and r.entry_name = 'Past entry', 'past event';
-  select * into r from underclub.ep_request_booking(null, E_DRAFT, N_DRAFT, 'A', '1990-01-01', 'p@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E_DRAFT, N_DRAFT, 'A', '1990-01-01', 'p@example.com', null, null, null, test.secret());
   assert r.outcome = 'not_bookable' and r.event_title = 'Draft Night', 'draft event';
-  select * into r from underclub.ep_request_booking(null, gen_random_uuid(), N_UNL, 'A', '1990-01-01', 'p@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, gen_random_uuid(), N_UNL, 'A', '1990-01-01', 'p@example.com', null, null, null, test.secret());
   assert r.outcome = 'not_bookable' and r.event_title is null and r.entry_name is null, 'unknown event';
-  select * into r from underclub.ep_request_booking(null, null, null, null, null, null, null, null, null);
+  select * into r from underclub.ep_request_booking(null, null, null, null, null, null, null, null, null, test.secret());
   assert r.outcome = 'not_bookable', 'all nulls';
 
   -- invalid_entry: entry of another event, or unknown.
-  select * into r from underclub.ep_request_booking(null, E, N_PAST, 'A', '1990-01-01', 'p@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, N_PAST, 'A', '1990-01-01', 'p@example.com', null, null, null, test.secret());
   assert r.outcome = 'invalid_entry' and r.event_title = 'Future Night' and r.entry_name is null, 'foreign entry';
-  select * into r from underclub.ep_request_booking(null, E, gen_random_uuid(), 'A', '1990-01-01', 'p@example.com', null, null, null);
+  select * into r from underclub.ep_request_booking(null, E, gen_random_uuid(), 'A', '1990-01-01', 'p@example.com', null, null, null, test.secret());
   assert r.outcome = 'invalid_entry', 'unknown entry';
   assert (select count(*) from underclub.contacts where email = 'p@example.com') = 0, 'no contact on refusals';
 end $$;

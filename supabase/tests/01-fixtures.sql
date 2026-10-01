@@ -37,6 +37,28 @@ begin
 end;
 $$;
 
+-- The endpoint's TICKET_SECRET (>= 32 chars), and a second one to prove the
+-- derived ticket token depends on it. Test values only.
+create function test.secret() returns text
+language sql immutable
+as $$ select 'test-ticket-secret-0123456789abcdef-0001' $$;
+
+create function test.other_secret() returns text
+language sql immutable
+as $$ select 'test-ticket-secret-0123456789abcdef-0002' $$;
+
+-- Push a contact's activation links out of the per-address rate-limit window
+-- (only their creation time; validity untouched), so a test can issue more.
+create function test.age_tokens(p_email text)
+returns void
+language sql
+as $$
+  update underclub.activation_tokens t
+     set created_at = t.created_at - interval '2 days'
+    from underclub.contacts c
+   where c.id = t.contact_id and c.email = p_email;
+$$;
+
 grant execute on all functions in schema test to public;
 
 insert into underclub.events (id, title, date, time, status) values

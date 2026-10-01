@@ -31,14 +31,14 @@ declare
 begin
   select * into b from underclub.ep_request_booking(
     null, '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000042',
-    'Race One', '1990-01-01', 'race1@example.com', null, null, null);
+    'Race One', '1990-01-01', 'race1@example.com', null, null, null, test.secret());
   perform set_config('test.race1_tok', b.activation_token, false);
   perform set_config('test.race1_res', b.reservation_id::text, false);
 end $$;
 
 do $$
 declare
-  q   text := format('select outcome || '':'' || coalesce(reservation_outcome, '''') from underclub.ep_activate(%L)',
+  q   text := format('select outcome || '':'' || coalesce(reservation_outcome, '''') from underclub.ep_activate(%L, test.secret())',
                      current_setting('test.race1_tok'));
   o1  text;
   o2  text;
@@ -77,10 +77,10 @@ declare
 begin
   q1 := format($f$select outcome from underclub.ep_request_booking(%L,
     '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000041',
-    null, null, null, null, null, null)$f$, s1);
+    null, null, null, null, null, null, test.secret())$f$, s1);
   q2 := format($f$select outcome from underclub.ep_request_booking(%L,
     '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000041',
-    null, null, null, null, null, null)$f$, s2);
+    null, null, null, null, null, null, test.secret())$f$, s2);
 
   perform test.open2();
   select x into o1 from extensions.dblink('c1', q1) as t(x text);
@@ -105,7 +105,7 @@ declare
   q  text := $f$select reservation_id::text || '|' || activation_token
     from underclub.ep_request_booking(null,
       '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000042',
-      'Race Three', '1990-01-01', 'Race3@example.com', true, false, null)$f$;
+      'Race Three', '1990-01-01', 'Race3@example.com', true, false, null, test.secret())$f$;
   o1 text;
   o2 text;
 begin
@@ -123,8 +123,8 @@ begin
   assert (select count(*) from underclub.reservations r
             join underclub.contacts c on c.id = r.contact_id
            where c.email = 'race3@example.com') = 1, 'one reservation';
-  assert (select outcome from underclub.ep_activate(split_part(o1, '|', 2))) = 'invalid', 'first link burned';
-  assert (select reservation_outcome from underclub.ep_activate(split_part(o2, '|', 2))) = 'confirmed',
+  assert (select outcome from underclub.ep_activate(split_part(o1, '|', 2), test.secret())) = 'invalid', 'first link burned';
+  assert (select reservation_outcome from underclub.ep_activate(split_part(o2, '|', 2), test.secret())) = 'confirmed',
     'second link confirms';
 end $$;
 
@@ -133,15 +133,15 @@ end $$;
 select set_config('test.race4_tok', activation_token, false) is not null as race4
   from underclub.ep_request_booking(
     null, '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000042',
-    'Race Four', '1990-01-01', 'race4@example.com', null, null, null) \gset
+    'Race Four', '1990-01-01', 'race4@example.com', null, null, null, test.secret()) \gset
 
 do $$
 declare
-  qa text := format('select outcome || '':'' || coalesce(reservation_outcome, '''') from underclub.ep_activate(%L)',
+  qa text := format('select outcome || '':'' || coalesce(reservation_outcome, '''') from underclub.ep_activate(%L, test.secret())',
                     current_setting('test.race4_tok'));
   qb text := $f$select outcome from underclub.ep_request_booking(null,
       '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000042',
-      'Race Four', '1990-01-01', 'race4@example.com', null, null, null)$f$;
+      'Race Four', '1990-01-01', 'race4@example.com', null, null, null, test.secret())$f$;
   oa text;
   ob text;
 begin
@@ -158,4 +158,55 @@ begin
   assert oa = 'ok:confirmed', format('activation %s', oa);
   -- The re-booking saw the confirmed row: already in, log-in link instead.
   assert ob = 'already_booked', format('re-booking after activation %s', ob);
+end $$;
+
+-- 5) Two log-in requests for the same never-seen legacy address: the second
+--    waits on the contact lock, then finds the contact the first created.
+--    One contact, the legacy row linked once, both answered `sent`.
+select reservation_id is not null as legacy5
+  from underclub.create_public_reservation(
+    '10000000-0000-0000-0000-000000000004', '20000000-0000-0000-0000-000000000042',
+    'Race Five', '1990-01-01', 'Race5@example.com') \gset
+
+do $$
+declare
+  q  text := $f$select outcome from underclub.ep_request_login('race5@example.com')$f$;
+  o1 text;
+  o2 text;
+begin
+  perform test.open2();
+  select x into o1 from extensions.dblink('c1', q) as t(x text);
+  perform extensions.dblink_send_query('c2', q);
+  perform pg_sleep(0.3);
+  assert extensions.dblink_is_busy('c2') = 1, 'second log-in request must wait on the contact lock';
+  perform extensions.dblink_exec('c1', 'commit');
+  select x into o2 from extensions.dblink_get_result('c2') as t(x text);
+  perform test.close2();
+
+  assert o1 = 'sent' and o2 = 'sent', format('both sent: %s / %s', o1, o2);
+  assert (select count(*) from underclub.contacts where email = 'race5@example.com') = 1, 'one contact';
+  assert (select count(*) from underclub.reservations r
+            join underclub.contacts c on c.id = r.contact_id
+           where c.email = 'race5@example.com') = 1, 'legacy row linked';
+end $$;
+
+-- 6) Concurrent hits on the same throttle window: the upsert serializes on
+--    the primary key, each hit sees its own count (no lost update).
+do $$
+declare
+  q  text := $f$select underclub.ep_throttle('race-ip', 'booking', 1, 3600)::text$f$;
+  o1 text;
+  o2 text;
+begin
+  perform test.open2();
+  select x into o1 from extensions.dblink('c1', q) as t(x text);
+  perform extensions.dblink_send_query('c2', q);
+  perform pg_sleep(0.3);
+  assert extensions.dblink_is_busy('c2') = 1, 'second hit must wait on the first one''s row';
+  perform extensions.dblink_exec('c1', 'commit');
+  select x into o2 from extensions.dblink_get_result('c2') as t(x text);
+  perform test.close2();
+
+  assert o1 = 'true' and o2 = 'false', format('first within, second over the limit: %s / %s', o1, o2);
+  assert (select sum(hits) from underclub.request_throttle where key_hash = 'race-ip') = 2, 'both hits counted';
 end $$;

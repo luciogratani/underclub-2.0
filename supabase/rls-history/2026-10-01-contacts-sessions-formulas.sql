@@ -292,13 +292,24 @@ create policy "admin_read_contacts"
 --
 --   1. DONE by 2026-10-02-booking-endpoints.sql: `scan_ticket_check_in` is
 --      rewritten (name from `contacts` or via to_jsonb, `pending` outcome,
---      `formula_expired`), and `get_public_ticket` reads the legacy columns
+--      `formula_expired`), and `open_public_ticket` reads the legacy columns
 --      the same way. Check that file has been applied before going on.
 --   1b. `ep_request_booking` (2026-10-02) still WRITES `full_name`,
 --      `date_of_birth` and `email` on every insert, because they are NOT NULL
 --      today, and READS `r.email` to treat contact-less legacy rows as
 --      already booked. Replace it with a version that does neither BEFORE
 --      step 5, or every booking fails once the columns are dropped.
+--      (`adopt_legacy_contact`, used by the log-in link, reads them through
+--      to_jsonb and simply finds nothing after the drop: no change needed.)
+--   1c. Once the web reads the ticket only through `open_public_ticket`
+--      (2026-10-02; it also sets `ticket_opened_at`), anon no longer needs
+--      the table itself:
+--        drop policy "anon_read_own_reservation_token"      on underclub.reservations;
+--        drop policy "anon_update_ticket_opened_token_once" on underclub.reservations;
+--        revoke select, update on underclub.reservations from anon;
+--      Keep anon's INSERT grant until step 2/3 retire the anon booking path.
+--      The x-ticket-token header then stops working: check that no deployed
+--      client still sends it.
 --   2. drop policy "anon_insert_reservation" on underclub.reservations;
 --   3. revoke execute on function
 --        underclub.create_public_reservation(uuid, uuid, text, date, text)

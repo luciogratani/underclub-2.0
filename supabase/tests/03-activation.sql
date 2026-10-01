@@ -23,10 +23,10 @@ begin
   -- Happy path: pending -> confirmed, ticket issued, session created,
   -- contact verified, only the TRUE consent applied.
   select * into b from underclub.ep_request_booking(
-    null, E, N_UNL, 'Mario Rossi', '1990-05-01', 'mario@example.com', true, false, null);
+    null, E, N_UNL, 'Mario Rossi', '1990-05-01', 'mario@example.com', true, false, null, test.secret());
   assert b.outcome = 'pending', 'setup pending';
 
-  select * into a from underclub.ep_activate(b.activation_token);
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'ok', format('activate outcome %s', a.outcome);
   assert a.reservation_outcome = 'confirmed', format('reservation_outcome %s', a.reservation_outcome);
   assert a.session_token is not null and length(a.session_token) = 43, 'session token';
@@ -50,21 +50,21 @@ begin
   assert s.expires_at = now() + interval '12 months' and s.revoked_at is null, 'session 12 months';
 
   -- Same link again: invalid, nothing else returned.
-  select * into a from underclub.ep_activate(b.activation_token);
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'invalid' and a.session_token is null and a.contact_id is null, 'token reuse -> invalid';
   assert (select count(*) from underclub.contact_sessions where contact_id = c.id) = 1, 'no second session';
 
   -- Unknown / empty tokens.
-  assert (select outcome from underclub.ep_activate('nope')) = 'invalid', 'unknown token';
-  assert (select outcome from underclub.ep_activate('')) = 'invalid', 'empty token';
-  assert (select outcome from underclub.ep_activate(null)) = 'invalid', 'null token';
+  assert (select outcome from underclub.ep_activate('nope', test.secret())) = 'invalid', 'unknown token';
+  assert (select outcome from underclub.ep_activate('', test.secret())) = 'invalid', 'empty token';
+  assert (select outcome from underclub.ep_activate(null, test.secret())) = 'invalid', 'null token';
 
   -- Expired link: `expired`, and it is NOT consumed.
   select * into b from underclub.ep_request_booking(
-    null, E, N_UNL, 'Luisa Bianchi', '1995-02-02', 'luisa@example.com', true, true, null);
+    null, E, N_UNL, 'Luisa Bianchi', '1995-02-02', 'luisa@example.com', true, true, null, test.secret());
   update underclub.activation_tokens set expires_at = now() - interval '1 second'
    where token_hash = underclub.hash_ticket_token(b.activation_token);
-  select * into a from underclub.ep_activate(b.activation_token);
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'expired' and a.session_token is null, 'expired token';
   assert (select used_at from underclub.activation_tokens
            where token_hash = underclub.hash_ticket_token(b.activation_token)) is null, 'expired token not consumed';
@@ -73,17 +73,17 @@ begin
   -- Burned link (superseded by a re-booking): invalid.
   v_old_token := b.activation_token;
   select * into b from underclub.ep_request_booking(
-    null, E, N_UNL, 'Luisa Bianchi', '1995-02-02', 'luisa@example.com', null, null, null);
+    null, E, N_UNL, 'Luisa Bianchi', '1995-02-02', 'luisa@example.com', null, null, null, test.secret());
   update underclub.activation_tokens set expires_at = now() + interval '5 minutes'
    where token_hash = underclub.hash_ticket_token(v_old_token);
-  assert (select outcome from underclub.ep_activate(v_old_token)) = 'invalid', 'burned token -> invalid';
+  assert (select outcome from underclub.ep_activate(v_old_token, test.secret())) = 'invalid', 'burned token -> invalid';
 
   -- Link valid but the pending behind it is stale: session yes, ticket no.
   select * into b from underclub.ep_request_booking(
-    null, E, N_UNL, 'Gino Verdi', '1999-09-09', 'gino@example.com', null, null, null);
+    null, E, N_UNL, 'Gino Verdi', '1999-09-09', 'gino@example.com', null, null, null, test.secret());
   update underclub.reservations set pending_expires_at = now() - interval '1 minute'
    where id = b.reservation_id;
-  select * into a from underclub.ep_activate(b.activation_token);
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'ok' and a.reservation_outcome = 'expired', format('stale pending %s', a.reservation_outcome);
   assert a.ticket_token is null and a.session_token is not null, 'session but no ticket';
   select * into res from underclub.reservations where id = b.reservation_id;
@@ -91,18 +91,18 @@ begin
 
   -- Link whose reservation was cancelled meanwhile: unavailable.
   select * into b from underclub.ep_request_booking(
-    null, E_LATE, N_LATE, 'Gino Verdi', '1999-09-09', 'gino@example.com', null, null, null);
+    null, E_LATE, N_LATE, 'Gino Verdi', '1999-09-09', 'gino@example.com', null, null, null, test.secret());
   update underclub.reservations
      set status = 'cancelled', cancelled_at = now(), pending_expires_at = null
    where id = b.reservation_id;
-  select * into a from underclub.ep_activate(b.activation_token);
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'ok' and a.reservation_outcome = 'unavailable' and a.ticket_token is null, 'cancelled -> unavailable';
 
   -- Live pending whose event was unpublished meanwhile: unavailable, no QR.
   select * into b from underclub.ep_request_booking(
-    null, E_RACE, N_RACE, 'Lia Neri', '1998-08-08', 'lia@example.com', null, null, null);
+    null, E_RACE, N_RACE, 'Lia Neri', '1998-08-08', 'lia@example.com', null, null, null, test.secret());
   update underclub.events set status = 'draft' where id = E_RACE;
-  select * into a from underclub.ep_activate(b.activation_token);
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'ok' and a.reservation_outcome = 'unavailable' and a.ticket_token is null,
     format('unpublished event -> %s', a.reservation_outcome);
   select * into res from underclub.reservations where id = b.reservation_id;
@@ -117,8 +117,8 @@ begin
          profiling_consent_at = '2026-01-01', profiling_consent_revoked_at = null
    where email = 'mario@example.com';
   select * into b from underclub.ep_request_booking(
-    null, E_RACE, N_RACE, 'Mario Rossi', '1990-05-01', 'mario@example.com', true, true, null);
-  select * into a from underclub.ep_activate(b.activation_token);
+    null, E_RACE, N_RACE, 'Mario Rossi', '1990-05-01', 'mario@example.com', true, true, null, test.secret());
+  select * into a from underclub.ep_activate(b.activation_token, test.secret());
   assert a.outcome = 'ok' and a.reservation_outcome = 'confirmed', 'second booking confirmed';
   select * into c from underclub.contacts where email = 'mario@example.com';
   assert c.verified_at = '2026-01-01', 'verified_at keeps first value';
@@ -128,10 +128,14 @@ begin
   update underclub.contacts set marketing_consent_at = '2026-01-01', marketing_consent_revoked_at = null
    where email = 'mario@example.com';
   select * into b from underclub.ep_request_booking(
-    null, E_LATE, N_LATE, 'Mario Rossi', '1990-05-01', 'mario@example.com', false, null, null);
-  perform underclub.ep_activate(b.activation_token);
+    null, E_LATE, N_LATE, 'Mario Rossi', '1990-05-01', 'mario@example.com', false, null, null, test.secret());
+  perform underclub.ep_activate(b.activation_token, test.secret());
   select * into c from underclub.contacts where email = 'mario@example.com';
   assert c.marketing_consent_at = '2026-01-01' and c.marketing_consent_revoked_at is null, 'false does not revoke';
+
+  -- Three links already sent to this address in the last hour: age them
+  -- out of the rate-limit window (covered in 11-rate-limits.sql).
+  perform test.age_tokens('mario@example.com');
 
   -- Log-in link: known address.
   select * into l from underclub.ep_request_login('  MARIO@example.com ');
@@ -140,7 +144,7 @@ begin
    where token_hash = underclub.hash_ticket_token(l.activation_token);
   assert b2.reservation_id is null and b2.consent_marketing is null and b2.consent_profiling is null, 'login token shape';
   assert b2.expires_at = now() + interval '30 minutes', 'login token 30 min';
-  select * into a from underclub.ep_activate(l.activation_token);
+  select * into a from underclub.ep_activate(l.activation_token, test.secret());
   assert a.outcome = 'ok' and a.reservation_outcome = 'none' and a.reservation_id is null
      and a.ticket_token is null and a.session_token is not null, 'login activation';
 
