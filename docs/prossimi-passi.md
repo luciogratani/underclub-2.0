@@ -58,6 +58,9 @@ Contesto: lo schema SQL in `supabase/schema.sql` e il package `@underclub/shared
 - [x] **Applicare lo schema + RLS**: eseguiti `schema.sql` e `rls.sql` in Supabase SQL Editor.
   ⚠️ Su un DB nuovo servono **tutti e 5 gli step** nell'ordine indicato in testa a `rls.sql`: fermarsi a `rls.sql` lascia la pagina ticket non funzionante (ma mai i dati esposti).
 - [ ] **Trigger / funzioni** (opzionale): aggiornamento `updated_at`, vincoli extra su quote.
+  *(2026-10-01: `underclub.touch_updated_at()` esiste e tiene aggiornato
+  `contacts.updated_at`; le altre tabelle non hanno la colonna. La quota resta
+  applicata in fase di prenotazione, non in DB — sezione 8.)*
 
 ### Shared e monorepo
 - [x] **`@underclub/shared`**: tipi derivati dal DB (single source of truth), mapper snake_case→camelCase, client Supabase tipizzato.
@@ -312,9 +315,30 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
   policy `anon`), admin in sola lettura sui contatti.
   **Migrazione additiva**: il percorso anon attuale continua a funzionare, la
   pulizia è elencata in fondo al file e va eseguita solo a endpoint vivi.
-- [x] Verificata su un Postgres 16 usa e getta: `schema.sql` + `rls.sql` +
-  migrazione, due volte di fila per l'idempotenza, con test sui vincoli nuovi.
+- [x] **Difesa in profondità**: `revoke all` sulle tre tabelle nuove per `anon` e
+  `authenticated`, più `grant select on contacts to authenticated` per la guest
+  list. Serve perché esporre uno schema dalla dashboard Supabase imposta anche
+  le DEFAULT PRIVILEGES, quindi le tabelle create dopo nascono concesse ad
+  `anon`: RLS reggeva comunque, ma era l'unico argine e le scritture fallivano
+  in silenzio come `UPDATE 0` invece di `permission denied`.
+- [x] Verificata su un Postgres 16 usa e getta: catena completa delle migrazioni
+  di aprile, due prenotazioni create col flusso vecchio, poi la migrazione nuova
+  tre volte di fila. 57 controlli, inclusa RLS attaccata come `anon`.
   **Non ancora applicata sul Supabase reale.**
+
+### Trappole trovate nello stress test (preesistenti, non introdotte adesso)
+- [ ] **Lo step 3 della catena può abortire su un DB nuovo.** La migrazione di
+  aprile dichiara `hash_ticket_token` come funzione `language sql` con `digest`
+  non qualificato, e quei corpi vengono validati alla creazione: se pgcrypto sta
+  in `extensions` e non è nel `search_path`, il file si ferma **prima** di creare
+  le policy del token e le grant finali, e la pagina ticket resta senza policy.
+  Con `search_path = underclub, public, extensions` passa tutto. Da decidere se
+  qualificare `digest` nel file di aprile, come già fa la v2.
+- [ ] **`rls.sql` non è rieseguibile**: si ferma sul primo `create policy` già
+  esistente. È fail-safe, ma non è idempotente come il changelog di settembre
+  lasciava intendere.
+- [ ] **Data di nascita nel futuro accettata**: nessun vincolo la blocca e
+  `now()` non può stare in un CHECK. Resta compito dell'endpoint, insieme al 18+.
 - [x] Corretto un bug preesistente: `unique (event_id, email)` includeva anche
   le prenotazioni annullate, quindi una disdetta bloccava per sempre quella
   email su quella serata. Sostituito da un indice parziale.
@@ -368,7 +392,9 @@ Riordinato il 2026-10-01: **prima il nuovo modello dati, poi l'admin.** L'ordine
 precedente partiva dal CRUD eventi, che oggi andrebbe rifatto subito dopo per i
 campi nuovi delle formule d'ingresso.
 
-1. Applicare la migrazione del 2026-10-01 sul Supabase reale.
+1. Applicare la migrazione del 2026-10-01 sul Supabase reale. Prima di lanciarla,
+   controllare che `digest` risolva (vedi le trappole nella sezione 8): la
+   migrazione nuova non ne dipende, ma la catena di aprile sì.
 2. **Endpoint serverless su Vercel**: richiesta del link, attivazione, sessione
    in cookie, prenotazione, disdetta. Email transazionale con Resend sui due
    sottodomini (`reservations.` transazionale, `news.` promozioni).
