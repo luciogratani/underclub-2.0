@@ -12,8 +12,12 @@ import { supabase } from './supabase'
  * - `ok`: first successful scan; `scannedAt` is the new timestamp
  * - `already_scanned`: ticket was previously scanned; returns original timestamp
  * - `cancelled`: reservation was cancelled, do not let them in
+ * - `pending`: booking never confirmed via the email link, do not let them in
  * - `invalid`: token does not match any reservation
  * - `unauthorized`: caller is not allowed to execute the RPC
+ *
+ * `formulaExpired` is set for `ok` / `already_scanned` when the entry formula
+ * is past its `valid_until`: the guest pays full price at the door.
  *
  * Requires the Supabase client to be initialized and the caller to be
  * authenticated as admin (enforced at the database level via GRANT EXECUTE

@@ -28,8 +28,13 @@ function feedbackForResult(code: AdminScanResult['code']) {
   else navigator.vibrate?.([60, 60, 60])
 }
 
+const FORMULA_EXPIRED_WARNING = 'Formula expired — full price at the door' // COPY-DRAFT
+
 function ResultCard({ result }: { result: AdminScanResult }) {
-  const palette: Record<string, { bg: string; text: string; title: string }> = {
+  const palette: Record<
+    string,
+    { bg: string; text: string; title: string; note?: string }
+  > = {
     [ADMIN_SCAN_RESULT.OK]: {
       bg: 'bg-emerald-500/15 border-emerald-500/40',
       text: 'text-emerald-400',
@@ -45,6 +50,12 @@ function ResultCard({ result }: { result: AdminScanResult }) {
       text: 'text-red-400',
       title: 'Reservation cancelled',
     },
+    [ADMIN_SCAN_RESULT.PENDING]: {
+      bg: 'bg-red-500/15 border-red-500/40',
+      text: 'text-red-400',
+      title: 'Not confirmed', // COPY-DRAFT
+      note: 'Booking was never confirmed via email: no valid ticket.', // COPY-DRAFT
+    },
     [ADMIN_SCAN_RESULT.INVALID]: {
       bg: 'bg-red-500/15 border-red-500/40',
       text: 'text-red-400',
@@ -57,10 +68,24 @@ function ResultCard({ result }: { result: AdminScanResult }) {
     },
   }
   const tone = palette[result.code] ?? palette[ADMIN_SCAN_RESULT.INVALID]
+  const showFormulaExpired =
+    result.formulaExpired === true &&
+    (result.code === ADMIN_SCAN_RESULT.OK ||
+      result.code === ADMIN_SCAN_RESULT.ALREADY_SCANNED)
 
   return (
     <div className={`mt-4 rounded-lg border p-4 ${tone.bg}`}>
       <p className={`text-sm font-semibold ${tone.text}`}>{tone.title}</p>
+      {tone.note && (
+        <p className="mt-1 text-xs text-muted-foreground">{tone.note}</p>
+      )}
+      {showFormulaExpired && (
+        <div className="mt-3 rounded-md border border-orange-500/50 bg-orange-500/15 px-3 py-2">
+          <p className="text-sm font-semibold text-orange-400">
+            {FORMULA_EXPIRED_WARNING}
+          </p>
+        </div>
+      )}
       {(result.fullName || result.entryName || result.eventTitle) && (
         <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
           {result.fullName && (

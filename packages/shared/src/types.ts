@@ -15,6 +15,7 @@ export const EVENT_STATUS = {
 export type EventStatus = (typeof EVENT_STATUS)[keyof typeof EVENT_STATUS];
 
 export const RESERVATION_STATUS = {
+  PENDING: 'pending',
   CONFIRMED: 'confirmed',
   CANCELLED: 'cancelled',
 } as const;
@@ -27,6 +28,7 @@ export const ADMIN_SCAN_RESULT = {
   OK: 'ok',
   ALREADY_SCANNED: 'already_scanned',
   CANCELLED: 'cancelled',
+  PENDING: 'pending',
   INVALID: 'invalid',
   UNAUTHORIZED: 'unauthorized',
 } as const;
@@ -114,6 +116,8 @@ export interface EntryTierView {
   note: string | null;
   quota: number | null;
   sortOrder: number;
+  price: number;
+  validUntil: string | null; // ISO timestamp — entry deadline at the door, null = none
   availability: EntryAvailability;
 }
 
@@ -191,4 +195,5 @@ export interface AdminScanResult {
   eventTitle?: string;
   eventDate?: string; // ISO (YYYY-MM-DD)
   scannedAt?: string; // ISO timestamp
+  formulaExpired?: boolean; // entry formula past `valid_until`: full price at the door
 }

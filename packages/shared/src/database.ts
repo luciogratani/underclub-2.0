@@ -73,6 +73,8 @@ export interface Database {
           note: string | null;
           quota: number | null;
           sort_order: number;
+          price: number;
+          valid_until: string | null;
         };
         Insert: {
           id?: string;
@@ -81,6 +83,8 @@ export interface Database {
           note?: string | null;
           quota?: number | null;
           sort_order?: number;
+          price: number;
+          valid_until?: string | null;
         };
         Update: {
           id?: string;
@@ -89,6 +93,8 @@ export interface Database {
           note?: string | null;
           quota?: number | null;
           sort_order?: number;
+          price?: number;
+          valid_until?: string | null;
         };
         Relationships: [
           {
@@ -108,10 +114,16 @@ export interface Database {
           full_name: string;
           date_of_birth: string;
           email: string;
-          status: 'confirmed' | 'cancelled';
+          status: 'pending' | 'confirmed' | 'cancelled';
           ticket_opened_at: string | null;
           qr_scanned_at: string | null;
           created_at: string;
+          ticket_access_token_hash: string | null;
+          contact_id: string | null;
+          pending_expires_at: string | null;
+          confirmed_at: string | null;
+          cancelled_at: string | null;
+          source: string | null;
         };
         Insert: {
           id?: string;
@@ -120,10 +132,16 @@ export interface Database {
           full_name: string;
           date_of_birth: string;
           email: string;
-          status?: 'confirmed' | 'cancelled';
+          status?: 'pending' | 'confirmed' | 'cancelled';
           ticket_opened_at?: string | null;
           qr_scanned_at?: string | null;
           created_at?: string;
+          ticket_access_token_hash?: string | null;
+          contact_id?: string | null;
+          pending_expires_at?: string | null;
+          confirmed_at?: string | null;
+          cancelled_at?: string | null;
+          source?: string | null;
         };
         Update: {
           id?: string;
@@ -132,10 +150,16 @@ export interface Database {
           full_name?: string;
           date_of_birth?: string;
           email?: string;
-          status?: 'confirmed' | 'cancelled';
+          status?: 'pending' | 'confirmed' | 'cancelled';
           ticket_opened_at?: string | null;
           qr_scanned_at?: string | null;
           created_at?: string;
+          ticket_access_token_hash?: string | null;
+          contact_id?: string | null;
+          pending_expires_at?: string | null;
+          confirmed_at?: string | null;
+          cancelled_at?: string | null;
+          source?: string | null;
         };
         Relationships: [
           {
@@ -150,6 +174,146 @@ export interface Database {
             columns: ['entry_id'];
             isOneToOne: false;
             referencedRelation: 'event_entries';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'reservations_contact_id_fkey';
+            columns: ['contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      // Not reachable by anon/authenticated except `select` on contacts for
+      // admin: these are written by the serverless endpoints (service role).
+      contacts: {
+        Row: {
+          id: string;
+          email: string;
+          full_name: string;
+          date_of_birth: string;
+          marketing_consent_at: string | null;
+          marketing_consent_revoked_at: string | null;
+          profiling_consent_at: string | null;
+          profiling_consent_revoked_at: string | null;
+          verified_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          full_name: string;
+          date_of_birth: string;
+          marketing_consent_at?: string | null;
+          marketing_consent_revoked_at?: string | null;
+          profiling_consent_at?: string | null;
+          profiling_consent_revoked_at?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          full_name?: string;
+          date_of_birth?: string;
+          marketing_consent_at?: string | null;
+          marketing_consent_revoked_at?: string | null;
+          profiling_consent_at?: string | null;
+          profiling_consent_revoked_at?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      activation_tokens: {
+        Row: {
+          id: string;
+          contact_id: string;
+          reservation_id: string | null;
+          token_hash: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+          consent_marketing: boolean | null;
+          consent_profiling: boolean | null;
+        };
+        Insert: {
+          id?: string;
+          contact_id: string;
+          reservation_id?: string | null;
+          token_hash: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+          consent_marketing?: boolean | null;
+          consent_profiling?: boolean | null;
+        };
+        Update: {
+          id?: string;
+          contact_id?: string;
+          reservation_id?: string | null;
+          token_hash?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          created_at?: string;
+          consent_marketing?: boolean | null;
+          consent_profiling?: boolean | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'activation_tokens_contact_id_fkey';
+            columns: ['contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'activation_tokens_reservation_id_fkey';
+            columns: ['reservation_id'];
+            isOneToOne: false;
+            referencedRelation: 'reservations';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      contact_sessions: {
+        Row: {
+          id: string;
+          contact_id: string;
+          token_hash: string;
+          expires_at: string;
+          last_used_at: string;
+          revoked_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          contact_id: string;
+          token_hash: string;
+          expires_at: string;
+          last_used_at?: string;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          contact_id?: string;
+          token_hash?: string;
+          expires_at?: string;
+          last_used_at?: string;
+          revoked_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contact_sessions_contact_id_fkey';
+            columns: ['contact_id'];
+            isOneToOne: false;
+            referencedRelation: 'contacts';
             referencedColumns: ['id'];
           },
         ];
@@ -169,7 +333,7 @@ export interface Database {
         };
         Returns: {
           reservation_id: string;
-          reservation_status: 'confirmed' | 'cancelled';
+          reservation_status: 'pending' | 'confirmed' | 'cancelled';
           ticket_token: string;
         }[];
       };
@@ -193,14 +357,141 @@ export interface Database {
           p_token: string;
         };
         Returns: {
-          result_code: 'ok' | 'invalid' | 'already_scanned' | 'cancelled';
+          result_code: 'ok' | 'already_scanned' | 'cancelled' | 'pending' | 'invalid';
           reservation_id: string | null;
           full_name: string | null;
           entry_name: string | null;
           event_title: string | null;
           event_date: string | null;
           scanned_at: string | null;
+          // entry.valid_until passed; null for `invalid`.
+          formula_expired: boolean | null;
         }[];
+      };
+      // Anon + authenticated. Zero rows when the token does not match.
+      get_public_ticket: {
+        Args: {
+          p_reservation_id: string;
+          p_token: string;
+        };
+        Returns: {
+          reservation_id: string;
+          status: 'pending' | 'confirmed' | 'cancelled';
+          full_name: string | null;
+          email: string | null;
+          event_title: string;
+          event_date: string;
+          entry_name: string;
+          ticket_opened_at: string | null;
+          qr_scanned_at: string | null;
+        }[];
+      };
+      // -----------------------------------------------------------------
+      // Serverless endpoints only (`ep_*`, execute granted to service_role).
+      // -----------------------------------------------------------------
+      ep_request_booking: {
+        Args: {
+          p_session_token: string | null;
+          p_event_id: string;
+          p_entry_id: string;
+          p_full_name: string | null;
+          p_date_of_birth: string | null;
+          p_email: string | null;
+          p_consent_marketing: boolean | null;
+          p_consent_profiling: boolean | null;
+          p_source: string | null;
+        };
+        Returns: {
+          outcome:
+            | 'confirmed'
+            | 'pending'
+            | 'already_booked'
+            | 'sold_out'
+            | 'not_bookable'
+            | 'invalid_entry'
+            | 'invalid_input';
+          reservation_id: string | null;
+          ticket_token: string | null;
+          activation_token: string | null;
+          contact_email: string | null;
+          contact_full_name: string | null;
+          event_title: string | null;
+          event_date: string | null;
+          event_time: string | null;
+          entry_name: string | null;
+        }[];
+      };
+      ep_activate: {
+        Args: {
+          p_token: string;
+        };
+        Returns: {
+          outcome: 'ok' | 'invalid' | 'expired';
+          reservation_outcome: 'none' | 'confirmed' | 'expired' | 'unavailable' | null;
+          session_token: string | null;
+          contact_id: string | null;
+          reservation_id: string | null;
+          ticket_token: string | null;
+          contact_email: string | null;
+          contact_full_name: string | null;
+        }[];
+      };
+      ep_request_login: {
+        Args: {
+          p_email: string;
+        };
+        Returns: {
+          outcome: 'sent' | 'unknown';
+          activation_token: string | null;
+          contact_full_name: string | null;
+        }[];
+      };
+      // Zero rows when the session is not valid.
+      ep_session: {
+        Args: {
+          p_token: string;
+        };
+        Returns: {
+          contact_id: string;
+          email: string;
+          full_name: string;
+          date_of_birth: string;
+          marketing_consent: boolean;
+          profiling_consent: boolean;
+          session_expires_at: string;
+        }[];
+      };
+      ep_logout: {
+        Args: {
+          p_token: string;
+        };
+        Returns: boolean;
+      };
+      // Zero rows when the session is not valid.
+      ep_my_reservations: {
+        Args: {
+          p_token: string;
+        };
+        Returns: {
+          reservation_id: string;
+          status: 'confirmed' | 'pending';
+          event_id: string;
+          event_title: string;
+          event_date: string;
+          event_time: string;
+          entry_name: string;
+          entry_price: number;
+          entry_valid_until: string | null;
+          qr_scanned_at: string | null;
+          created_at: string;
+        }[];
+      };
+      ep_cancel_reservation: {
+        Args: {
+          p_token: string;
+          p_reservation_id: string;
+        };
+        Returns: 'ok' | 'invalid_session' | 'not_found' | 'not_cancellable';
       };
     };
     Enums: {

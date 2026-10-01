@@ -49,6 +49,24 @@ export {
   toCreateReservationCommand,
   toReservationInsert,
   toTicketViewData,
+  toTicketViewDataFromPublicTicket,
   toAdminReservationView,
   toAdminScanResult,
 } from './mappers';
+
+export {
+  buildTicketUrl,
+  type ApiErrorCode,
+  type ApiError,
+  type BookingRequest,
+  type BookingResponse,
+  type ActivateRequest,
+  type ActivateResponse,
+  type LoginLinkRequest,
+  type CancelReservationRequest,
+  type CheckEmailResponse,
+  type OkResponse,
+  type SessionContact,
+  type MyReservation,
+  type SessionResponse,
+} from './api';

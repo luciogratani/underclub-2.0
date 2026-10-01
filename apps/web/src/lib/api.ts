@@ -7,10 +7,15 @@ import {
   toPublicEventView,
   toCreateReservationCommand,
   toTicketViewData,
+  toTicketViewDataFromPublicTicket,
+  buildTicketUrl,
 } from '@underclub/shared';
 import { createTicketSupabaseClient, supabase } from './supabase';
 
 const DEBUG_LOG = import.meta.env.DEV;
+// Passwordless booking: the web talks to the serverless endpoints and reads
+// tickets through `get_public_ticket` instead of the x-ticket-token RLS path.
+const BOOKING_API = import.meta.env.VITE_BOOKING_API === '1';
 
 // ---------------------------------------------------------------------------
 // Next published event
@@ -119,7 +124,7 @@ export async function createReservation(
     reservationId: data.reservation_id,
     status: data.reservation_status as ReservationStatus,
     ticketToken: data.ticket_token,
-    ticketUrl: `/ticket/${data.reservation_id}?t=${encodeURIComponent(data.ticket_token)}`,
+    ticketUrl: buildTicketUrl(data.reservation_id, data.ticket_token),
   };
 }
 
@@ -136,6 +141,16 @@ export async function fetchTicketData(
       console.warn('[underclub][fetchTicketData] missing ticket token');
     }
     return null;
+  }
+
+  if (BOOKING_API) {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .rpc('get_public_ticket', { p_reservation_id: reservationId, p_token: ticketToken })
+      .maybeSingle();
+    // No row = token does not match: same outcome as the RLS path below.
+    if (error || !data) return null;
+    return toTicketViewDataFromPublicTicket(data);
   }
 
   const ticketSupabase = createTicketSupabaseClient(ticketToken);

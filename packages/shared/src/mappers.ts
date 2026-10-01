@@ -19,6 +19,7 @@ import type {
 } from './types';
 
 type ReservationsInsert = Database['underclub']['Tables']['reservations']['Insert'];
+type Functions = Database['underclub']['Functions'];
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -66,6 +67,11 @@ export function toEntryTierView(
     note: row.note,
     quota: row.quota,
     sortOrder: row.sort_order,
+    // `numeric` columns: PostgREST sends a JSON number, coerce defensively.
+    // `?? 0` / `?? null`: on a DB without the 2026-10-01 migration the
+    // columns are absent and would otherwise surface as NaN / undefined.
+    price: Number(row.price ?? 0),
+    validUntil: row.valid_until ?? null,
     availability: toEntryAvailability(row.quota, reservationCount),
   };
 }
@@ -137,6 +143,20 @@ export function toTicketViewData(
   };
 }
 
+/** Row shape returned by the `get_public_ticket` RPC. */
+type PublicTicketRow = Functions['get_public_ticket']['Returns'][number];
+
+export function toTicketViewDataFromPublicTicket(row: PublicTicketRow): TicketViewData {
+  return {
+    reservationId: row.reservation_id,
+    fullName: row.full_name ?? '',
+    email: row.email ?? '',
+    eventName: row.event_title,
+    eventDate: row.event_date,
+    entryName: row.entry_name,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Admin
 // ---------------------------------------------------------------------------
@@ -155,15 +175,7 @@ export function toAdminReservationView(row: ReservationWithEntry): AdminReservat
 }
 
 /** Row shape returned by `scan_ticket_check_in` RPC. */
-type ScanTicketCheckInRow = {
-  result_code: 'ok' | 'invalid' | 'already_scanned' | 'cancelled';
-  reservation_id: string | null;
-  full_name: string | null;
-  entry_name: string | null;
-  event_title: string | null;
-  event_date: string | null;
-  scanned_at: string | null;
-};
+type ScanTicketCheckInRow = Functions['scan_ticket_check_in']['Returns'][number];
 
 export function toAdminScanResult(row: ScanTicketCheckInRow): AdminScanResult {
   return {
@@ -174,5 +186,6 @@ export function toAdminScanResult(row: ScanTicketCheckInRow): AdminScanResult {
     eventTitle: row.event_title ?? undefined,
     eventDate: row.event_date ?? undefined,
     scannedAt: row.scanned_at ?? undefined,
+    formulaExpired: row.formula_expired ?? undefined,
   };
 }
