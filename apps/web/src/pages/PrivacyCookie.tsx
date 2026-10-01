@@ -218,6 +218,30 @@ export default function PrivacyCookie() {
             </PolicySection>
           )}
 
+          {BOOKING_API && (
+            <PolicySection
+              label="against abuse" // COPY-DRAFT
+              title="Protezione dagli abusi" // COPY-DRAFT
+            >
+              <p>
+                Per proteggere i moduli di prenotazione e di accesso da invii
+                automatici usiamo <strong>BotID</strong> di Vercel: quando invii
+                uno di questi moduli, il browser esegue un controllo tecnico
+                sulla richiesta per capire se arriva da una persona o da un
+                programma. Serve solo a bloccare gli abusi, non crea alcun
+                profilo e non viene usato per altro (legittimo interesse alla
+                sicurezza del servizio, art. 6.1.f GDPR).{/* COPY-DRAFT */}
+              </p>
+              <p>
+                Per limitare i tentativi ripetuti contiamo le richieste che
+                arrivano dalla stessa rete. L'indirizzo IP non viene mai salvato
+                in chiaro: lo usiamo solo in forma cifrata (hash), per finestre
+                di pochi minuti, e il conteggio viene cancellato
+                automaticamente entro due giorni.{/* COPY-DRAFT */}
+              </p>
+            </PolicySection>
+          )}
+
           <PolicySection label="who sees the data" title="Chi vede i dati">
             <p>I tuoi dati li vediamo noi, più chi ci aiuta tecnicamente:</p>
             <ul className="list-disc space-y-1 pl-5">
@@ -271,6 +295,14 @@ export default function PrivacyCookie() {
               Dopo di che vengono cancellati o anonimizzati. Puoi comunque
               chiederne la cancellazione anticipata in qualsiasi momento.
             </p>
+            {BOOKING_API && (
+              <p>
+                Se lasci i tuoi dati ma non apri mai il link di conferma, il
+                tuo contatto e le prenotazioni in attesa vengono cancellati
+                dopo 7 giorni. I link di accesso, usati o no, vengono
+                cancellati il giorno dopo la loro scadenza.{/* COPY-DRAFT */}
+              </p>
+            )}
           </PolicySection>
 
           <PolicySection label="your rights" title="I tuoi diritti">

@@ -1,11 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   parseDdMmYyyyToIso,
   type PublicReservationFormInput,
   type PublicEventView,
   type CreateReservationResult,
   type BookingRequest,
-  type SessionContact,
 } from "@underclub/shared";
 import Hero from "./components/Hero";
 import NextDate from "./components/NextDate";
@@ -13,10 +12,12 @@ import BookNow, { type BookingConsents } from "./components/BookNow";
 import ReservationSummary, { type ReservationSummaryVariant } from "./components/ReservationSummary";
 import DataNoticeOverlay from "./components/DataNoticeOverlay";
 import ErrorToast, { type ErrorToastData } from "./components/ErrorToast";
+import SiteMenu from "./components/SiteMenu";
 import { fetchNextEvent, createReservation } from "./lib/api";
 import { BOOKING_API } from "./lib/flags";
 import { getBookingSource } from "./lib/source";
-import { BookingApiError, book, getSession, logout } from "./lib/bookingApi";
+import { BookingApiError, book } from "./lib/bookingApi";
+import { nextTicketUrl, useSession } from "./lib/session";
 
 const TOTAL_SECTIONS = 4;
 const GESTURE_THRESHOLD_PX = 40;
@@ -45,6 +46,12 @@ function toBookingErrorToast(err: unknown): ErrorToastData {
       return {
         title: "Entry not available", // COPY-DRAFT
         message: "This entry is no longer available. Pick another one.", // COPY-DRAFT
+        code,
+      };
+    case "rate_limited":
+      return {
+        title: "Too many attempts", // COPY-DRAFT
+        message: "Please wait a few minutes and try again.", // COPY-DRAFT
         code,
       };
     case "invalid_input":
@@ -91,8 +98,13 @@ function App() {
   const [confirmedData, setConfirmedData] = useState<PublicReservationFormInput | null>(null);
   const [confirmedEventDate, setConfirmedEventDate] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<ErrorToastData | null>(null);
-  // Booking API (flag ON): passwordless session + outcome of the last booking.
-  const [sessionContact, setSessionContact] = useState<SessionContact | null>(null);
+  // Booking API (flag ON): passwordless session (shared app-wide) + outcome of the last booking.
+  const { session, refresh: refreshSession, logout, forget: forgetSession } = useSession();
+  const sessionContact = BOOKING_API ? session?.contact ?? null : null;
+  const homeTicketUrl = BOOKING_API ? nextTicketUrl(session) : null;
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Flag ON only: the menu button steps aside on Book Now, where it would sit on the form.
+  const [activeSection, setActiveSection] = useState(0);
   const [summaryVariant, setSummaryVariant] = useState<ReservationSummaryVariant>("in");
   const [bookingTicketUrl, setBookingTicketUrl] = useState<string | null>(null);
   const [toastClosing, setToastClosing] = useState(false);
@@ -208,6 +220,8 @@ function App() {
         // Keep entry availability in sync after each booking.
         void refreshNextEvent();
         setConfirmedEventDate(nextEvent.date);
+        // New reservation (or none, for check_email): keep menu / icon / account in sync.
+        void refreshSession();
         if (res.status === "check_email") {
           setSummaryVariant("check_email");
           setBookingTicketUrl(null);
@@ -230,7 +244,7 @@ function App() {
           // Session expired between page load and confirm: the server fell
           // back to the anonymous path without form data. Show the form again.
           if (err.code === "invalid_input" && sessionContact) {
-            setSessionContact(null);
+            forgetSession();
             showBookingError({
               title: "You've been logged out", // COPY-DRAFT
               message: "Fill in your details to book.", // COPY-DRAFT
@@ -281,7 +295,6 @@ function App() {
       });
       return;
     }
-    setSessionContact(null);
   };
 
   const goToHero = () => {
@@ -322,8 +335,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    gesturesLockedRef.current = dataNoticeVisible || dataNoticeClosing;
-  }, [dataNoticeVisible, dataNoticeClosing]);
+    gesturesLockedRef.current = dataNoticeVisible || dataNoticeClosing || menuOpen;
+  }, [dataNoticeVisible, dataNoticeClosing, menuOpen]);
+
+  const handleMenuOpenChange = useCallback((open: boolean) => {
+    // Set the ref right away too: a gesture in the same frame must not slip through.
+    if (open) gesturesLockedRef.current = true;
+    setMenuOpen(open);
+  }, []);
 
   useEffect(() => {
     if (dataNoticeVisible || dataNoticeClosing) return;
@@ -353,6 +372,7 @@ function App() {
           0,
           Math.min(TOTAL_SECTIONS - 1, Math.round(elV.scrollTop / h))
         );
+        if (BOOKING_API) setActiveSection(currentSectionRef.current);
       }
       // While programmatic navigation from Hero -> NextDate starts,
       // ignore top resets until we've actually left the first section.
@@ -485,15 +505,6 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    if (!BOOKING_API) return;
-    let cancelled = false;
-    getSession().then((session) => {
-      if (!cancelled) setSessionContact(session?.contact ?? null);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
   return (
     <div
       ref={scrollRefV}
@@ -510,6 +521,7 @@ function App() {
           showNextDateButton={heroCtaVisible}
           nextDateIso={nextEvent?.date}
           nextEventTitle={nextEvent?.title}
+          ticketUrl={homeTicketUrl}
         />
       </div>
       <div
@@ -571,6 +583,14 @@ function App() {
         isClosing={dataNoticeClosing}
         onAccept={handleAcceptDataNotice}
       />
+
+      {BOOKING_API && (
+        <SiteMenu
+          hidden={dataNoticeVisible || dataNoticeClosing || activeSection === 2}
+          onOpenChange={handleMenuOpenChange}
+          onLogout={handleLogout}
+        />
+      )}
     </div>
   );
 }

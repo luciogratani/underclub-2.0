@@ -1,5 +1,7 @@
 import TextRing from "./TextRing";
 import HeroButton from "./HeroButton";
+import TicketIcon from "./icons/Ticket";
+import { BOOKING_API } from "../lib/flags";
 
 type HeroProps = {
   onNextDateClick?: () => void;
@@ -8,6 +10,8 @@ type HeroProps = {
   showNextDateButton?: boolean;
   nextDateIso?: string | null;
   nextEventTitle?: string | null;
+  /** Flag ON: ticket of the next confirmed reservation; shows the ticket button. */
+  ticketUrl?: string | null;
 };
 
 export default function Hero({
@@ -17,6 +21,7 @@ export default function Hero({
   showNextDateButton = true,
   nextDateIso,
   nextEventTitle,
+  ticketUrl = null,
 }: HeroProps) {
   return (
     <section
@@ -53,6 +58,18 @@ export default function Hero({
           </div>
         )}
       </div>
+      {BOOKING_API && ticketUrl && (
+        // Bottom left, mirroring the menu button (bottom right).
+        <a
+          href={ticketUrl}
+          aria-label="Open your ticket" // COPY-DRAFT
+          className={`absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-black text-primary ring-2 ring-primary transition-all duration-300 ease-out ${
+            showNextDateButton ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
+          }`}
+        >
+          <TicketIcon className="h-6 w-6" />
+        </a>
+      )}
     </section>
   );
 }

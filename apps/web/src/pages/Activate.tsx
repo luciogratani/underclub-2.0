@@ -1,19 +1,18 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { BOOKING_API } from "../lib/flags";
-import { BookingApiError, activate, requestLoginLink } from "../lib/bookingApi";
+import { BookingApiError, activate } from "../lib/bookingApi";
 import ConfirmReservationButton from "../components/ConfirmReservationButton";
+import LoginLinkForm from "../components/LoginLinkForm";
 
 type ActivateState =
   | "loading"
   | "redirecting"
-  | "logged_in"
+  | "redirecting_account"
   | "reservation_expired"
   | "reservation_unavailable"
   | "invalid"
   | "error";
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Reads `?token=` once and strips it from the URL (history, referrer, screenshots). */
 function takeTokenFromUrl(): string | null {
@@ -56,13 +55,14 @@ function ActivatePage() {
           window.location.replace(res.ticketUrl);
           return;
         }
-        setState(
-          res.reservation === "expired"
-            ? "reservation_expired"
-            : res.reservation === "unavailable"
-              ? "reservation_unavailable"
-              : "logged_in",
-        );
+        if (res.reservation === "none") {
+          // Plain login link: straight to the bookings page (full navigation,
+          // so the session is read fresh there).
+          setState("redirecting_account");
+          window.location.replace("/account");
+          return;
+        }
+        setState(res.reservation === "expired" ? "reservation_expired" : "reservation_unavailable");
         return;
       }
       tokenRef.current = null;
@@ -118,15 +118,14 @@ function ActivatePage() {
           </>
         )}
 
-        {state === "logged_in" && (
+        {state === "redirecting_account" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              You're logged in{/* COPY-DRAFT */}
+              You're in!{/* COPY-DRAFT */}
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              you can book without filling the form again.{/* COPY-DRAFT */}
+              opening your bookings…{/* COPY-DRAFT */}
             </p>
-            <HomeLink label="Book now" />{/* COPY-DRAFT */}
           </>
         )}
 
@@ -139,6 +138,7 @@ function ActivatePage() {
               the link was valid for 30 minutes. you're logged in now, so it takes one tap.{/* COPY-DRAFT */}
             </p>
             <HomeLink label="Book again" />{/* COPY-DRAFT */}
+            <AccountLink />
           </>
         )}
 
@@ -151,6 +151,7 @@ function ActivatePage() {
               you're logged in anyway: check the next date from the home page.{/* COPY-DRAFT */}
             </p>
             <HomeLink label="Home" />{/* COPY-DRAFT */}
+            <AccountLink />
           </>
         )}
 
@@ -179,7 +180,7 @@ function ActivatePage() {
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
               links work once and only for 30 minutes. get a new one:{/* COPY-DRAFT */}
             </p>
-            <LoginLinkForm />
+            <LoginLinkForm submitLabel="Send me a new link" />{/* COPY-DRAFT */}
           </>
         )}
       </div>
@@ -195,96 +196,10 @@ function HomeLink({ label }: { label: string }) {
   );
 }
 
-function LoginLinkForm() {
-  const [email, setEmail] = useState("");
-  const [focused, setFocused] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [sentTo, setSentTo] = useState<string | null>(null);
-  const [networkError, setNetworkError] = useState(false);
-
-  const trimmed = email.trim();
-  const isValid = trimmed.length >= 5 && EMAIL_REGEX.test(trimmed);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!isValid || sending) return;
-    setSending(true);
-    setNetworkError(false);
-    try {
-      await requestLoginLink(trimmed);
-      setSentTo(trimmed.toLowerCase());
-    } catch (err: unknown) {
-      // Anti-enumeration: whatever the server says, the answer is "check your
-      // inbox". Only a request that never reached us is worth reporting.
-      if (err instanceof BookingApiError && err.status === 0) {
-        setNetworkError(true);
-      } else {
-        setSentTo(trimmed.toLowerCase());
-      }
-    } finally {
-      setSending(false);
-    }
-  };
-
-  if (sentTo) {
-    return (
-      <div className="mt-8" role="status">
-        <p className="text-[8vw] font-bold uppercase leading-[0.95]">
-          Check your inbox{/* COPY-DRAFT */}
-        </p>
-        <p className="mt-3 font-sans text-[4vw] font-light leading-snug tracking-wide opacity-85">
-          if <span className="font-medium">{sentTo}</span> is registered, a new link is on its way. it's valid for 30 minutes.{/* COPY-DRAFT */}
-        </p>
-      </div>
-    );
-  }
-
+function AccountLink() {
   return (
-    <form className="mt-8" onSubmit={(e) => void handleSubmit(e)} noValidate>
-      <label htmlFor="loginEmail" className="block font-sans text-[14px] tracking-wide opacity-85">
-        email{/* COPY-DRAFT */}
-        {networkError && (
-          <span className="ml-1 opacity-90" role="alert">
-            [couldn't reach us, try again]{/* COPY-DRAFT */}
-          </span>
-        )}
-      </label>
-      <div className="relative mt-0.5">
-        <input
-          id="loginEmail"
-          type="email"
-          name="email"
-          autoComplete="email"
-          placeholder="john.doe@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className="w-full border-0 border-b border-black/30 bg-transparent font-sans text-lg font-medium leading-tight text-black placeholder:opacity-50 focus:outline-none focus:ring-0"
-        />
-        <div
-          className="absolute bottom-0 left-0 right-0 h-[1px] bg-black transition-transform duration-300 ease-out"
-          style={{
-            transformOrigin: focused ? "left" : "right",
-            transform: focused ? "scaleX(1)" : "scaleX(0)",
-          }}
-          aria-hidden
-        />
-      </div>
-      <div className="mt-6">
-        <button
-          type="submit"
-          disabled={!isValid || sending}
-          aria-disabled={!isValid || sending}
-          className={`w-full rounded-none border-0 bg-black py-5.5 text-[19px] font-bold leading-none ${
-            !isValid || sending ? "cursor-not-allowed" : "cursor-pointer"
-          }`}
-        >
-          <span className={!isValid || sending ? "text-primary opacity-25 transition-opacity" : "text-primary"}>
-            {sending ? "Sending…" : "Send me a new link"}{/* COPY-DRAFT */}
-          </span>
-        </button>
-      </div>
-    </form>
+    <a href="/account" className="mt-3 block text-[8vw] font-bold uppercase leading-[0.95] underline underline-offset-[0.12em]">
+      My bookings →{/* COPY-DRAFT */}
+    </a>
   );
 }

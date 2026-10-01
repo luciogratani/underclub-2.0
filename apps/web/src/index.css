@@ -286,3 +286,46 @@ body {
   letter-spacing: 0.12em;
   opacity: 0.75;
 }
+
+/* Site menu (flag ON): round button bottom right + full-screen lime overlay.
+ * The overlay reuses .data-notice-overlay / .data-notice-overlay-exit; it sits
+ * above the page and the button but below the error toast (z 199) and the
+ * data notice (z 260). */
+.site-menu-button {
+  position: fixed;
+  right: 1rem;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  z-index: 150;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--color-black);
+  color: var(--color-primary);
+  /* Lime ring: keeps the circle readable where the page behind is black too. */
+  box-shadow: 0 0 0 2px var(--color-primary);
+  cursor: pointer;
+}
+
+.site-menu-overlay {
+  z-index: 190;
+  display: block;
+  padding: 0;
+  overflow-y: auto;
+  cursor: default;
+  color: var(--color-black);
+}
+
+.site-menu-overlay-enter {
+  animation: toast-enter-overlay 300ms ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-menu-overlay-enter,
+  .site-menu-overlay.data-notice-overlay-exit {
+    animation-duration: 1ms;
+  }
+}

@@ -23,6 +23,7 @@ const KNOWN_ERROR_CODES: readonly ApiErrorCode[] = [
   "unauthorized",
   "not_found",
   "not_cancellable",
+  "rate_limited",
   "server_error",
 ];
 
@@ -77,12 +78,16 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
   return json as T;
 }
 
-/** Current session, or null when there is none (401) or the API is unreachable. */
-export async function getSession(): Promise<SessionResponse | null> {
+/**
+ * Current session, or null when the server says there is none (401). Any other
+ * failure (network, 5xx) throws, so callers can keep what they already know.
+ */
+export async function fetchSession(): Promise<SessionResponse | null> {
   try {
     return await request<SessionResponse>("GET", "/api/session");
-  } catch {
-    return null;
+  } catch (err: unknown) {
+    if (err instanceof BookingApiError && err.status === 401) return null;
+    throw err;
   }
 }
 

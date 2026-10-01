@@ -1,9 +1,24 @@
 import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
+import { initBotId } from 'botid/client/core'
 import App from './App.tsx'
 import { captureBookingSource } from './lib/source'
+import { BOOKING_API } from './lib/flags'
+import { SessionProvider } from './lib/session'
 import './index.css'
+
+// BotID (Vercel) patches the global fetch to attach its challenge to these
+// requests: start it before anything fetches. Production + flag only; with the
+// flag off the import is dropped from the bundle.
+if (import.meta.env.PROD && BOOKING_API) {
+  initBotId({
+    protect: [
+      { path: '/api/reservations', method: 'POST' },
+      { path: '/api/auth/login-link', method: 'POST' },
+    ],
+  })
+}
 
 // First touch wins for the visit: read ?src= / ?utm_source= before routing.
 captureBookingSource()
@@ -15,6 +30,8 @@ const PrivacyCookie = lazy(() => import('./pages/PrivacyCookie.tsx'))
 const Ticket = lazy(() => import('./pages/Ticket.tsx'))
 // Landing page of the passwordless email link (redirects home with the flag off).
 const Activate = lazy(() => import('./pages/Activate.tsx'))
+// Bookings of the logged-in contact / "recover booking" form (redirects home with the flag off).
+const Account = lazy(() => import('./pages/Account.tsx'))
 // Internal A/B bench for the lanyard physics — unlinked, not part of the funnel.
 const LanyardLab = lazy(() => import('./pages/LanyardLab.tsx'))
 // Previous Rapier-based lanyard, kept for reference; Rapier loads only here.
@@ -49,6 +66,10 @@ const router = createBrowserRouter([
     element: <Suspense fallback={activateFallback}><Activate /></Suspense>,
   },
   {
+    path: '/account',
+    element: <Suspense fallback={activateFallback}><Account /></Suspense>,
+  },
+  {
     path: '/demo/lanyard',
     element: <Suspense fallback={ticketFallback}><LanyardLab /></Suspense>,
   },
@@ -60,6 +81,8 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <SessionProvider>
+      <RouterProvider router={router} />
+    </SessionProvider>
   </StrictMode>,
 )
