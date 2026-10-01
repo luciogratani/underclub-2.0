@@ -290,15 +290,15 @@ create policy "admin_read_contacts"
 -- scan fail with `record "v_reservation" has no field "full_name"`, i.e. the
 -- door stops working, not just the analytics.
 --
---   1. rewrite `scan_ticket_check_in`:
---        - read the name from `contacts` instead of the reservation;
---        - add a branch for `status = 'pending'`. Today a pending row holding a
---          ticket token answers `already_scanned` with an empty timestamp
---          (measured), which reads as "already in" for someone who never
---          confirmed. Belt and braces: the endpoint must also issue the ticket
---          token only on confirmation, so a pending has no QR at all;
---        - add the expired-formula outcome, so the door charges full price past
---          `event_entries.valid_until`.
+--   1. DONE by 2026-10-02-booking-endpoints.sql: `scan_ticket_check_in` is
+--      rewritten (name from `contacts` or via to_jsonb, `pending` outcome,
+--      `formula_expired`), and `get_public_ticket` reads the legacy columns
+--      the same way. Check that file has been applied before going on.
+--   1b. `ep_request_booking` (2026-10-02) still WRITES `full_name`,
+--      `date_of_birth` and `email` on every insert, because they are NOT NULL
+--      today, and READS `r.email` to treat contact-less legacy rows as
+--      already booked. Replace it with a version that does neither BEFORE
+--      step 5, or every booking fails once the columns are dropped.
 --   2. drop policy "anon_insert_reservation" on underclub.reservations;
 --   3. revoke execute on function
 --        underclub.create_public_reservation(uuid, uuid, text, date, text)

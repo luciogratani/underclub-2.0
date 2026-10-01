@@ -37,7 +37,11 @@ language sql
 immutable
 strict
 as $$
-  select encode(digest(p_token, 'sha256'), 'hex');
+  -- Qualified: Supabase keeps pgcrypto in `extensions`, and a `language sql`
+  -- body is validated at CREATE time, so an unqualified `digest` aborts this
+  -- file on a fresh database whose search_path lacks `extensions`. Same
+  -- expression as the v2 file, same hash for the same token.
+  select encode(extensions.digest(convert_to(p_token, 'UTF8'), 'sha256'::text), 'hex');
 $$;
 
 create or replace function underclub.current_ticket_token()
@@ -93,13 +97,13 @@ create or replace function underclub.issue_ticket_access_token(p_reservation_id 
 returns text
 language plpgsql
 security definer
-set search_path = underclub, public
+set search_path = underclub, public, extensions
 as $$
 declare
   v_token text;
 begin
   -- URL-safe random token (43 chars-ish after trim)
-  v_token := replace(replace(replace(encode(gen_random_bytes(32), 'base64'), '+', '-'), '/', '_'), '=', '');
+  v_token := replace(replace(replace(encode(extensions.gen_random_bytes(32), 'base64'), '+', '-'), '/', '_'), '=', '');
 
   update underclub.reservations
   set ticket_access_token_hash = underclub.hash_ticket_token(v_token)

@@ -9,18 +9,22 @@
 --   4. supabase/rls-history/2026-04-17-ultra-strict-ticket-token-v2.sql
 --   5. supabase/rls-history/2026-04-21-ticket-check-in.sql
 --   6. supabase/rls-history/2026-10-01-contacts-sessions-formulas.sql
+--   7. supabase/rls-history/2026-10-02-booking-endpoints.sql
 --
--- PREREQUISITE for step 3: `digest()` must resolve. Step 3 declares
--- `hash_ticket_token` as a `language sql` function with an unqualified
--- `digest(...)`, and those bodies are validated at CREATE time, so if pgcrypto
--- lives in the `extensions` schema and it is not on the search_path, step 3
--- aborts on that function — before creating the token policies and the grants
--- at the end of the file. The ticket page then has no policies at all.
--- Measured on a fresh database: with `search_path = underclub, public,
--- extensions` the whole chain applies; without it, step 3 stops at line 41.
+-- pgcrypto: every call is qualified as `extensions.*` (step 3 was fixed on
+-- 2026-10-02; before that its unqualified `digest` aborted the file on a fresh
+-- database without `extensions` on the search_path). The chain now applies
+-- with `search_path = public` only — measured by supabase/tests/run.sh, which
+-- replays the whole chain on a throwaway cluster.
 --
--- These files are NOT re-runnable: this one aborts on the first `create policy`
--- if the policies already exist (fail-safe, but do not count on replaying it).
+-- Re-runnable (measured): this file (every policy is dropped by name and
+-- recreated), schema.sql, 2026-04-17 v2, 2026-10-01, 2026-10-02.
+-- NOT re-runnable, fail-safe: 2026-04-17 aborts on its first `create policy`
+-- (after re-issuing identical grants and functions), and 2026-04-21 aborts
+-- once 2026-10-02 has changed the return type of `scan_ticket_check_in`.
+--
+-- After the 2026-10-01 cleanup step drops "anon_insert_reservation", remove
+-- it from this file too, or a replay of this file would bring it back.
 --
 -- This file is deliberately FAIL-CLOSED on `reservations`: anon gets no
 -- select/update policy here. Ticket read + "first open" tracking are granted
@@ -39,12 +43,14 @@ alter table underclub.reservations enable row level security;
 -- =========================================================================
 
 -- Events: read only published events
+drop policy if exists "anon_read_published_events" on underclub.events;
 create policy "anon_read_published_events"
   on underclub.events for select
   to anon
   using (status = 'published');
 
 -- Event artists: readable if parent event is published
+drop policy if exists "anon_read_event_artists" on underclub.event_artists;
 create policy "anon_read_event_artists"
   on underclub.event_artists for select
   to anon
@@ -56,6 +62,7 @@ create policy "anon_read_event_artists"
   );
 
 -- Event entries: readable if parent event is published
+drop policy if exists "anon_read_event_entries" on underclub.event_entries;
 create policy "anon_read_event_entries"
   on underclub.event_entries for select
   to anon
@@ -67,6 +74,7 @@ create policy "anon_read_event_entries"
   );
 
 -- Reservations: anon can INSERT (book a spot)
+drop policy if exists "anon_insert_reservation" on underclub.reservations;
 create policy "anon_insert_reservation"
   on underclub.reservations for insert
   to anon
@@ -92,24 +100,28 @@ create policy "anon_insert_reservation"
 -- AUTHENTICATED (admin) policies — full CRUD
 -- =========================================================================
 
+drop policy if exists "admin_all_events" on underclub.events;
 create policy "admin_all_events"
   on underclub.events for all
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "admin_all_event_artists" on underclub.event_artists;
 create policy "admin_all_event_artists"
   on underclub.event_artists for all
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "admin_all_event_entries" on underclub.event_entries;
 create policy "admin_all_event_entries"
   on underclub.event_entries for all
   to authenticated
   using (true)
   with check (true);
 
+drop policy if exists "admin_all_reservations" on underclub.reservations;
 create policy "admin_all_reservations"
   on underclub.reservations for all
   to authenticated
