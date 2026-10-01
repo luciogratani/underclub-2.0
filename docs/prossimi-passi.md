@@ -459,8 +459,23 @@ giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
    (il trasporto `console` è rifiutato su ogni deploy) e il loro origin in
    `ALLOWED_ORIGINS`. Verificare che l'OIDC di Vercel sia attivo (serve a BotID)
    e che il cron giornaliero `/api/cron/cleanup` compaia nel progetto.
-4. Provare un deploy di preview: le funzioni non sono mai state eseguite su Vercel,
-   solo in locale (stessi handler).
+   **Preview: fatto il 2026-10-01**, env legate al branch `master` (i segreti
+   caricati da Lucio, mai mostrati: sono *sensitive*). `PUBLIC_SITE_URL` è
+   l'URL stabile del branch,
+   `https://underclub-2-0-web-git-master-lucios-projects-aef0021a.vercel.app`.
+   OIDC attivo, cron riconosciuto. **Production: da fare al passaggio**, con
+   segreti nuovi (non quelli del preview), `PUBLIC_SITE_URL=https://underclub.it`,
+   `ALLOWED_ORIGINS=https://www.underclub.it`, `EMAIL_REPLY_TO=info@underclub.it`.
+   Nota: il branch di produzione del progetto è `main`, che non esiste, quindi
+   ogni push crea solo preview; al passaggio impostarlo su `master` o promuovere
+   a mano.
+4. ~~Deploy di preview~~ — **provato il 2026-10-01 sul DB di produzione**:
+   prenotazione, conferma, ticket ed email del ticket (SPF, DKIM e DMARC
+   `PASS`, Reply-To su `info@`), MY BOOKINGS, logout, recupero. Non provati:
+   check-in admin (rimandato con tutto l'admin) e cron (Vercel lo esegue solo in
+   produzione e il `CRON_SECRET` sensitive non è rileggibile: verificarlo dai
+   log dopo le 04:00 del primo giorno, o con "Run" dal pannello Cron). Prima di
+   andare live: cancellare le prenotazioni di prova.
 5. Rivedere i testi marcati `COPY-DRAFT` (UI, email, privacy) e accendere
    `VITE_BOOKING_API=1`.
 6. A endpoint vivi: la pulizia in fondo alla migrazione del 2026-10-01 (prima va
