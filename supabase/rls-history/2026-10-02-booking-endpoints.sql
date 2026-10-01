@@ -1290,6 +1290,12 @@ $$;
 -- 11) Grants for the endpoints: service_role only
 -- ---------------------------------------------------------------------------
 
+-- The self-hosted project grants usage on `underclub` to anon and
+-- authenticated only (checked 2026-10-01): without it PostgREST answers 403 to
+-- the service key, EXECUTE or not. The ep_* are security definer, so usage +
+-- EXECUTE is all service_role needs.
+grant usage on schema underclub to service_role;
+
 revoke all on function underclub.ep_request_booking(text, uuid, uuid, text, date, text, boolean, boolean, text, text) from public, anon, authenticated;
 revoke all on function underclub.ep_activate(text, text)              from public, anon, authenticated;
 revoke all on function underclub.ep_request_login(text)               from public, anon, authenticated;

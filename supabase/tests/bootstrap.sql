@@ -17,8 +17,10 @@ alter database postgres set search_path = "$user", public, extensions;
 -- DEFAULT PRIVILEGES so every table/function created later is granted to the
 -- three API roles. The 2026-10-01 migration's revokes exist because of this,
 -- so it must be in place BEFORE the chain runs.
+-- Production (self-hosted, checked 2026-10-01) grants usage on `underclub` to
+-- anon and authenticated only: service_role must get it from the migrations.
 create schema underclub;
-grant usage on schema underclub to anon, authenticated, service_role;
+grant usage on schema underclub to anon, authenticated;
 alter default privileges in schema underclub
   grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema underclub

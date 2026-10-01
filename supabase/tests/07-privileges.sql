@@ -38,6 +38,8 @@ begin
     assert not has_function_privilege('authenticated', f, 'execute'), 'authenticated on ' || f;
     assert has_function_privilege('service_role', f, 'execute'), 'service_role on ' || f;
   end loop;
+  -- EXECUTE alone is not enough: PostgREST answers 403 without schema usage.
+  assert has_schema_privilege('service_role', 'underclub', 'usage'), 'service_role usage on underclub';
   foreach f in array helpers loop
     assert not has_function_privilege('anon', f, 'execute'), 'anon on ' || f;
     assert not has_function_privilege('authenticated', f, 'execute'), 'authenticated on ' || f;
