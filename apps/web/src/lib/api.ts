@@ -11,11 +11,9 @@ import {
   buildTicketUrl,
 } from '@underclub/shared';
 import { createTicketSupabaseClient, supabase } from './supabase';
+import { BOOKING_API } from './flags';
 
 const DEBUG_LOG = import.meta.env.DEV;
-// Passwordless booking: the web talks to the serverless endpoints and reads
-// tickets through `get_public_ticket` instead of the x-ticket-token RLS path.
-const BOOKING_API = import.meta.env.VITE_BOOKING_API === '1';
 
 // ---------------------------------------------------------------------------
 // Next published event

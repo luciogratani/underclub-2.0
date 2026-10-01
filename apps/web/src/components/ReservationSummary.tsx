@@ -1,7 +1,11 @@
 import type { TicketViewData } from "@underclub/shared";
 import SummaryHomeButton from "./SummaryHomeButton";
 
+export type ReservationSummaryVariant = "in" | "check_email" | "already_booked";
+
 type ReservationSummaryProps = Partial<TicketViewData> & {
+  /** "in" = confirmed (default); "check_email" = pending until the email link is opened. */
+  variant?: ReservationSummaryVariant;
   onGoHome?: () => void;
   onOpenTicket?: () => void;
 };
@@ -28,29 +32,73 @@ export default function ReservationSummary({
   fullName,
   email,
   eventDate,
+  variant = "in",
   onGoHome,
   onOpenTicket,
 }: ReservationSummaryProps) {
+  const ariaLabel =
+    variant === "check_email"
+      ? "Check your inbox" // COPY-DRAFT
+      : variant === "already_booked"
+        ? "Already booked" // COPY-DRAFT
+        : "Reservation confirmed";
   return (
     <section
       className="flex flex-col items-center justify-center min-w-[100vw] w-[100vw] min-h-[100svh] h-[100svh] shrink-0 snap-start snap-always bg-primary"
       style={{ height: "100svh" }}
-      aria-label="Reservation confirmed"
+      aria-label={ariaLabel}
     >
       <div className="w-[95%] max-w-lg rounded-[40px] overflow-hidden bg-black text-primary">
         
         <div className="p-4">
-          <p className="mt-4.5 text-[50px] font-bold">YOU'RE IN!</p>
+          {variant === "check_email" ? (
+            <>
+              <p className="mt-4.5 text-[50px] font-bold leading-[0.95]">
+                CHECK YOUR INBOX{/* COPY-DRAFT */}
+              </p>
 
-          <p className="mt-6 font-sans text-lg leading-tight text-primary">
-            Dear <span className="font-medium uppercase">{fullName || "—"},</span>
-          </p>
-          <p className="mt-2 font-sans text-lg leading-tight text-primary">
-            we'll email your ticket to <br /><span className="font-medium">{email || "—"}</span>.
-          </p>
-          <p className="mt-2 font-sans text-lg leading-tight text-primary">
-            See you at Underclub on <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.
-          </p>
+              <p className="mt-6 font-sans text-lg leading-tight text-primary">
+                Dear <span className="font-medium uppercase">{fullName || "—"},</span>
+              </p>
+              <p className="mt-2 font-sans text-lg leading-tight text-primary">
+                we sent a link to <br /><span className="font-medium">{email || "—"}</span>.{/* COPY-DRAFT */}
+              </p>
+              <p className="mt-2 font-sans text-lg leading-tight text-primary">
+                Open it within <span className="font-medium">30 minutes</span> to confirm your spot for{" "}
+                <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.{/* COPY-DRAFT */}
+              </p>
+            </>
+          ) : variant === "already_booked" ? (
+            <>
+              <p className="mt-4.5 text-[50px] font-bold leading-[0.95]">
+                YOU'RE ALREADY IN!{/* COPY-DRAFT */}
+              </p>
+
+              <p className="mt-6 font-sans text-lg leading-tight text-primary">
+                Dear <span className="font-medium uppercase">{fullName || "—"},</span>
+              </p>
+              <p className="mt-2 font-sans text-lg leading-tight text-primary">
+                you already have a spot on <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.{/* COPY-DRAFT */}
+              </p>
+              <p className="mt-2 font-sans text-lg leading-tight text-primary">
+                One ticket per person: see you there.{/* COPY-DRAFT */}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mt-4.5 text-[50px] font-bold">YOU'RE IN!</p>
+
+              <p className="mt-6 font-sans text-lg leading-tight text-primary">
+                Dear <span className="font-medium uppercase">{fullName || "—"},</span>
+              </p>
+              <p className="mt-2 font-sans text-lg leading-tight text-primary">
+                we'll email your ticket to <br /><span className="font-medium">{email || "—"}</span>.
+              </p>
+              <p className="mt-2 font-sans text-lg leading-tight text-primary">
+                See you at Underclub on <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.
+              </p>
+            </>
+          )}
 
           <div className="pb-6 pt-12">
             <div className="flex items-center justify-between">

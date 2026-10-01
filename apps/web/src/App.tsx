@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import type {
-  PublicReservationFormInput,
-  PublicEventView,
-  CreateReservationResult,
+import {
+  parseDdMmYyyyToIso,
+  type PublicReservationFormInput,
+  type PublicEventView,
+  type CreateReservationResult,
+  type BookingRequest,
+  type SessionContact,
 } from "@underclub/shared";
 import Hero from "./components/Hero";
 import NextDate from "./components/NextDate";
-import BookNow from "./components/BookNow";
-import ReservationSummary from "./components/ReservationSummary";
+import BookNow, { type BookingConsents } from "./components/BookNow";
+import ReservationSummary, { type ReservationSummaryVariant } from "./components/ReservationSummary";
 import DataNoticeOverlay from "./components/DataNoticeOverlay";
 import ErrorToast, { type ErrorToastData } from "./components/ErrorToast";
 import { fetchNextEvent, createReservation } from "./lib/api";
+import { BOOKING_API } from "./lib/flags";
+import { getBookingSource } from "./lib/source";
+import { BookingApiError, book, getSession, logout } from "./lib/bookingApi";
 
 const TOTAL_SECTIONS = 4;
 const GESTURE_THRESHOLD_PX = 40;
@@ -18,6 +24,43 @@ const WHEEL_THRESHOLD = 24;
 const DATA_NOTICE_FADE_MS = 360;
 const DATA_NOTICE_SESSION_KEY = "underclub.dataNoticeAccepted";
 const DEBUG_LOG = import.meta.env.DEV;
+
+/** Booking API error code → toast copy (flag ON only). */
+function toBookingErrorToast(err: unknown): ErrorToastData {
+  const code = err instanceof BookingApiError ? err.code : "server_error";
+  switch (code) {
+    case "sold_out":
+      return {
+        title: "Sold out", // COPY-DRAFT
+        message: "This entry just sold out. Pick another one.", // COPY-DRAFT
+        code,
+      };
+    case "not_bookable":
+      return {
+        title: "Bookings closed", // COPY-DRAFT
+        message: "This night can't be booked anymore.", // COPY-DRAFT
+        code,
+      };
+    case "invalid_entry":
+      return {
+        title: "Entry not available", // COPY-DRAFT
+        message: "This entry is no longer available. Pick another one.", // COPY-DRAFT
+        code,
+      };
+    case "invalid_input":
+      return {
+        title: "Check your details", // COPY-DRAFT
+        message: "Something in the form doesn't look right. Check it and try again.", // COPY-DRAFT
+        code,
+      };
+    default:
+      return {
+        title: "Reservation failed", // COPY-DRAFT
+        message: "Something went wrong on our side. Please try again.", // COPY-DRAFT
+        code,
+      };
+  }
+}
 
 function App() {
   const hasAcceptedDataNoticeInSession = (() => {
@@ -48,6 +91,10 @@ function App() {
   const [confirmedData, setConfirmedData] = useState<PublicReservationFormInput | null>(null);
   const [confirmedEventDate, setConfirmedEventDate] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<ErrorToastData | null>(null);
+  // Booking API (flag ON): passwordless session + outcome of the last booking.
+  const [sessionContact, setSessionContact] = useState<SessionContact | null>(null);
+  const [summaryVariant, setSummaryVariant] = useState<ReservationSummaryVariant>("in");
+  const [bookingTicketUrl, setBookingTicketUrl] = useState<string | null>(null);
   const [toastClosing, setToastClosing] = useState(false);
 
   const scrollToSection = (index: number) => {
@@ -116,54 +163,130 @@ function App() {
     setNextEvent(refreshed);
   };
 
-  const goToSummary = async (
+  const showBookingError = (error: ErrorToastData) => {
+    setToastClosing(false);
+    setConfirmError(error);
+  };
+
+  /**
+   * Saves the reservation and prepares the summary. Resolves `true` on success;
+   * BookNow then clears the form and calls `goToSummary` to move on. On failure
+   * the toast is shown and the form keeps what the user typed.
+   */
+  const confirmReservation = async (
     data: PublicReservationFormInput,
     entryId: string | null,
-  ) => {
+    consents: BookingConsents,
+  ): Promise<boolean> => {
     setConfirmError(null);
 
-    if (nextEvent && entryId) {
-      try {
-        const result = await createReservation(data, nextEvent.id, entryId);
-        setReservationResult(result);
-        const absoluteTicketUrl =
-          typeof window !== "undefined"
-            ? new URL(result.ticketUrl, window.location.origin).toString()
-            : result.ticketUrl;
-        console.info("[underclub][reservation] ticket link (tokenized)", {
-          reservationId: result.reservationId,
-          ticketUrl: absoluteTicketUrl,
-          ticketToken: result.ticketToken,
-        });
-        // Keep entry availability in sync after each successful booking.
-        void refreshNextEvent();
-        setConfirmedData(data);
-        setConfirmedEventDate(nextEvent.date);
-        navigateToSection(3);
-      } catch (err: unknown) {
-        const e = err as { message?: string; details?: string; code?: string };
-        setToastClosing(false);
-        setConfirmError({
-          title: "Reservation failed",
-          message: e.message || "Unable to save. Please try again.",
-          technicalDetail: e.details,
-          code: e.code,
-        });
-      }
-    } else {
+    if (!nextEvent || !entryId) {
+      // No event loaded (mock tiers): nothing to save, same as before.
+      setSummaryVariant("in");
       setConfirmedData(data);
       setConfirmedEventDate(nextEvent?.date ?? null);
-      navigateToSection(3);
+      return true;
     }
+
+    if (BOOKING_API) {
+      const req: BookingRequest = {
+        eventId: nextEvent.id,
+        entryId,
+        consentMarketing: consents.marketing,
+        consentProfiling: consents.profiling,
+        source: getBookingSource(),
+      };
+      const normalizedEmail = data.email.trim().toLowerCase();
+      if (!sessionContact) {
+        req.fullName = data.fullName.trim();
+        req.dateOfBirth = parseDdMmYyyyToIso(data.dateOfBirth);
+        req.email = normalizedEmail;
+      }
+
+      try {
+        const res = await book(req);
+        // Keep entry availability in sync after each booking.
+        void refreshNextEvent();
+        setConfirmedEventDate(nextEvent.date);
+        if (res.status === "check_email") {
+          setSummaryVariant("check_email");
+          setBookingTicketUrl(null);
+          setConfirmedData({ ...data, email: normalizedEmail });
+        } else {
+          setSummaryVariant(res.status === "confirmed" ? "in" : "already_booked");
+          setBookingTicketUrl(res.ticketUrl);
+          setConfirmedData({
+            fullName: sessionContact?.fullName ?? data.fullName,
+            dateOfBirth: "",
+            email: sessionContact?.email ?? normalizedEmail,
+          });
+        }
+        return true;
+      } catch (err: unknown) {
+        if (err instanceof BookingApiError) {
+          if (err.code === "sold_out" || err.code === "invalid_entry") {
+            void refreshNextEvent();
+          }
+          // Session expired between page load and confirm: the server fell
+          // back to the anonymous path without form data. Show the form again.
+          if (err.code === "invalid_input" && sessionContact) {
+            setSessionContact(null);
+            showBookingError({
+              title: "You've been logged out", // COPY-DRAFT
+              message: "Fill in your details to book.", // COPY-DRAFT
+              code: err.code,
+            });
+            return false;
+          }
+        }
+        showBookingError(toBookingErrorToast(err));
+        return false;
+      }
+    }
+
+    try {
+      const result = await createReservation(data, nextEvent.id, entryId);
+      setReservationResult(result);
+      // Keep entry availability in sync after each successful booking.
+      void refreshNextEvent();
+      setSummaryVariant("in");
+      setConfirmedData(data);
+      setConfirmedEventDate(nextEvent.date);
+      return true;
+    } catch (err: unknown) {
+      const e = err as { message?: string; details?: string; code?: string };
+      showBookingError({
+        title: "Reservation failed",
+        message: e.message || "Unable to save. Please try again.",
+        technicalDetail: e.details,
+        code: e.code,
+      });
+      return false;
+    }
+  };
+
+  const goToSummary = () => {
+    navigateToSection(3);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch {
+      // Even if the call fails, forget the session locally.
+    }
+    setSessionContact(null);
   };
 
   const goToHero = () => {
     navigateToSection(0);
   };
 
+  const summaryTicketUrl = BOOKING_API ? bookingTicketUrl : reservationResult?.ticketUrl ?? null;
+
   const openTicketInNewTab = () => {
-    if (!reservationResult?.ticketUrl || typeof window === "undefined") return;
-    const absoluteTicketUrl = new URL(reservationResult.ticketUrl, window.location.origin).toString();
+    if (!summaryTicketUrl || typeof window === "undefined") return;
+    const absoluteTicketUrl = new URL(summaryTicketUrl, window.location.origin).toString();
     window.open(absoluteTicketUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -356,6 +479,15 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!BOOKING_API) return;
+    let cancelled = false;
+    getSession().then((session) => {
+      if (!cancelled) setSessionContact(session?.contact ?? null);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <div
       ref={scrollRefV}
@@ -386,9 +518,12 @@ function App() {
       >
         <BookNow
           onBack={goToHero}
-          onConfirm={goToSummary}
+          onConfirm={confirmReservation}
+          onConfirmed={goToSummary}
           isExited={bookNowExited}
           entries={nextEvent?.entries}
+          sessionContact={BOOKING_API ? sessionContact : null}
+          onLogout={handleLogout}
         />
       </div>
       <div
@@ -397,7 +532,8 @@ function App() {
       >
         <ReservationSummary
           onGoHome={goToHero}
-          onOpenTicket={reservationResult?.ticketUrl ? openTicketInNewTab : undefined}
+          variant={summaryVariant}
+          onOpenTicket={summaryTicketUrl ? openTicketInNewTab : undefined}
           fullName={confirmedData?.fullName ?? ""}
           email={confirmedData?.email ?? ""}
           eventDate={confirmedEventDate ?? undefined}

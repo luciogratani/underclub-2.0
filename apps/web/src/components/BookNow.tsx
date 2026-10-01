@@ -1,7 +1,34 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { PublicReservationFormInput, EntryTierView } from "@underclub/shared";
+import type { PublicReservationFormInput, EntryTierView, SessionContact } from "@underclub/shared";
 import HeroButton from "./HeroButton";
 import ConfirmReservationButton from "./ConfirmReservationButton";
+import { BOOKING_API } from "../lib/flags";
+
+export type BookingConsents = { marketing: boolean; profiling: boolean };
+
+const priceFormatter = new Intl.NumberFormat("it-IT", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+function formatEntryPrice(price: number): string {
+  return `${priceFormatter.format(price)} €`;
+}
+
+const romeTimeFormatter = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+  timeZone: "Europe/Rome",
+});
+
+/** `valid_until` timestamp → "02:00" in Europe/Rome, or null if unparseable. */
+function formatValidUntil(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return romeTimeFormatter.format(date);
+}
 
 const BOOK_NOW_STORAGE_KEY = "underclub.bookNow.form";
 
@@ -120,9 +147,19 @@ function getEmailError(value: string): string | null {
 
 type BookNowProps = {
   onBack?: () => void;
-  onConfirm?: (data: PublicReservationFormInput, entryId: string | null) => void;
+  /** Saves the reservation; resolves true on success. Errors are shown by the caller. */
+  onConfirm?: (
+    data: PublicReservationFormInput,
+    entryId: string | null,
+    consents: BookingConsents,
+  ) => Promise<boolean>;
+  /** Called after a successful confirm, once the clearing animation is over. */
+  onConfirmed?: () => void;
   isExited?: boolean;
   entries?: EntryTierView[];
+  /** Booking API session (flag ON): identity fields are replaced by this contact. */
+  sessionContact?: SessionContact | null;
+  onLogout?: () => void | Promise<void>;
 };
 
 function clearTextLetterByLetter(
@@ -146,7 +183,15 @@ function clearTextLetterByLetter(
   });
 }
 
-export default function BookNow({ onBack, onConfirm, isExited = false, entries }: BookNowProps) {
+export default function BookNow({
+  onBack,
+  onConfirm,
+  onConfirmed,
+  isExited = false,
+  entries,
+  sessionContact = null,
+  onLogout,
+}: BookNowProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [ghostSize, setGhostSize] = useState({ width: 0, height: 0 });
@@ -229,7 +274,13 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
   const [focusedField, setFocusedField] = useState<"fullName" | "dateOfBirth" | "email" | null>(
     null
   );
-  const [confirmAnimating, setConfirmAnimating] = useState(false);
+  // True from the tap on Confirm until the request (and, on success, the
+  // clearing animation) is over: keeps the button disabled meanwhile.
+  const [submitting, setSubmitting] = useState(false);
+  const [consentMarketing, setConsentMarketing] = useState(false);
+  const [consentProfiling, setConsentProfiling] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const hasSession = BOOKING_API && sessionContact !== null;
 
   const fullNameError = touchedFullName ? getFullNameError(fullName) : null;
   const dateOfBirthError = touchedDateOfBirth ? getDateOfBirthError(dateOfBirth) : null;
@@ -237,24 +288,54 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
 
   const needsEntrySelection = !!entries?.length;
   const isFormValid =
-    isValidFullName(fullName) &&
-    isValidDateOfBirth(dateOfBirth) &&
-    isValidEmail(email) &&
+    (hasSession ||
+      (isValidFullName(fullName) && isValidDateOfBirth(dateOfBirth) && isValidEmail(email))) &&
     (!needsEntrySelection || selectedEntryId !== null);
 
   const handleConfirm = async () => {
-    if (!isFormValid || confirmAnimating) return;
-    setConfirmAnimating(true);
+    if (!isFormValid || submitting) return;
+    setSubmitting(true);
 
     const payload = { fullName, dateOfBirth, email };
-    await Promise.all([
-      clearTextLetterByLetter(fullName, setFullName),
-      clearTextLetterByLetter(dateOfBirth, setDateOfBirth),
-      clearTextLetterByLetter(email, setEmail),
-    ]);
+    let ok = false;
+    try {
+      ok = onConfirm
+        ? await onConfirm(payload, selectedEntryId, {
+            marketing: BOOKING_API && !hasSession && consentMarketing,
+            profiling: BOOKING_API && !hasSession && consentProfiling,
+          })
+        : true;
+    } catch {
+      ok = false;
+    }
 
-    onConfirm?.(payload, selectedEntryId);
-    setConfirmAnimating(false);
+    // On failure keep everything the user typed: the caller shows the error.
+    if (!ok) {
+      setSubmitting(false);
+      return;
+    }
+
+    if (!hasSession) {
+      await Promise.all([
+        clearTextLetterByLetter(fullName, setFullName),
+        clearTextLetterByLetter(dateOfBirth, setDateOfBirth),
+        clearTextLetterByLetter(email, setEmail),
+      ]);
+    }
+    setConsentMarketing(false);
+    setConsentProfiling(false);
+    onConfirmed?.();
+    setSubmitting(false);
+  };
+
+  const handleLogout = async () => {
+    if (loggingOut || submitting) return;
+    setLoggingOut(true);
+    try {
+      await onLogout?.();
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   return (
@@ -283,6 +364,31 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
               BOOK NOW
             </p>
 
+            {hasSession && sessionContact ? (
+              <div
+                className="animate-line mt-4.5"
+                style={{ "--i": 1 } as React.CSSProperties}
+              >
+                <p className="font-sans text-[14px] tracking-wide opacity-85">
+                  booking as {/* COPY-DRAFT */}
+                </p>
+                <p className="mt-0.5 font-sans text-lg font-medium uppercase leading-tight">
+                  {sessionContact.fullName}
+                </p>
+                <p className="font-sans text-[14px] leading-tight opacity-85 break-all">
+                  {sessionContact.email}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleLogout()}
+                  disabled={loggingOut || submitting}
+                  className="mt-1.5 cursor-pointer font-sans text-[14px] tracking-wide underline underline-offset-2 opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  not you? log out {/* COPY-DRAFT */}
+                </button>
+              </div>
+            ) : (
+              <>
             <div
               className="animate-line mt-4.5"
               style={{ "--i": 1 } as React.CSSProperties}
@@ -426,6 +532,9 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
           )}
             </div>
 
+              </>
+            )}
+
             <div
               className="animate-line mt-4.5"
               style={{ "--i": 4 } as React.CSSProperties}
@@ -436,6 +545,8 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
               entries.map((tier) => {
                 const isSoldOut = tier.availability.soldOut;
                 const isSelected = selectedEntryId === tier.id;
+                const showPrice = BOOKING_API && tier.price > 0;
+                const validUntil = BOOKING_API ? formatValidUntil(tier.validUntil) : null;
                 return (
                   <button
                     key={tier.id}
@@ -446,11 +557,20 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
                       isSoldOut ? "opacity-40 line-through cursor-not-allowed" : "cursor-pointer"
                     } ${isSelected && !isSoldOut ? "opacity-100" : !isSoldOut ? "opacity-60" : ""}`}
                   >
-                    <div className="flex items-baseline gap-1 text-left">
+                    <div className="flex flex-wrap items-baseline gap-x-1 text-left">
                       <span className="font-medium uppercase">{tier.name}</span>
+                      {showPrice && (
+                        <span className="font-medium">{formatEntryPrice(tier.price)}</span>
+                      )}
                       {tier.note && (
                         <span className="flex items-baseline text-[0.5em] leading-none">
                           <span className="font-light lowercase">{tier.note}</span>
+                        </span>
+                      )}
+                      {validUntil && (
+                        <span className="flex basis-full items-baseline text-[0.5em] leading-none pb-0.5">
+                          <span className="font-light">valid for entry until</span>{/* COPY-DRAFT */}
+                          <span className="ml-0.5 font-medium">{validUntil}</span>
                         </span>
                       )}
                     </div>
@@ -498,16 +618,47 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
             )}
           </div>
             </div>
+
+            {BOOKING_API && !hasSession && (
+              <div
+                className="animate-line mt-4.5 space-y-1.5"
+                style={{ "--i": 5 } as React.CSSProperties}
+              >
+                <ConsentCheckbox
+                  id="consentMarketing"
+                  checked={consentMarketing}
+                  onChange={setConsentMarketing}
+                  disabled={submitting}
+                  label="email me news, line-ups and invites (optional)" // COPY-DRAFT
+                />
+                <ConsentCheckbox
+                  id="consentProfiling"
+                  checked={consentProfiling}
+                  onChange={setConsentProfiling}
+                  disabled={submitting}
+                  label="use my bookings to tailor what you send me (optional)" // COPY-DRAFT
+                />
+                <p className="pl-6 font-sans text-[12px] leading-tight opacity-70">
+                  we'll email you a link to confirm.{" "}{/* COPY-DRAFT */}
+                  <a
+                    href="/info/privacy-cookie"
+                    className="underline underline-offset-2"
+                  >
+                    privacy policy{/* COPY-DRAFT */}
+                  </a>
+                </p>
+              </div>
+            )}
           </div>
 
           <div
             className="animate-line mb-10.5 mt-5 w-full"
-            style={{ "--i": 5 } as React.CSSProperties}
+            style={{ "--i": 6 } as React.CSSProperties}
           >
             <ConfirmReservationButton
-            label="Confirm"
+            label={submitting ? "Confirming…" : "Confirm"} // COPY-DRAFT ("Confirming…")
             onClick={() => void handleConfirm()}
-            disabled={!isFormValid || confirmAnimating}
+            disabled={!isFormValid || submitting}
           />
           </div>
         </div>
@@ -521,5 +672,49 @@ export default function BookNow({ onBack, onConfirm, isExited = false, entries }
         </div>
       </div>
     </section>
+  );
+}
+
+type ConsentCheckboxProps = {
+  id: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+  label: string;
+  disabled?: boolean;
+};
+
+/** Optional consent, unticked by default; same black-on-lime language as the inputs. */
+function ConsentCheckbox({ id, checked, onChange, label, disabled = false }: ConsentCheckboxProps) {
+  return (
+    <label
+      htmlFor={id}
+      className={`flex items-start gap-2 font-sans text-[13px] leading-tight ${
+        disabled ? "cursor-not-allowed" : "cursor-pointer"
+      }`}
+    >
+      <input
+        id={id}
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden
+        className="mt-px flex h-4 w-4 shrink-0 items-center justify-center border border-black transition-colors peer-checked:bg-black peer-focus-visible:outline peer-focus-visible:outline-1 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-black"
+      >
+        <svg
+          viewBox="0 0 12 12"
+          className={`h-2.5 w-2.5 text-primary transition-opacity ${checked ? "opacity-100" : "opacity-0"}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M2 6.5 5 9l5-6" />
+        </svg>
+      </span>
+      <span className={checked ? "opacity-100" : "opacity-85"}>{label}</span>
+    </label>
   );
 }

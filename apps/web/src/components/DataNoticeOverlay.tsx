@@ -1,3 +1,5 @@
+import { BOOKING_API } from "../lib/flags";
+
 type DataNoticeOverlayProps = {
   visible: boolean;
   isClosing: boolean;
@@ -38,6 +40,11 @@ export default function DataNoticeOverlay({
           </a>{" "}
           regarding personal data processing.
         </p>
+        {BOOKING_API && (
+          <p className="data-notice-hint">
+            To book, we email you a one-time link to confirm.{/* COPY-DRAFT */}
+          </p>
+        )}
         <p className="data-notice-hint">TAP ANYWHERE TO CONTINUE</p>
       </div>
     </div>

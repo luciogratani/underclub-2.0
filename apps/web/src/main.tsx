@@ -2,13 +2,19 @@ import { StrictMode, Suspense, lazy } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import App from './App.tsx'
+import { captureBookingSource } from './lib/source'
 import './index.css'
+
+// First touch wins for the visit: read ?src= / ?utm_source= before routing.
+captureBookingSource()
 
 // Route-level code splitting: keeps the three/drei stack (pulled in by
 // Ticket → Lanyard) out of the bundle served on "/".
 const Info = lazy(() => import('./pages/Info.tsx'))
 const PrivacyCookie = lazy(() => import('./pages/PrivacyCookie.tsx'))
 const Ticket = lazy(() => import('./pages/Ticket.tsx'))
+// Landing page of the passwordless email link (redirects home with the flag off).
+const Activate = lazy(() => import('./pages/Activate.tsx'))
 // Internal A/B bench for the lanyard physics — unlinked, not part of the funnel.
 const LanyardLab = lazy(() => import('./pages/LanyardLab.tsx'))
 // Previous Rapier-based lanyard, kept for reference; Rapier loads only here.
@@ -21,6 +27,8 @@ const ticketFallback = (
     <p className="animate-pulse text-xl font-bold text-black">Loading ticket…</p>
   </section>
 )
+
+const activateFallback = <div className="min-h-[100svh] w-full bg-primary" />
 
 const router = createBrowserRouter([
   { path: '/', element: <App /> },
@@ -35,6 +43,10 @@ const router = createBrowserRouter([
   {
     path: '/ticket/:id',
     element: <Suspense fallback={ticketFallback}><Ticket /></Suspense>,
+  },
+  {
+    path: '/activate',
+    element: <Suspense fallback={activateFallback}><Activate /></Suspense>,
   },
   {
     path: '/demo/lanyard',
