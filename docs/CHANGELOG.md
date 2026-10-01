@@ -15,6 +15,13 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
   `news.`, DMARC `p=none`, Google Postmaster, `info@` inoltrata con ImprovMX.
   Dettagli in [`dns-underclub.md`](./dns-underclub.md).
 
+- `feat/passwordless-booking` unito in `master` (fast-forward) e pushato.
+  Preview di `underclub-2-0-web` con env legate al branch `master` e flag
+  acceso, provato sul DB di produzione: prenotazione, conferma, ticket,
+  email (SPF, DKIM e DMARC `PASS`), menu, logout, recupero. La produzione di
+  Vercel non è cambiata (branch di produzione `main`, inesistente).
+- Cancellate le prenotazioni di test preesistenti (15) dal DB di produzione.
+
 ### Corretto
 - `service_role` non aveva usage sullo schema `underclub` in produzione:
   grant aggiunto alla migrazione 2026-10-02; il bootstrap dei test ora
