@@ -65,14 +65,32 @@ BOOKINGS) sul DB di produzione.
      parte solo a dati arrivati.
    - **Anello senza serate:** ciclo a due frasi, `UNDERCLUB.IT - ` e
      ` < NEXT DATE > ??.??` (20 caratteri, divide i 60 dell'anello).
-   - Ancora da decidere (proposte dell'assistente): una serata resta "in corso"
-     fino alle 06:00 del giorno dopo ovunque (oggi a mezzanotte spariscono il
-     ticket da MY BOOKINGS e dalla home, si chiudono prenotazioni e disdette,
-     mezz'ora prima dell'apertura delle porte; e la home sceglie la serata con
-     la data UTC mentre il server usa Roma); quando chiudono le prenotazioni
-     online; ticket passato aperto dall'email (oggi mostra ancora il QR);
-     avviso nello scanner per un ticket di un'altra serata (oggi il check-in non
-     controlla la data); testo della home senza serate.
+   - **Fine serata (deciso):** una serata resta "in corso" fino alle **06:00
+     del giorno dopo** la sua data (ora di Roma), ovunque: home, MY BOOKINGS,
+     bottone ticket, disdetta, prenotazione, pagina ticket. Oggi invece tutto
+     scatta a mezzanotte (`e.date >= oggi` in SQL: `ep_session_overview`,
+     `ep_request_booking`, `ep_cancel_reservation`, attivazione), cioè mezz'ora
+     prima dell'apertura delle porte; e `fetchNextEvent` in `apps/web/src/lib/api.ts`
+     usa la data UTC del browser invece di Roma. Va centralizzato (una funzione
+     SQL tipo `event_ends_at(date)` usata da tutti, e la stessa regola nel web).
+   - **Chiusura delle prenotazioni online (deciso):** per serata, con un valore
+     di default alle **18:00 della data della serata** (6 ore e mezza prima
+     dell'apertura delle 00:30). Si può scegliere giorno e ora tra il giorno
+     prima e le 06:00 di fine serata. Interpretazione da confermare con Lucio:
+     colonna `events.booking_closes_at timestamptz` (null = default),
+     intervallo ammesso [data − 1 giorno 00:00, data + 1 giorno 06:00]; per ora
+     si imposta in SQL, poi dall'admin. Da decidere ancora: cosa mostra la home
+     tra la chiusura e la fine serata (proposta: la serata resta in home con
+     Book Now chiuso e "online booking closed, tickets at the door").
+   - **Ticket passato aperto dall'email (deciso):** dopo la fine serata la
+     pagina `/ticket/…` non mostra il QR ma un avviso carino, bozza
+     `COPY-DRAFT`: "hey, this ticket has expired! hope you made good use of
+     it!" (il sito è in inglese).
+   - **Scanner (rimandato all'admin):** avviso per un ticket di un'altra serata;
+     oggi `scan_ticket_check_in` non controlla la data.
+   - **Testo della home senza serate:** da decidere all'inizio della sessione,
+     tra le opzioni proposte in chat il 2026-10-02 (vedi sotto, "Home senza
+     serate: dove va il testo").
    - La serata di prova nel DB si cancella dopo queste modifiche, per vedere
      subito la home nuova.
 2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
@@ -117,6 +135,18 @@ BOOKINGS) sul DB di produzione.
      di `@types/node` 22 nel compilatore delle funzioni di Vercel;
    - statistiche delle provenienze nell'admin (per ora basta sapere chi prenota
      da RA, vedi `presenza-online.md`).
+
+## Home senza serate: dove va il testo (da scegliere)
+La Hero di oggi: card lime al 95 %×88 % con l'anello che gira, pill nera
+"NEXT DATE →" in basso al centro, bottone ticket in basso a sinistra, menu in
+basso a destra. Il centro dell'anello è vuoto.
+- **A (consigliata):** stessa Hero; al posto della pill "NEXT DATE →" una pill
+  uguale "STAY TUNED" o "FOLLOW US" che apre un pannello come quello del menu,
+  con Instagram, Facebook e WhatsApp. L'anello (` < NEXT DATE > ??.??`) dice già
+  che non ci sono date: nessun altro testo.
+- **B:** testo breve dentro l'anello, al centro ("no dates yet" + una riga), e
+  sotto, al posto della pill, una riga di icone social cliccabili.
+In entrambi i casi menu e bottone ticket restano dove sono.
 
 ## Decisioni già prese (non ridiscutere)
 - Overbooking minimo accettato: le prenotazioni pending non tengono il posto.
