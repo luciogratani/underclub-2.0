@@ -47,8 +47,9 @@ poi `docs/dns-underclub.md`.
    `PUBLIC_SITE_URL=https://underclub.it`, `ALLOWED_ORIGINS=https://www.underclub.it`,
    `EMAIL_FROM`, `EMAIL_REPLY_TO`, `VITE_BOOKING_API=1`. Le env *sensitive* non
    si rileggono né si copiano tra ambienti: per ricaricarle si rigenerano.
-3. **Pulizia:** cancellare le prenotazioni di prova (`delete` da `reservations`,
-   `contacts`, `request_throttle`, come `supabase_admin`, dentro una transazione).
+3. ~~Pulizia~~ — **fatta il 2026-10-02**: cancellate in una transazione le
+   prenotazioni di prova (1), i contatti (1, con sessioni e link in cascata) e
+   i contatori (2). Il DB di produzione parte vuoto.
 4. **Passaggio:**
    - deploy di produzione di `master` (impostare il branch di produzione su
      `master`, oppure promuovere a mano);

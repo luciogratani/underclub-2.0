@@ -10,6 +10,8 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 ### Produzione
 - Env di Production caricate su `underclub-2-0-web` (segreti nuovi, API key
   Resend dedicata). Il deploy di produzione non è ancora partito.
+- Cancellate dal DB di produzione le prenotazioni, i contatti e i contatori
+  delle prove sul Preview.
 
 ### Cambiato
 - Approvati tutti i testi `COPY-DRAFT` (UI, email, privacy, check-in admin) e

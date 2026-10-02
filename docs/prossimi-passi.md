@@ -474,8 +474,8 @@ giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
    `PASS`, Reply-To su `info@`), MY BOOKINGS, logout, recupero. Non provati:
    check-in admin (rimandato con tutto l'admin) e cron (Vercel lo esegue solo in
    produzione e il `CRON_SECRET` sensitive non è rileggibile: verificarlo dai
-   log dopo le 04:00 del primo giorno, o con "Run" dal pannello Cron). Prima di
-   andare live: cancellare le prenotazioni di prova.
+   log dopo le 04:00 del primo giorno, o con "Run" dal pannello Cron). Prenotazioni di
+   prova cancellate il 2026-10-02.
 5. ~~Rivedere i testi marcati `COPY-DRAFT`~~ — **fatto il 2026-10-02**, tutti
    approvati. Resta da accendere `VITE_BOOKING_API=1` in Production.
 6. A endpoint vivi: la pulizia in fondo alla migrazione del 2026-10-01 (prima va
