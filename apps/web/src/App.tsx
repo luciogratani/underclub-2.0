@@ -7,6 +7,7 @@ import {
 } from "@underclub/shared";
 import Hero from "./components/Hero";
 import { RING_WORDS_LOADING, RING_WORDS_NO_EVENT, ringWordsForEvent } from "./lib/ringWords";
+import { buildMusicEventJsonLd } from "./lib/eventStructuredData";
 import FollowUsPanel from "./components/FollowUsPanel";
 import NextDate from "./components/NextDate";
 import BookNow, { type BookingConsents } from "./components/BookNow";
@@ -544,6 +545,16 @@ function App() {
     const t = window.setTimeout(() => setDeadlineTick((n) => n + 1), ms + 250);
     return () => window.clearTimeout(t);
   }, [nextEvent]);
+
+  // Google event results: the night on show, as schema.org MusicEvent.
+  useEffect(() => {
+    if (homeMode !== "event" || !nextEvent) return;
+    const el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.textContent = JSON.stringify(buildMusicEventJsonLd(nextEvent, window.location.origin));
+    document.head.appendChild(el);
+    return () => el.remove();
+  }, [homeMode, nextEvent]);
 
   const handleFollowUsClosed = useCallback(() => setFollowUsOpen(false), []);
 
