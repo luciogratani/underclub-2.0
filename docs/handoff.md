@@ -72,6 +72,16 @@ poi `docs/dns-underclub.md`.
    Il vecchio progetto si elimina solo settimane dopo.
 5. **Dopo il passaggio:** verificare il cron `/api/cron/cleanup`, con "Run"
    dal pannello Cron o dai log delle 04:00.
+5a. **SEO e condivisione** (2026-10-02, in produzione): icone, manifest, OG
+   (`public/og.png`, 2400×1260), titolo e descrizione, dati strutturati
+   `NightClub` in `index.html`, `robots.txt`, `sitemap.xml`, `noindex` su
+   ticket, `/activate`, `/account` e demo lanyard (`vercel.json`). Fuori dal
+   sito, da fare con Lucio: scheda Google Business (forse quella di Pancho
+   Villa da aggiornare), pagina Resident Advisor, Search Console + sitemap
+   all'apertura. Più avanti: dati strutturati `MusicEvent` per ogni serata e
+   un paragrafo vero in `/info` (generi, sale, ex Pancho Villa, tavoli, eventi
+   privati). Orari tipici 00:30–5:30, non messi nei dati del locale perché le
+   serate sono circa 3 al mese.
 5b. **Apertura al pubblico (quando lo decide Lucio):** prima la pulizia delle
    prenotazioni di prova fatte in manutenzione (`delete` da `reservations`,
    `contacts`, `request_throttle` in una transazione, come al punto 3; rimandata

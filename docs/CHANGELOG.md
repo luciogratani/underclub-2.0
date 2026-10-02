@@ -8,6 +8,10 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 ## 2026-10-02 — Testi approvati, env di Production, manutenzione
 
 ### Aggiunto
+- **SEO e condivisione**: favicon e icone, manifest, scheda Open Graph con
+  `og.png`, titolo e descrizione, dati strutturati `NightClub`, `robots.txt`,
+  `sitemap.xml`, `noindex` sulle pagine personali. Canale WhatsApp in `/info`
+  e nella pagina di manutenzione.
 - **Modalità manutenzione** (Routing Middleware): `MAINTENANCE_MODE=1` chiude
   pagine e API con un 503, lascia aperti cron, file statici e ticket; il link
   `?bypass=` con `MAINTENANCE_BYPASS_SECRET` fa entrare il team. Provata su un
