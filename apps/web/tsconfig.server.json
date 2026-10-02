@@ -5,6 +5,10 @@
   // enforce it too, but it rejects the extensionless imports inside
   // @underclub/shared's raw .ts source). verbatimModuleSyntax keeps that
   // package to `import type` only.
+  // `undici-types` is a direct devDependency on purpose: Vercel type-checks
+  // the functions without following pnpm's symlinks, so it cannot reach the
+  // copy nested under @types/node, and Request/Response would lose every
+  // member (the "Property 'headers' does not exist" errors in build logs).
   "compilerOptions": {
     "target": "ES2022",
     "lib": ["ES2023"],
