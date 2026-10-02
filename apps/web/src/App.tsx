@@ -6,7 +6,7 @@ import {
   type BookingRequest,
 } from "@underclub/shared";
 import Hero from "./components/Hero";
-import { RING_WORDS_LOADING, RING_WORDS_NO_EVENT, ringWordsForEvent } from "./components/TextRing";
+import { RING_WORDS_LOADING, RING_WORDS_NO_EVENT, ringWordsForEvent } from "./lib/ringWords";
 import FollowUsPanel from "./components/FollowUsPanel";
 import NextDate from "./components/NextDate";
 import BookNow, { type BookingConsents } from "./components/BookNow";

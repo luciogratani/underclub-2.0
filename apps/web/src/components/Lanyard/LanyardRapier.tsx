@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unknown-property */
 /**
  * Previous ticket lanyard, simulated with Rapier. Superseded by `Lanyard.tsx`
  * and kept for reference on /lanyard-rapier only — do not import it from the
