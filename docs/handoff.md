@@ -39,23 +39,14 @@ poi `docs/dns-underclub.md`.
    approvati, marcatori tolti. In privacy, Hetzner ha preso il posto di Supabase
    tra i responsabili e la data è ora quella del 2 ottobre (con il flag acceso):
    se il passaggio slitta di molto, va aggiornata.
-2. **Env di Production** su `underclub-2-0-web`, con segreti **nuovi**:
-   - `TICKET_SECRET`, `IP_HASH_SECRET`, `CRON_SECRET`;
-   - `SUPABASE_SERVICE_ROLE_KEY` e `RESEND_API_KEY` (si possono riusare);
-   - `SUPABASE_URL=https://supabase.luciogratani.it`;
-   - `PUBLIC_SITE_URL=https://underclub.it`;
-   - `ALLOWED_ORIGINS=https://www.underclub.it`;
-   - `EMAIL_FROM="Underclub <tickets@reservations.underclub.it>"`;
-   - `EMAIL_REPLY_TO=info@underclub.it`;
-   - `VITE_BOOKING_API=1`.
-
-   I segreti li carica Lucio dalla cartella `apps/web`, che è già collegata con
-   `vercel link`, così:
-   `openssl rand -base64 48 | tr -d '\n' | vercel env add NOME production --sensitive`.
-   La service role va prima letta in una variabile e poi passata alla CLI: se
-   arriva in pipe direttamente da `ssh`, la CLI non la riceve in tempo e chiede
-   `? Value?`. Comando completo nella chat del 2026-10-01; in sintesi:
-   `k=$(ssh … "grep '^SERVICE_ROLE_KEY=' /opt/supabase/supabase/docker/.env | cut -d= -f2- | tr -d '\"\n'")`.
+2. ~~Env di Production~~ — **fatte il 2026-10-02** su `underclub-2-0-web`, tutte
+   *sensitive* (lo impone il team): `TICKET_SECRET`, `IP_HASH_SECRET` e
+   `CRON_SECRET` nuovi; `SUPABASE_SERVICE_ROLE_KEY` letta dalla VPS;
+   `RESEND_API_KEY` **nuova**, una chiave Resend solo per Production (quella del
+   Preview si può revocare senza toccare la produzione); `SUPABASE_URL`,
+   `PUBLIC_SITE_URL=https://underclub.it`, `ALLOWED_ORIGINS=https://www.underclub.it`,
+   `EMAIL_FROM`, `EMAIL_REPLY_TO`, `VITE_BOOKING_API=1`. Le env *sensitive* non
+   si rileggono né si copiano tra ambienti: per ricaricarle si rigenerano.
 3. **Pulizia:** cancellare le prenotazioni di prova (`delete` da `reservations`,
    `contacts`, `request_throttle`, come `supabase_admin`, dentro una transazione).
 4. **Passaggio:**

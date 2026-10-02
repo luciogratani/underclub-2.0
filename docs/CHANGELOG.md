@@ -5,7 +5,11 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
-## 2026-10-02 — Testi approvati
+## 2026-10-02 — Testi approvati, env di Production
+
+### Produzione
+- Env di Production caricate su `underclub-2-0-web` (segreti nuovi, API key
+  Resend dedicata). Il deploy di produzione non è ancora partito.
 
 ### Cambiato
 - Approvati tutti i testi `COPY-DRAFT` (UI, email, privacy, check-in admin) e

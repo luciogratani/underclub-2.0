@@ -463,8 +463,8 @@ giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
    caricati da Lucio, mai mostrati: sono *sensitive*). `PUBLIC_SITE_URL` è
    l'URL stabile del branch,
    `https://underclub-2-0-web-git-master-lucios-projects-aef0021a.vercel.app`.
-   OIDC attivo, cron riconosciuto. **Production: da fare al passaggio**, con
-   segreti nuovi (non quelli del preview), `PUBLIC_SITE_URL=https://underclub.it`,
+   OIDC attivo, cron riconosciuto. **Production: fatto il 2026-10-02**, con
+   segreti nuovi e una API key Resend dedicata, `PUBLIC_SITE_URL=https://underclub.it`,
    `ALLOWED_ORIGINS=https://www.underclub.it`, `EMAIL_REPLY_TO=info@underclub.it`.
    Nota: il branch di produzione del progetto è `main`, che non esiste, quindi
    ogni push crea solo preview; al passaggio impostarlo su `master` o promuovere
