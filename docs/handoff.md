@@ -72,6 +72,11 @@ poi `docs/dns-underclub.md`.
    Il vecchio progetto si elimina solo settimane dopo.
 5. **Dopo il passaggio:** verificare il cron `/api/cron/cleanup`, con "Run"
    dal pannello Cron o dai log delle 04:00.
+5b. **Apertura al pubblico (quando lo decide Lucio):** prima la pulizia delle
+   prenotazioni di prova fatte in manutenzione (`delete` da `reservations`,
+   `contacts`, `request_throttle` in una transazione, come al punto 3; rimandata
+   il 2026-10-02 a questo momento), poi `MAINTENANCE_MODE` tolta o a `0` in
+   Production e Redeploy.
 6. **Admin (rimandato):** deploy e prova del check-in prima della prima serata
    vera, perché l'admin di produzione è quello di aprile e non conosce lo stato
    `pending`. Poi CRUD di eventi e formule, lista prenotazioni, guest list, e
