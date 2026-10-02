@@ -5,8 +5,8 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 /**
  * Singleton Supabase client for the public web app.
- * Returns `null` when env vars are missing (local dev without Supabase).
- * Components should fall back to mock data when this is null.
+ * Returns `null` when env vars are missing (local dev without Supabase):
+ * the home then treats the next night as not loaded.
  */
 export const supabase: TypedSupabaseClient | null =
   url && anonKey ? createSupabaseClient(url, anonKey) : null;

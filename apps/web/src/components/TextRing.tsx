@@ -12,19 +12,29 @@ const BLINK_MS = 500;
 const BLINK_CHARS = new Set(["-", "<", ">"]);
 
 type TextRingProps = {
-  nextDateIso?: string | null;
-  nextEventTitle?: string | null;
+  /**
+   * Phrases shown in turn, each repeated around the ring (lengths should
+   * divide 60). One phrase = no cycle. The cycle restarts when they change.
+   */
+  words: readonly string[];
 };
 
-function formatDateForRing(dateIso?: string | null): string {
-  if (!dateIso) return "??.??";
-  const [year, month, day] = dateIso.split("-");
-  if (!year || !month || !day) return "07.03";
+/** While the home is loading: the name only, no cycle. */
+export const RING_WORDS_LOADING = [WORD] as const;
+/** Home without nights: the name and an unknown next date (20 chars). */
+export const RING_WORDS_NO_EVENT = [WORD, " < NEXT DATE > ??.??"] as const;
+
+/** Home with a night: name, date, title. */
+export function ringWordsForEvent(dateIso: string, title: string): string[] {
+  return [WORD, `NEXT DATE > ${formatDateForRing(dateIso)} < `, buildIntegralRingWord(title)];
+}
+
+function formatDateForRing(dateIso: string): string {
+  const [, month = "", day = ""] = dateIso.split("-");
   return `${day.padStart(2, "0")}.${month.padStart(2, "0")}`;
 }
 
-function sanitizeTitle(value?: string | null): string {
-  if (!value) return "UNDERCLUB.IT";
+function sanitizeTitle(value: string): string {
   return value
     .toUpperCase()
     .replace(/\s+/g, " ")
@@ -59,27 +69,31 @@ function buildIntegralRingWord(rawTitle: string): string {
   return `${safeTitle}${separator}`;
 }
 
-export default function TextRing({
-  nextDateIso,
-  nextEventTitle,
-}: TextRingProps) {
+function clockNow(): number {
+  return typeof performance !== "undefined" ? performance.now() : Date.now();
+}
+
+export default function TextRing({ words }: TextRingProps) {
   const startRef = useRef<number>(0);
   const [now, setNow] = useState(0);
+  const wordsKey = words.join("\u0000");
+
+  // New phrases: start the cycle again from the first one.
+  useEffect(() => {
+    startRef.current = clockNow();
+  }, [wordsKey]);
 
   useEffect(() => {
-    startRef.current = typeof performance !== "undefined" ? performance.now() : Date.now();
     let rafId: number;
     const tick = () => {
-      setNow(typeof performance !== "undefined" ? performance.now() : Date.now());
+      setNow(clockNow());
       rafId = requestAnimationFrame(tick);
     };
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, []);
 
-  const dateWord = `NEXT DATE > ${formatDateForRing(nextDateIso)} < `;
-  const eventWord = buildIntegralRingWord(nextEventTitle ?? "TECHNOROOM");
-  const WORDS = [WORD, dateWord, eventWord];
+  const WORDS = words.length > 0 ? words : RING_WORDS_LOADING;
 
   const elapsed = Math.max(0, now - startRef.current);
   const cycle = Math.floor(elapsed / (DISPLAY_MS + TRANSITION_MS)) % WORDS.length;

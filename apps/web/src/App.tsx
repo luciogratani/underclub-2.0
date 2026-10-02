@@ -7,19 +7,25 @@ import {
   type BookingRequest,
 } from "@underclub/shared";
 import Hero from "./components/Hero";
+import { RING_WORDS_LOADING, RING_WORDS_NO_EVENT, ringWordsForEvent } from "./components/TextRing";
+import FollowUsPanel from "./components/FollowUsPanel";
 import NextDate from "./components/NextDate";
 import BookNow, { type BookingConsents } from "./components/BookNow";
 import ReservationSummary, { type ReservationSummaryVariant } from "./components/ReservationSummary";
 import DataNoticeOverlay from "./components/DataNoticeOverlay";
 import ErrorToast, { type ErrorToastData } from "./components/ErrorToast";
 import SiteMenu from "./components/SiteMenu";
-import { fetchNextEvent, createReservation } from "./lib/api";
+import { fetchNextEvent, createReservation, type NextEventResult } from "./lib/api";
 import { BOOKING_API } from "./lib/flags";
 import { getBookingSource } from "./lib/source";
 import { BookingApiError, book } from "./lib/bookingApi";
 import { nextTicketUrl, useSession } from "./lib/session";
 
 const TOTAL_SECTIONS = 4;
+/** Longest wait for the next night and the session before the home is picked anyway. */
+const LOAD_TIMEOUT_MS = 5000;
+// COPY-DRAFT: shown on the home without nights when the dates could not be loaded.
+const LOAD_FAILED_NOTICE = "we couldn't load the dates. try again later.";
 const GESTURE_THRESHOLD_PX = 40;
 const WHEEL_THRESHOLD = 24;
 const DATA_NOTICE_FADE_MS = 360;
@@ -69,6 +75,20 @@ function toBookingErrorToast(err: unknown): ErrorToastData {
   }
 }
 
+/**
+ * loading: only the ring (name, no cycle), no buttons, no menu.
+ * event:   Hero → Next Date → Book Now → summary.
+ * none:    one screen, the Hero with FOLLOW US (also after a failed load).
+ * Picked once per page view.
+ */
+type HomeMode = "loading" | "event" | "none";
+
+/** Online booking is open: before the deadline and with at least one entry. */
+function isBookingOpen(event: PublicEventView | null): boolean {
+  if (!event || event.entries.length === 0) return false;
+  return Date.now() < Date.parse(event.bookingDeadline);
+}
+
 function App() {
   const hasAcceptedDataNoticeInSession = (() => {
     if (typeof window === "undefined") return false;
@@ -94,12 +114,19 @@ function App() {
   const [nextDateExited, setNextDateExited] = useState(false);
   const [bookNowExited, setBookNowExited] = useState(false);
   const [nextEvent, setNextEvent] = useState<PublicEventView | null>(null);
+  const [homeMode, setHomeMode] = useState<HomeMode>("loading");
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [nextEventResult, setNextEventResult] = useState<NextEventResult | null>(null);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const [followUsOpen, setFollowUsOpen] = useState(false);
+  // Re-render at the booking deadline, so BOOK NOW turns into BOOKING CLOSED.
+  const [, setDeadlineTick] = useState(0);
   const [reservationResult, setReservationResult] = useState<CreateReservationResult | null>(null);
   const [confirmedData, setConfirmedData] = useState<PublicReservationFormInput | null>(null);
   const [confirmedEventDate, setConfirmedEventDate] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<ErrorToastData | null>(null);
   // Booking API (flag ON): passwordless session (shared app-wide) + outcome of the last booking.
-  const { session, refresh: refreshSession, logout, forget: forgetSession } = useSession();
+  const { session, loading: sessionLoading, refresh: refreshSession, logout, forget: forgetSession } = useSession();
   const sessionContact = BOOKING_API ? session?.contact ?? null : null;
   const homeTicketUrl = BOOKING_API ? nextTicketUrl(session) : null;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -108,6 +135,12 @@ function App() {
   const [summaryVariant, setSummaryVariant] = useState<ReservationSummaryVariant>("in");
   const [bookingTicketUrl, setBookingTicketUrl] = useState<string | null>(null);
   const [toastClosing, setToastClosing] = useState(false);
+  const bookingOpen = homeMode === "event" && isBookingOpen(nextEvent);
+  // Read by the gesture handlers (registered once).
+  const sectionCountRef = useRef(1);
+  const bookingOpenRef = useRef(false);
+  sectionCountRef.current = homeMode === "event" ? TOTAL_SECTIONS : 1;
+  bookingOpenRef.current = bookingOpen;
 
   const scrollToSection = (index: number) => {
     const el = scrollRefV.current;
@@ -125,8 +158,10 @@ function App() {
   ) => {
     if (gesturesLockedRef.current) return;
     const current = currentSectionRef.current;
-    const target = Math.max(0, Math.min(TOTAL_SECTIONS - 1, targetIndex));
+    const target = Math.max(0, Math.min(sectionCountRef.current - 1, targetIndex));
     if (target === current || isNavigatingRef.current) return;
+    // Booking closed: the night stays on show, the form is out of reach.
+    if (target >= 2 && !bookingOpenRef.current) return;
     // "YOU'RE IN" (section 4) must never be reachable via gestures.
     // It is reserved for the Confirm flow from Book Now.
     if (options?.fromGesture && target === 3) return;
@@ -172,7 +207,7 @@ function App() {
 
   const refreshNextEvent = async () => {
     const refreshed = await fetchNextEvent();
-    setNextEvent(refreshed);
+    if (refreshed.kind === "event") setNextEvent(refreshed.event);
   };
 
   const showBookingError = (error: ErrorToastData) => {
@@ -193,11 +228,9 @@ function App() {
     setConfirmError(null);
 
     if (!nextEvent || !entryId) {
-      // No event loaded (mock tiers): nothing to save, same as before.
-      setSummaryVariant("in");
-      setConfirmedData(data);
-      setConfirmedEventDate(nextEvent?.date ?? null);
-      return true;
+      // Unreachable: Book Now is only shown for a night with entries.
+      showBookingError(toBookingErrorToast(new BookingApiError("invalid_entry", 400)));
+      return false;
     }
 
     if (BOOKING_API) {
@@ -238,7 +271,7 @@ function App() {
         return true;
       } catch (err: unknown) {
         if (err instanceof BookingApiError) {
-          if (err.code === "sold_out" || err.code === "invalid_entry") {
+          if (err.code === "sold_out" || err.code === "invalid_entry" || err.code === "not_bookable") {
             void refreshNextEvent();
           }
           // Session expired between page load and confirm: the server fell
@@ -335,8 +368,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    gesturesLockedRef.current = dataNoticeVisible || dataNoticeClosing || menuOpen;
-  }, [dataNoticeVisible, dataNoticeClosing, menuOpen]);
+    gesturesLockedRef.current = dataNoticeVisible || dataNoticeClosing || menuOpen || followUsOpen;
+  }, [dataNoticeVisible, dataNoticeClosing, menuOpen, followUsOpen]);
 
   const handleMenuOpenChange = useCallback((open: boolean) => {
     // Set the ref right away too: a gesture in the same frame must not slip through.
@@ -345,10 +378,10 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (dataNoticeVisible || dataNoticeClosing) return;
+    if (dataNoticeVisible || dataNoticeClosing || homeMode === "loading") return;
 
-    // Always run intro when app becomes visible (also when overlay was already
-    // accepted in session), and keep it StrictMode-safe.
+    // Run the intro once the home is picked and visible (also when the notice
+    // was already accepted in this session), and keep it StrictMode-safe.
     setHeroCtaVisible(false);
     setHeroIntroActive(true);
     const timerId = window.setTimeout(() => {
@@ -359,7 +392,7 @@ function App() {
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [dataNoticeVisible, dataNoticeClosing]);
+  }, [dataNoticeVisible, dataNoticeClosing, homeMode]);
 
   useEffect(() => {
     const elV = scrollRefV.current;
@@ -370,7 +403,7 @@ function App() {
       if (h > 0) {
         currentSectionRef.current = Math.max(
           0,
-          Math.min(TOTAL_SECTIONS - 1, Math.round(elV.scrollTop / h))
+          Math.min(sectionCountRef.current - 1, Math.round(elV.scrollTop / h))
         );
         if (BOOKING_API) setActiveSection(currentSectionRef.current);
       }
@@ -490,20 +523,61 @@ function App() {
     return () => clearTimeout(t);
   }, [toastClosing]);
 
+  // Next night: asked once. A rejection counts as a failed load.
   useEffect(() => {
     let cancelled = false;
-    fetchNextEvent().then((ev) => {
-      if (DEBUG_LOG) {
-        console.info("[underclub][App] fetchNextEvent resolved", {
-          hasEvent: Boolean(ev),
-          eventId: ev?.id,
-          title: ev?.title,
-        });
-      }
-      if (!cancelled && ev) setNextEvent(ev);
-    });
-    return () => { cancelled = true; };
+    fetchNextEvent()
+      .catch((): NextEventResult => ({ kind: "error" }))
+      .then((res) => {
+        if (DEBUG_LOG) console.info("[underclub][App] fetchNextEvent resolved", res);
+        if (!cancelled) setNextEventResult(res);
+      });
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setLoadTimedOut(true);
+    }, LOAD_TIMEOUT_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
+
+  // Pick the home once: when both the night and the session have answered,
+  // or at the timeout with what is there (a silent session = logged out; no
+  // answer about the night = home without nights + notice). Later answers
+  // never switch it.
+  useEffect(() => {
+    if (homeMode !== "loading") return;
+    if (nextEventResult && (!sessionLoading || loadTimedOut)) {
+      if (nextEventResult.kind === "event") {
+        setNextEvent(nextEventResult.event);
+        setHomeMode("event");
+      } else {
+        setLoadFailed(nextEventResult.kind === "error");
+        setHomeMode("none");
+      }
+    } else if (loadTimedOut) {
+      setLoadFailed(true);
+      setHomeMode("none");
+    }
+  }, [homeMode, nextEventResult, sessionLoading, loadTimedOut]);
+
+  useEffect(() => {
+    if (!nextEvent) return;
+    const ms = Date.parse(nextEvent.bookingDeadline) - Date.now();
+    // setTimeout overflows past ~24.8 days: the page is long reloaded by then.
+    if (!(ms > 0) || ms > 2_147_000_000) return;
+    const t = window.setTimeout(() => setDeadlineTick((n) => n + 1), ms + 250);
+    return () => window.clearTimeout(t);
+  }, [nextEvent]);
+
+  const handleFollowUsClosed = useCallback(() => setFollowUsOpen(false), []);
+
+  const ringWords =
+    homeMode === "loading"
+      ? RING_WORDS_LOADING
+      : homeMode === "event" && nextEvent
+        ? ringWordsForEvent(nextEvent.date, nextEvent.title)
+        : RING_WORDS_NO_EVENT;
 
   return (
     <div
@@ -516,48 +590,60 @@ function App() {
         style={{ width: "100vw" }}
       >
         <Hero
-          onNextDateClick={goToNextDate}
+          ringWords={ringWords}
+          pillTitle={homeMode === "event" ? "NEXT DATE" : "FOLLOW US"}
+          onPillClick={homeMode === "event" ? goToNextDate : () => setFollowUsOpen(true)}
           isExited={heroExited || heroIntroActive}
-          showNextDateButton={heroCtaVisible}
-          nextDateIso={nextEvent?.date}
-          nextEventTitle={nextEvent?.title}
+          showButtons={heroCtaVisible}
+          notice={homeMode === "none" && loadFailed ? LOAD_FAILED_NOTICE : null}
           ticketUrl={homeTicketUrl}
         />
       </div>
-      <div
-        className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
-        style={{ width: "100vw" }}
-      >
-        <NextDate onBookNowClick={goToBookNow} isExited={nextDateExited} event={nextEvent} />
-      </div>
-      <div
-        className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
-        style={{ width: "100vw" }}
-      >
-        <BookNow
-          onBack={goToHero}
-          onConfirm={confirmReservation}
-          onConfirmed={goToSummary}
-          isExited={bookNowExited}
-          entries={nextEvent?.entries}
-          sessionContact={BOOKING_API ? sessionContact : null}
-          onLogout={handleLogout}
-        />
-      </div>
-      <div
-        className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
-        style={{ width: "100vw" }}
-      >
-        <ReservationSummary
-          onGoHome={goToHero}
-          variant={summaryVariant}
-          onOpenTicket={summaryTicketUrl ? openTicketInNewTab : undefined}
-          fullName={confirmedData?.fullName ?? ""}
-          email={confirmedData?.email ?? ""}
-          eventDate={confirmedEventDate ?? undefined}
-          reservationId={reservationResult?.reservationId}
-        />
-      </div>
+      {homeMode === "event" && nextEvent && (
+        <>
+          <div
+            className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
+            style={{ width: "100vw" }}
+          >
+            <NextDate
+              onBookNowClick={goToBookNow}
+              isExited={nextDateExited}
+              event={nextEvent}
+              bookingOpen={bookingOpen}
+            />
+          </div>
+          <div
+            className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
+            style={{ width: "100vw" }}
+          >
+            <BookNow
+              onBack={goToHero}
+              onConfirm={confirmReservation}
+              onConfirmed={goToSummary}
+              isExited={bookNowExited}
+              entries={nextEvent.entries}
+              sessionContact={BOOKING_API ? sessionContact : null}
+              onLogout={handleLogout}
+            />
+          </div>
+          <div
+            className="h-[100svh] min-h-[100svh] w-full shrink-0 snap-start snap-always overflow-hidden"
+            style={{ width: "100vw" }}
+          >
+            <ReservationSummary
+              onGoHome={goToHero}
+              variant={summaryVariant}
+              onOpenTicket={summaryTicketUrl ? openTicketInNewTab : undefined}
+              fullName={confirmedData?.fullName ?? ""}
+              email={confirmedData?.email ?? ""}
+              eventDate={confirmedEventDate ?? undefined}
+              reservationId={reservationResult?.reservationId}
+            />
+          </div>
+        </>
+      )}
+
+      {followUsOpen && <FollowUsPanel onClosed={handleFollowUsClosed} />}
 
       {confirmError && (
         <div
@@ -586,7 +672,7 @@ function App() {
 
       {BOOKING_API && (
         <SiteMenu
-          hidden={dataNoticeVisible || dataNoticeClosing || activeSection === 2}
+          hidden={dataNoticeVisible || dataNoticeClosing || !heroCtaVisible || activeSection === 2}
           onOpenChange={handleMenuOpenChange}
           onLogout={handleLogout}
         />

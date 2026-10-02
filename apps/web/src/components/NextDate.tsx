@@ -7,17 +7,10 @@ type NextDateProps = {
   onBack?: () => void;
   onBookNowClick?: () => void;
   isExited?: boolean;
-  event?: PublicEventView | null;
+  event: PublicEventView;
+  /** False past the booking deadline (or with no entry): no BOOK NOW. */
+  bookingOpen: boolean;
 };
-
-const MOCK_DATE = "SATURDAY MARCH 07";
-const MOCK_TIME = "FROM 00:30 TILL LATE";
-const MOCK_EVENT = "TECHNOROOM: GIRLS POWER";
-const MOCK_LINEUP = [
-  { name: "ISABEL", origin: "WAREHOUSE 303" },
-  { name: "MÅDVI", origin: "TECHNOROOM" },
-  { name: "SKLENA", origin: "TRANCE ITALY" },
-];
 
 /** Altezza max della sezione when→lineup: oltre questa solo quest’area scrolla */
 const CONTENT_AREA_MAX_HEIGHT_PX = 255;
@@ -34,7 +27,7 @@ function formatEventTime(time: string): string {
   return `FROM ${time.slice(0, 5)} TILL LATE`;
 }
 
-export default function NextDate({ onBack, onBookNowClick, isExited = false, event }: NextDateProps) {
+export default function NextDate({ onBack, onBookNowClick, isExited = false, event, bookingOpen }: NextDateProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const contentAreaRef = useRef<HTMLDivElement>(null);
@@ -169,7 +162,7 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">when</p>
               <p className="mt-0.5 font-sans text-lg font-medium leading-tight">
-                {event ? formatEventDate(event.date) : MOCK_DATE} <br /> {event ? formatEventTime(event.time) : MOCK_TIME}
+                {formatEventDate(event.date)} <br /> {formatEventTime(event.time)}
               </p>
             </div>
 
@@ -178,7 +171,7 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
               style={{ "--i": 2 } as React.CSSProperties}
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">event</p>
-              <p className="mt-0.5 font-sans text-lg font-medium leading-tight uppercase">{event?.title ?? MOCK_EVENT}</p>
+              <p className="mt-0.5 font-sans text-lg font-medium leading-tight uppercase">{event.title}</p>
             </div>
 
             <div
@@ -187,7 +180,7 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
             >
               <p className="font-sans text-[14px] tracking-wide opacity-85">lineup</p>
               <div className="mt-0.5">
-                {(event ? event.lineup.map((a) => ({ name: a.name, origin: a.origin })) : MOCK_LINEUP).map((artist, i) => (
+                {event.lineup.map((artist, i) => (
                   <div key={i} className="flex items-baseline gap-1 font-sans text-lg  leading-tight">
                     <span className="font-medium uppercase">{artist.name}</span>
                     {artist.origin && (
@@ -207,7 +200,19 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
             className="animate-line mb-11 mt-5"
             style={{ "--i": 4 } as React.CSSProperties}
           >
-            <BookNowButton onClick={onBookNowClick} />
+            {bookingOpen ? (
+              <BookNowButton onClick={onBookNowClick} />
+            ) : (
+              <>
+                {/* COPY-DRAFT: "BOOKING CLOSED" / "tickets at the door" */}
+                <p className="w-full bg-primary/45 py-5.5 text-center text-[19px] font-bold leading-none text-black">
+                  BOOKING CLOSED
+                </p>
+                <p className="mt-2.5 text-center font-sans text-[14px] tracking-wide opacity-85">
+                  tickets at the door
+                </p>
+              </>
+            )}
           </div>
         </div>
 

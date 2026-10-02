@@ -541,81 +541,48 @@ export default function BookNow({
             >
           <p className="font-sans text-[14px] tracking-wide opacity-85">entry</p>
           <div className="mt-0.5">
-            {entries?.length ? (
-              entries.map((tier) => {
-                const isSoldOut = tier.availability.soldOut;
-                const isSelected = selectedEntryId === tier.id;
-                const showPrice = BOOKING_API && tier.price > 0;
-                const validUntil = BOOKING_API ? formatValidUntil(tier.validUntil) : null;
-                return (
-                  <button
-                    key={tier.id}
-                    type="button"
-                    disabled={isSoldOut}
-                    onClick={() => !isSoldOut && setSelectedEntryId(tier.id)}
-                    className={`flex w-full items-baseline justify-between gap-4 font-sans text-lg leading-tight py-0.5 transition-opacity ${
-                      isSoldOut ? "opacity-40 line-through cursor-not-allowed" : "cursor-pointer"
-                    } ${isSelected && !isSoldOut ? "opacity-100" : !isSoldOut ? "opacity-60" : ""}`}
-                  >
-                    <div className="flex flex-wrap items-baseline gap-x-1 text-left">
-                      <span className="font-medium uppercase">{tier.name}</span>
-                      {showPrice && (
-                        <span className="font-medium">{formatEntryPrice(tier.price)}</span>
-                      )}
-                      {tier.note && (
-                        <span className="flex items-baseline text-[0.5em] leading-none">
-                          <span className="font-light lowercase">{tier.note}</span>
-                        </span>
-                      )}
-                      {validUntil && (
-                        <span className="flex basis-full items-baseline text-[0.5em] leading-none pb-0.5">
-                          <span className="font-light">valid for entry until</span>
-                          <span className="ml-0.5 font-medium">{validUntil}</span>
-                        </span>
-                      )}
-                    </div>
-                    <span className="shrink-0 font-medium">
-                      {isSoldOut
-                        ? "SOLD OUT"
-                        : tier.availability.left !== null
-                          ? `${tier.availability.left} LEFT`
-                          : ""}
-                    </span>
-                  </button>
-                );
-              })
-            ) : (
-              <>
-                <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-medium">10 € + 1 DRINK</span>
-                    <span className="flex items-baseline text-[0.5em] leading-none">
-                      <span className="font-light">valid until</span>
-                      <span className="ml-0.5 font-medium">1:30</span>
-                    </span>
+            {entries?.map((tier) => {
+              const isSoldOut = tier.availability.soldOut;
+              const isSelected = selectedEntryId === tier.id;
+              const showPrice = BOOKING_API && tier.price > 0;
+              const validUntil = BOOKING_API ? formatValidUntil(tier.validUntil) : null;
+              return (
+                <button
+                  key={tier.id}
+                  type="button"
+                  disabled={isSoldOut}
+                  onClick={() => !isSoldOut && setSelectedEntryId(tier.id)}
+                  className={`flex w-full items-baseline justify-between gap-4 font-sans text-lg leading-tight py-0.5 transition-opacity ${
+                    isSoldOut ? "opacity-40 line-through cursor-not-allowed" : "cursor-pointer"
+                  } ${isSelected && !isSoldOut ? "opacity-100" : !isSoldOut ? "opacity-60" : ""}`}
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-1 text-left">
+                    <span className="font-medium uppercase">{tier.name}</span>
+                    {showPrice && (
+                      <span className="font-medium">{formatEntryPrice(tier.price)}</span>
+                    )}
+                    {tier.note && (
+                      <span className="flex items-baseline text-[0.5em] leading-none">
+                        <span className="font-light lowercase">{tier.note}</span>
+                      </span>
+                    )}
+                    {validUntil && (
+                      <span className="flex basis-full items-baseline text-[0.5em] leading-none pb-0.5">
+                        <span className="font-light">valid for entry until</span>
+                        <span className="ml-0.5 font-medium">{validUntil}</span>
+                      </span>
+                    )}
                   </div>
-                  <span className="shrink-0 font-medium">SOLD OUT</span>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-medium">15 € + 1 DRINK</span>
-                    <span className="flex items-baseline text-[0.5em] leading-none">
-                      <span className="font-light">women gets</span>
-                      <span className="ml-0.5 font-medium">2 drinks</span>
-                    </span>
-                  </div>
-                  <span className="shrink-0 font-medium">69 LEFT</span>
-                </div>
-                <div className="flex items-baseline justify-between gap-4 font-sans text-lg leading-tight">
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-medium">20 € + 1 DRINK</span>
-                    <span className="flex items-baseline text-[0.5em] leading-none">
-                      <span className="font-light">door ticket</span>
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
+                  <span className="shrink-0 font-medium">
+                    {isSoldOut
+                      ? "SOLD OUT"
+                      : tier.availability.left !== null
+                        ? `${tier.availability.left} LEFT`
+                        : ""}
+                  </span>
+                </button>
+              );
+            })}
           </div>
             </div>
 

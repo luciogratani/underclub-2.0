@@ -4,23 +4,29 @@ import TicketIcon from "./icons/Ticket";
 import { BOOKING_API } from "../lib/flags";
 
 type HeroProps = {
-  onNextDateClick?: () => void;
+  /** Phrases of the ring (see TextRing). */
+  ringWords: readonly string[];
+  /** Label of the pill under the ring: NEXT DATE (a night) or FOLLOW US (none). */
+  pillTitle: string;
+  onPillClick?: () => void;
   onAboutClick?: () => void;
   isExited?: boolean;
-  showNextDateButton?: boolean;
-  nextDateIso?: string | null;
-  nextEventTitle?: string | null;
+  /** Pill, ticket button: hidden while loading and during the intro. */
+  showButtons?: boolean;
+  /** Short line in the middle of the ring (e.g. the dates could not be loaded). */
+  notice?: string | null;
   /** Flag ON: ticket of the next confirmed reservation; shows the ticket button. */
   ticketUrl?: string | null;
 };
 
 export default function Hero({
-  onNextDateClick,
+  ringWords,
+  pillTitle,
+  onPillClick,
   onAboutClick,
   isExited = false,
-  showNextDateButton = true,
-  nextDateIso,
-  nextEventTitle,
+  showButtons = true,
+  notice = null,
   ticketUrl = null,
 }: HeroProps) {
   return (
@@ -34,21 +40,27 @@ export default function Hero({
           isExited ? "w-[100%] h-[100%] rounded-none" : "w-[95%] h-[88%] rounded-3xl"
         }`}
       >
-        <TextRing nextDateIso={nextDateIso} nextEventTitle={nextEventTitle} />
+        <TextRing words={ringWords} />
+        {notice && (
+          <p
+            role="status"
+            className={`absolute left-1/2 top-1/2 z-10 w-[52vw] -translate-x-1/2 -translate-y-1/2 text-center font-sans text-[14px] font-medium leading-tight text-black transition-opacity duration-300 ${
+              showButtons ? "opacity-100" : "opacity-0"
+            }`}
+          >
+            {notice}
+          </p>
+        )}
       </div>
       <div className="absolute bottom-22 left-1/2 z-20 flex -translate-x-1/2 scale-75 flex-col items-center gap-4">
         <div
           className={`flex flex-row items-center justify-center gap-4 transition-all duration-300 ease-out ${
-            showNextDateButton
+            showButtons
               ? `${isExited ? "scale-[1.08]" : "scale-100"} opacity-100 translate-y-0`
               : "scale-95 opacity-0 translate-y-2 pointer-events-none"
           }`}
         >
-          <HeroButton
-            title="NEXT DATE"
-            direction="right"
-            onClick={onNextDateClick}
-          />
+          <HeroButton title={pillTitle} direction="right" onClick={onPillClick} />
         </div>
         {onAboutClick && (
           <div
@@ -64,7 +76,7 @@ export default function Hero({
           href={ticketUrl}
           aria-label="Open your ticket"
           className={`absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-black text-primary ring-2 ring-primary transition-all duration-300 ease-out ${
-            showNextDateButton ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
+            showButtons ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
           }`}
         >
           <TicketIcon className="h-6 w-6" />

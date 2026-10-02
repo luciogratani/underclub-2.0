@@ -1,3 +1,5 @@
+import { SOCIAL_LINKS } from "../lib/social";
+
 export default function Info() {
   return (
     <section
@@ -46,6 +48,41 @@ export default function Info() {
               >
                 WhatsApp
               </a>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-sans font-light text-[4vw] tracking-wide opacity-85">
+              find us
+            </p>
+            <div className="mt-1">
+              <a
+                href="https://maps.google.com/?q=Underclub+Porto+Torres"
+                target="_blank"
+                rel="noreferrer"
+                className="block text-[12vw] font-bold leading-[0.95] uppercase"
+              >
+                Google Maps
+              </a>
+            </div>
+          </div>
+
+          <div>
+            <p className="font-sans font-light text-[4vw] tracking-wide opacity-85">
+              follow us
+            </p>
+            <div className="mt-1">
+              {SOCIAL_LINKS.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block text-[12vw] font-bold leading-[0.95] uppercase"
+                >
+                  {link.name}
+                </a>
+              ))}
             </div>
           </div>
 
