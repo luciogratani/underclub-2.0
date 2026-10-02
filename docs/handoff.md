@@ -43,19 +43,33 @@ BOOKINGS) sul DB di produzione.
 ## Prossimi passi
 1. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
    pannello Cron). Non ancora fatto.
+1b. **Senza serata pubblicata il sito finge** (da sistemare prima
+   dell'apertura): `NextDate` mostra una serata finta ("SATURDAY MARCH 07 —
+   TECHNOROOM: GIRLS POWER"), Book Now tre formule di esempio, e la conferma
+   mostra "YOU'RE IN!" senza salvare niente (`apps/web/src/App.tsx`, ramo
+   "No event loaded"). Serve uno stato "nessuna serata in programma" con i
+   link ai social.
 2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
    Lucio dirà quali; in coda c'è la revisione del menu (fatto in autonomia il
    2026-10-01, mai visto da Lucio: menu nascosto su Book Now, bottone ticket in
    basso a sinistra).
 3. **Presenza online:** RA in attesa della risposta del supporto, scheda Google
    da rivendicare, Search Console all'apertura. Vedi `presenza-online.md`.
-4. **Admin, prima della prima serata vera:** deploy e prova del check-in
+4. **Admin, prima della prima serata vera** (oggi l'admin ha solo login e
+   check-in funzionanti; Events, Reservations, Guest list, Archive e Analytics
+   sono segnaposto, la Home ha statistiche finte; il DB ha già le policy
+   `admin_all_*` per scrivere eventi, artisti e formule, e le serate si creano
+   in SQL): deploy e prova del check-in
    (l'admin di aprile non conosce lo stato `pending`), poi CRUD di eventi e
    formule, lista prenotazioni, guest list con ricerca alla porta, interruttore
    della manutenzione (flag in una tabella `site_settings` scritto dall'admin e
    letto dal middleware con una cache di ~30 s; `MAINTENANCE_MODE` resta come
    override; cambia solo `readMaintenanceConfig`).
 5. **Apertura al pubblico (quando lo decide Lucio):**
+   - togliere o sostituire la **serata di prova** pubblicata nel DB di
+     produzione ("TECHNOROOM: Solita serata", giovedì 11 novembre, quindi
+     probabilmente 2027, dalle 04:10, formule da 10/15/20 €): oggi è quella
+     che il sito mostra come prossima data;
    - cancellare i dati di prova, in una transazione come `supabase_admin`:
      `delete from underclub.reservations; delete from underclub.contacts;
      delete from underclub.request_throttle;` (sessioni e link vanno via in
