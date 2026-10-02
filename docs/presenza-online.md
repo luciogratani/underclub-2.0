@@ -94,10 +94,11 @@ paragrafo vero in `/info`.
 - Su RA i locali nascono dal modulo di invio evento
   (`https://ra.co/pro/submit-event-venue.aspx?create-event-form`) e la
   redazione li pubblica; RA Pro non ha una sezione per gestire i locali.
-- In attesa di Ana (Platform Support, `promotersupport@ra.co`): pubblicazione
-  della pagina, foto del profilo, gestione collegata all'account Underclub,
-  spostamento sulla pagina degli eventi vecchi registrati come "TBA - Underclub"
-  (es. https://ra.co/events/2361374).
+- **Approvata il 2026-10-02** dal supporto RA (Ana, Platform Support): pagina
+  pubblicata, logo impostato, eventi "TBA - Underclub" uniti sotto Underclub.
+- Le pagine dei locali le gestisce solo lo staff RA: per ogni modifica
+  (descrizione, foto, dati) si scrive a `promotersupport@ra.co`, rispondendo
+  al thread con Ana.
 - Le serate le pubblicano i promoter (Technoroom, Breakout Sardinia) dai loro
   account: d'ora in poi devono scegliere il locale Underclub, non "TBA". Una
   pagina promoter "Underclub" serve solo per serate organizzate dal club.

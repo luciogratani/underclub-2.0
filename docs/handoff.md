@@ -96,8 +96,8 @@ BOOKINGS) sul DB di produzione.
    Lucio dirà quali; in coda c'è la revisione del menu (fatto in autonomia il
    2026-10-01, mai visto da Lucio: menu nascosto su Book Now, bottone ticket in
    basso a sinistra).
-3. **Presenza online:** RA in attesa della risposta del supporto, scheda Google
-   da rivendicare, Search Console all'apertura. Vedi `presenza-online.md`.
+3. **Presenza online:** RA fatto (pagina approvata, eventi uniti), scheda
+   Google da rivendicare, Search Console all'apertura. Vedi `presenza-online.md`.
 4. **Admin, prima della prima serata vera** (oggi l'admin ha solo login e
    check-in funzionanti; Events, Reservations, Guest list, Archive e Analytics
    sono segnaposto, la Home ha statistiche finte; il DB ha già le policy
