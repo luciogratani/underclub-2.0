@@ -88,9 +88,8 @@ BOOKINGS) sul DB di produzione.
      it!" (il sito è in inglese).
    - **Scanner (rimandato all'admin):** avviso per un ticket di un'altra serata;
      oggi `scan_ticket_check_in` non controlla la data.
-   - **Testo della home senza serate:** da decidere all'inizio della sessione,
-     tra le opzioni proposte in chat il 2026-10-02 (vedi sotto, "Home senza
-     serate: dove va il testo").
+   - **Home senza serate (deciso: opzione A):** vedi sotto, "Home senza
+     serate: dove va il testo".
    - La serata di prova nel DB si cancella dopo queste modifiche, per vedere
      subito la home nuova.
 2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
@@ -136,15 +135,16 @@ BOOKINGS) sul DB di produzione.
    - statistiche delle provenienze nell'admin (per ora basta sapere chi prenota
      da RA, vedi `presenza-online.md`).
 
-## Home senza serate: dove va il testo (da scegliere)
+## Home senza serate: dove va il testo (scelta A, 2026-10-02)
 La Hero di oggi: card lime al 95 %×88 % con l'anello che gira, pill nera
 "NEXT DATE →" in basso al centro, bottone ticket in basso a sinistra, menu in
 basso a destra. Il centro dell'anello è vuoto.
-- **A (consigliata):** stessa Hero; al posto della pill "NEXT DATE →" una pill
+- **A (scelta da Lucio):** stessa Hero; al posto della pill "NEXT DATE →" una pill
   uguale "STAY TUNED" o "FOLLOW US" che apre un pannello come quello del menu,
   con Instagram, Facebook e WhatsApp. L'anello (` < NEXT DATE > ??.??`) dice già
-  che non ci sono date: nessun altro testo.
-- **B:** testo breve dentro l'anello, al centro ("no dates yet" + una riga), e
+  che non ci sono date: nessun altro testo. Etichetta della pill da
+  confermare con Lucio ("STAY TUNED" o "FOLLOW US"), bozza `COPY-DRAFT`.
+- **B (scartata):** testo breve dentro l'anello, al centro ("no dates yet" + una riga), e
   sotto, al posto della pill, una riga di icone social cliccabili.
 In entrambi i casi menu e bottone ticket restano dove sono.
 
