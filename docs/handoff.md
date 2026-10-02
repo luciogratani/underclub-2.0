@@ -30,8 +30,10 @@ poi `docs/dns-underclub.md`.
     (protetto da Vercel Authentication).
 - **Vercel Production:** dal 2026-10-02 gira il sito nuovo, rilasciato da
   `main`, con la manutenzione accesa.
-- **Dominio:** `underclub.it` e `www` sono ancora collegati al vecchio progetto
-  `underclub`, che va ignorato: usa Supabase cloud e non ha dati da migrare.
+- **Dominio:** dal 2026-10-02 `underclub.it` (principale) e `www` (308 verso
+  la root) sono su `underclub-2-0-web`, con la manutenzione accesa. Il vecchio
+  progetto `underclub` resta senza domini: usa Supabase cloud, non ha dati da
+  migrare e si elimina tra qualche settimana.
 
 ## Prossimi passi (in ordine)
 1. ~~Revisione dei testi `COPY-DRAFT`~~ — **fatta il 2026-10-02**: tutti
@@ -58,11 +60,16 @@ poi `docs/dns-underclub.md`.
      di rilascio (vedi "Rilasci" sotto), primo deploy con la manutenzione
      accesa, provato senza cookie (503 su pagine e API, ticket e file statici
      aperti);
-   - spostare `underclub.it` e `www` da `underclub` a `underclub-2-0-web`;
-   - verifica dal dominio vero, entrando con `https://underclub.it/?bypass=<segreto>`.
+   - ~~spostare i domini~~ — **fatto il 2026-10-02**: `underclub.it` e `www`
+     sono su `underclub-2-0-web`. La root è il dominio principale (come
+     `PUBLIC_SITE_URL`), `www` reindirizza alla root con un 308. Prima era il
+     contrario (root → `www` con 307);
+   - ~~verifica dal dominio vero~~ — **fatta il 2026-10-02**: senza cookie 503
+     su pagine e API; con il link di accesso Lucio ha fatto una prenotazione
+     completa (form, email, conferma, ticket, MY BOOKINGS), andata a buon fine.
 
-   Rollback: rimettere i domini sul vecchio progetto. Il vecchio progetto si
-   elimina solo settimane dopo.
+   Rollback: rimettere i domini sul progetto `underclub` (con `www` principale).
+   Il vecchio progetto si elimina solo settimane dopo.
 5. **Dopo il passaggio:** verificare il cron `/api/cron/cleanup`, con "Run"
    dal pannello Cron o dai log delle 04:00.
 6. **Admin (rimandato):** deploy e prova del check-in prima della prima serata

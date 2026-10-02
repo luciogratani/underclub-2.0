@@ -19,7 +19,10 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 - Cancellate dal DB di produzione le prenotazioni, i contatti e i contatori
   delle prove sul Preview.
 - Primo deploy di produzione del sito nuovo, da `main` (branch di rilascio),
-  con la manutenzione accesa. Il dominio è ancora sul vecchio progetto.
+  con la manutenzione accesa.
+- `underclub.it` e `www` spostati da `underclub` a `underclub-2-0-web`: la root
+  è il dominio principale, `www` reindirizza con un 308. Prenotazione completa
+  provata dal dominio vero con il link di accesso.
 
 ### Cambiato
 - Approvati tutti i testi `COPY-DRAFT` (UI, email, privacy, check-in admin) e
