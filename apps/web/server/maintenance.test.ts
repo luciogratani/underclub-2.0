@@ -50,6 +50,16 @@ describe('maintenance decision', () => {
     expect(decideMaintenance(site('/api/session'), null, ON).kind).toBe('api');
   });
 
+  it('answers link-preview bots 200 with the page, search engines keep the 503', () => {
+    const wa = decideMaintenance(site('/'), null, ON, 'WhatsApp/2.23.20.0 A');
+    expect(wa).toEqual({ kind: 'page', preview: true });
+    expect(maintenanceResponse(wa as { kind: 'page'; preview: boolean }, ON).status).toBe(200);
+    expect(decideMaintenance(site('/'), null, ON, 'facebookexternalhit/1.1')).toEqual({ kind: 'page', preview: true });
+    expect(decideMaintenance(site('/'), null, ON, 'Mozilla/5.0 (compatible; Googlebot/2.1)')).toEqual({ kind: 'page', preview: false });
+    expect(decideMaintenance(site('/'), null, ON, null)).toEqual({ kind: 'page', preview: false });
+    expect(decideMaintenance(site('/api/session'), null, ON, 'WhatsApp/2.23').kind).toBe('api');
+  });
+
   it('keeps the cron, ticket pages and static files open', () => {
     expect(decideMaintenance(site('/api/cron/cleanup'), null, ON).kind).toBe('pass');
     expect(decideMaintenance(site('/ticket/3f1c?t=abc'), null, ON).kind).toBe('pass');
@@ -78,7 +88,7 @@ describe('maintenance decision', () => {
 
 describe('maintenance responses', () => {
   it('answer 503, uncached and not indexed', async () => {
-    const page = maintenanceResponse({ kind: 'page' }, ON);
+    const page = maintenanceResponse({ kind: 'page', preview: false }, ON);
     expect(page.status).toBe(503);
     expect(page.headers.get('cache-control')).toBe('no-store');
     expect(page.headers.get('x-robots-tag')).toBe('noindex');

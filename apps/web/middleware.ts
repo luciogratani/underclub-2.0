@@ -11,6 +11,11 @@ export const config = {
 
 export default function middleware(request: Request): Response {
   const maintenance = readMaintenanceConfig(process.env);
-  const decision = decideMaintenance(new URL(request.url), request.headers.get('cookie'), maintenance);
+  const decision = decideMaintenance(
+    new URL(request.url),
+    request.headers.get('cookie'),
+    maintenance,
+    request.headers.get('user-agent'),
+  );
   return decision.kind === 'pass' ? next() : maintenanceResponse(decision, maintenance);
 }

@@ -3,7 +3,8 @@
  * every page and API route.
  *
  * MAINTENANCE_MODE=1 closes the site: pages get a 503 page, API routes a 503
- * JSON. Still open: the cron, static files and ticket pages (a QR already
+ * JSON. Link-preview bots get the same page with a 200: they drop the share
+ * card of an error response. Still open: the cron, static files and ticket pages (a QR already
  * sent must open at the door). Opening `/?bypass=<MAINTENANCE_BYPASS_SECRET>`
  * sets a cookie that lets the whole site through, so the team can keep
  * working on the real domain.
@@ -30,7 +31,8 @@ export type MaintenanceDecision =
   | { kind: 'pass' }
   /** Valid `?bypass=`: set the cookie and redirect to the clean URL. */
   | { kind: 'grant'; location: string }
-  | { kind: 'page' }
+  /** `preview`: a link-preview bot, answered 200 so the share card shows. */
+  | { kind: 'page'; preview: boolean }
   | { kind: 'api' };
 
 export function readMaintenanceConfig(source: Record<string, string | undefined>): MaintenanceConfig {
@@ -63,7 +65,15 @@ function isAlwaysOpen(pathname: string): boolean {
   return last.includes('.') && !last.endsWith('.html');
 }
 
-export function decideMaintenance(url: URL, cookieHeader: string | null, config: MaintenanceConfig): MaintenanceDecision {
+// Chat and social apps fetching a share card. Search engines are not here: they keep the 503.
+const LINK_PREVIEW_UA = /facebookexternalhit|facebookcatalog|meta-externalagent|WhatsApp|Twitterbot|TelegramBot|LinkedInBot|Slackbot|Discordbot|SkypeUriPreview/i;
+
+export function decideMaintenance(
+  url: URL,
+  cookieHeader: string | null,
+  config: MaintenanceConfig,
+  userAgent: string | null = null,
+): MaintenanceDecision {
   if (!config.on) return { kind: 'pass' };
   if (isAlwaysOpen(url.pathname)) return { kind: 'pass' };
 
@@ -79,7 +89,8 @@ export function decideMaintenance(url: URL, cookieHeader: string | null, config:
     if (cookie !== undefined && safeEqual(cookie, bypassToken(secret))) return { kind: 'pass' };
   }
 
-  return url.pathname === '/api' || url.pathname.startsWith('/api/') ? { kind: 'api' } : { kind: 'page' };
+  if (url.pathname === '/api' || url.pathname.startsWith('/api/')) return { kind: 'api' };
+  return { kind: 'page', preview: userAgent !== null && LINK_PREVIEW_UA.test(userAgent) };
 }
 
 const CLOSED_HEADERS = {
@@ -106,7 +117,7 @@ export function maintenanceResponse(decision: Exclude<MaintenanceDecision, { kin
       });
     case 'page':
       return new Response(MAINTENANCE_PAGE, {
-        status: 503,
+        status: decision.preview ? 200 : 503,
         headers: { ...CLOSED_HEADERS, 'Content-Type': 'text/html; charset=utf-8' },
       });
   }
