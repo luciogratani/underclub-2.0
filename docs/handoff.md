@@ -76,6 +76,10 @@ poi `docs/dns-underclub.md`.
    - `/lanyard-rapier` e `/demo/lanyard`;
    - la scelta per `About`, `Archive`, `Guests`;
    - `GET /api/session`: 401 o `200 null`.
+   - gli errori TypeScript nei log di build di Vercel (15, tipo "Property
+     'headers' does not exist on type 'Request'" in `server/`): non bloccano,
+     c'erano già il 2026-10-01, in locale `tsc` passa. Probabile causa i tipi
+     condizionali di `@types/node` 22 nel compilatore delle funzioni di Vercel.
 
 ## Decisioni già prese (non ridiscutere)
 - Overbooking minimo accettato: le prenotazioni pending non tengono il posto.
