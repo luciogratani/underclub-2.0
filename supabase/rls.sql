@@ -1,6 +1,6 @@
 -- Underclub 2.0 — Row Level Security policies
 -- Run this AFTER schema.sql has been applied.
--- Enables public (anon) read of published events and reservation creation.
+-- Enables public (anon) read of published events.
 --
 -- ORDER OF EXECUTION (all steps are mandatory on a fresh database):
 --   1. supabase/schema.sql
@@ -10,6 +10,8 @@
 --   5. supabase/rls-history/2026-04-21-ticket-check-in.sql
 --   6. supabase/rls-history/2026-10-01-contacts-sessions-formulas.sql
 --   7. supabase/rls-history/2026-10-02-booking-endpoints.sql
+--   8. supabase/rls-history/2026-10-02-night-end-booking-close.sql
+--   9. supabase/rls-history/2026-10-02-retire-anon-booking.sql
 --
 -- pgcrypto: every call is qualified as `extensions.*` (step 3 was fixed on
 -- 2026-10-01, together with step 7; before that its unqualified `digest` aborted the file on a fresh
@@ -23,8 +25,8 @@
 -- (after re-issuing identical grants and functions), and 2026-04-21 aborts
 -- once 2026-10-02 has changed the return type of `scan_ticket_check_in`.
 --
--- After the 2026-10-01 cleanup step drops "anon_insert_reservation", remove
--- it from this file too, or a replay of this file would bring it back.
+-- "anon_insert_reservation" is no longer created here (retired on
+-- 2026-10-02, see rls-history/2026-10-02-retire-anon-booking.sql).
 --
 -- This file is deliberately FAIL-CLOSED on `reservations`: anon gets no
 -- select/update policy here. Ticket read + "first open" tracking are granted
@@ -73,17 +75,11 @@ create policy "anon_read_event_entries"
     )
   );
 
--- Reservations: anon can INSERT (book a spot)
+-- Reservations: anon used to INSERT here (policy "anon_insert_reservation").
+-- Retired by rls-history/2026-10-02-retire-anon-booking.sql: bookings go
+-- through the serverless endpoints only. Dropped by name so a replay of this
+-- file never brings it back.
 drop policy if exists "anon_insert_reservation" on underclub.reservations;
-create policy "anon_insert_reservation"
-  on underclub.reservations for insert
-  to anon
-  with check (
-    exists (
-      select 1 from underclub.events e
-      where e.id = event_id and e.status = 'published'
-    )
-  );
 
 -- Reservations: NO anon select/update policy is created here.
 --

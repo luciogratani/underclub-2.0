@@ -90,6 +90,7 @@ CHAIN=(
   "$SUPABASE_DIR/rls-history/2026-10-01-contacts-sessions-formulas.sql"
   "$SUPABASE_DIR/rls-history/2026-10-02-booking-endpoints.sql"
   "$SUPABASE_DIR/rls-history/2026-10-02-night-end-booking-close.sql"
+  "$SUPABASE_DIR/rls-history/2026-10-02-retire-anon-booking.sql"
 )
 # 2026-10-02-booking-endpoints.sql is not replayed: once the night-end file
 # has run it must not be (it would fail on open_public_ticket's return type).
@@ -97,6 +98,7 @@ RERUN=(
   "$SUPABASE_DIR/rls.sql"
   "$SUPABASE_DIR/rls-history/2026-10-01-contacts-sessions-formulas.sql"
   "$SUPABASE_DIR/rls-history/2026-10-02-night-end-booking-close.sql"
+  "$SUPABASE_DIR/rls-history/2026-10-02-retire-anon-booking.sql"
 )
 
 # First pass WITHOUT `extensions` on the search_path: proves no file depends

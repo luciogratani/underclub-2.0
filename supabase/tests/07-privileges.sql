@@ -68,8 +68,15 @@ begin
   assert has_function_privilege('authenticated', 'underclub.scan_ticket_check_in(text)', 'execute'), 'auth scan';
   assert not has_function_privilege('anon', 'underclub.issue_ticket_access_token(uuid)', 'execute'), 'anon issue token';
   assert not has_function_privilege('authenticated', 'underclub.issue_ticket_access_token(uuid)', 'execute'), 'auth issue token';
-  -- Legacy path untouched (additive).
-  assert has_function_privilege('anon', 'underclub.create_public_reservation(uuid, uuid, text, date, text)', 'execute'), 'anon legacy rpc';
+  -- Legacy anon booking path retired (2026-10-02-retire-anon-booking.sql).
+  assert not has_function_privilege('anon', 'underclub.create_public_reservation(uuid, uuid, text, date, text)', 'execute'), 'anon legacy rpc';
+  assert not has_function_privilege('authenticated', 'underclub.create_public_reservation(uuid, uuid, text, date, text)', 'execute'), 'auth legacy rpc';
+  assert not has_table_privilege('anon', 'underclub.reservations', 'select'), 'anon select reservations';
+  assert not has_table_privilege('anon', 'underclub.reservations', 'insert'), 'anon insert reservations';
+  assert not has_table_privilege('anon', 'underclub.reservations', 'update'), 'anon update reservations';
+  assert not exists (select 1 from pg_policies
+                      where schemaname = 'underclub' and tablename = 'reservations'
+                        and 'anon' = any (roles)), 'no anon policy on reservations';
   assert has_function_privilege('anon', 'underclub.get_public_entry_counts(uuid)', 'execute'), 'anon counts';
 
   -- No anon policy on the new tables.
@@ -107,7 +114,10 @@ declare
     $q$select * from underclub.contacts$q$,
     $q$select * from underclub.activation_tokens$q$,
     $q$select * from underclub.contact_sessions$q$,
-    $q$insert into underclub.contacts (email, full_name, date_of_birth) values ('a@b.it', 'A', '1990-01-01')$q$];
+    $q$insert into underclub.contacts (email, full_name, date_of_birth) values ('a@b.it', 'A', '1990-01-01')$q$,
+    $q$select * from underclub.reservations$q$,
+    $q$insert into underclub.reservations (event_id, entry_id, full_name, date_of_birth, email) values ('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000012', 'A', '1990-01-01', 'a@b.it')$q$,
+    $q$select * from underclub.create_public_reservation('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000012', 'A', '1990-01-01', 'a@b.it')$q$];
 begin
   foreach stmt in array stmts loop
     begin
@@ -142,7 +152,8 @@ declare
     $q$select underclub.issue_ticket_access_token(gen_random_uuid())$q$,
     $q$select * from underclub.activation_tokens$q$,
     $q$select * from underclub.contact_sessions$q$,
-    $q$insert into underclub.contacts (email, full_name, date_of_birth) values ('a@b.it', 'A', '1990-01-01')$q$];
+    $q$insert into underclub.contacts (email, full_name, date_of_birth) values ('a@b.it', 'A', '1990-01-01')$q$,
+    $q$select * from underclub.create_public_reservation('10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000012', 'A', '1990-01-01', 'a@b.it')$q$];
 begin
   foreach stmt in array stmts loop
     begin
@@ -158,31 +169,31 @@ begin
 end $$;
 rollback;
 
--- Ticket page as anon, end to end: legacy booking via the anon RPC, read
--- through open_public_ticket and through the April x-ticket-token policy.
+-- Ticket page as anon, end to end: a legacy (random-token) booking, made by
+-- the owner since the anon RPC is retired, read through open_public_ticket.
+-- The April x-ticket-token path is closed: no table access at all.
 begin;
+select set_config('test.legacy', (
+  select row_to_json(l)::text from underclub.create_public_reservation(
+    '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000012',
+    'Anon Booker', '1990-01-01', 'anon@example.com') l), true);
 set local role anon;
 do $$
 declare
-  l record;
+  l jsonb := current_setting('test.legacy')::jsonb;
   n int;
 begin
-  select * into l from underclub.create_public_reservation(
-    '10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000012',
-    'Anon Booker', '1990-01-01', 'anon@example.com');
-  assert l.reservation_status = 'confirmed' and l.ticket_token is not null, 'anon legacy booking';
-
-  select count(*) into n from underclub.open_public_ticket(l.reservation_id, l.ticket_token);
+  select count(*) into n from underclub.open_public_ticket((l ->> 'reservation_id')::uuid, l ->> 'ticket_token');
   assert n = 1, 'anon reads ticket via RPC';
-  select count(*) into n from underclub.open_public_ticket(l.reservation_id, 'wrong');
+  select count(*) into n from underclub.open_public_ticket((l ->> 'reservation_id')::uuid, 'wrong');
   assert n = 0, 'anon wrong token';
 
-  -- April policy path (PostgREST header), still matching the same hash.
-  perform set_config('request.headers', json_build_object('x-ticket-token', l.ticket_token)::text, true);
-  select count(*) into n from underclub.reservations where id = l.reservation_id;
-  assert n = 1, 'x-ticket-token policy still works';
-  perform set_config('request.headers', '{"x-ticket-token":"wrong"}', true);
-  select count(*) into n from underclub.reservations;
-  assert n = 0, 'x-ticket-token policy hides everything else';
+  perform set_config('request.headers', json_build_object('x-ticket-token', l ->> 'ticket_token')::text, true);
+  begin
+    select count(*) into n from underclub.reservations;
+    raise exception 'x-ticket-token read still allowed' using errcode = 'P0001';
+  exception when insufficient_privilege then
+    null;
+  end;
 end $$;
 rollback;
