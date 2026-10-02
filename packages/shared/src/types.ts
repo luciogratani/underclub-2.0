@@ -127,6 +127,8 @@ export interface PublicEventView {
   title: string;
   date: string; // ISO (YYYY-MM-DD) — formatting is done in the UI layer
   time: string;
+  /** ISO timestamp: online booking closes (computed by the database). */
+  bookingDeadline: string;
   lineup: ArtistView[];
   entries: EntryTierView[];
 }
@@ -141,6 +143,8 @@ export interface TicketViewData {
   entryName: string;
   /** A cancelled reservation keeps its token: the page must not show a QR. */
   status?: ReservationStatus;
+  /** The night is over: the page shows an expired notice instead of the QR. */
+  eventEnded?: boolean;
 }
 
 /** Input data for the BookNow section (event context + available tiers). */

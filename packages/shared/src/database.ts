@@ -46,6 +46,8 @@ export interface Database {
           date: string;
           time: string;
           status: 'draft' | 'published' | 'archived';
+          /** Online booking close; null = default (18:00 Europe/Rome of `date`). */
+          booking_closes_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -54,6 +56,7 @@ export interface Database {
           date: string;
           time: string;
           status?: 'draft' | 'published' | 'archived';
+          booking_closes_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -62,6 +65,7 @@ export interface Database {
           date?: string;
           time?: string;
           status?: 'draft' | 'published' | 'archived';
+          booking_closes_at?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -441,6 +445,8 @@ export interface Database {
           entry_name: string;
           ticket_opened_at: string | null;
           qr_scanned_at: string | null;
+          /** The night is over (06:00 Europe/Rome of the day after the date). */
+          event_ended: boolean;
         }[];
       };
       // -----------------------------------------------------------------

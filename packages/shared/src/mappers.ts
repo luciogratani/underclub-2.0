@@ -78,7 +78,7 @@ export function toEntryTierView(
 }
 
 export function toPublicEventView(
-  event: EventWithDetails,
+  event: EventWithDetails & { booking_deadline: string },
   reservationCounts: Map<string, number>,
 ): PublicEventView {
   return {
@@ -86,6 +86,7 @@ export function toPublicEventView(
     title: event.title,
     date: event.date,
     time: event.time,
+    bookingDeadline: event.booking_deadline,
     lineup: event.event_artists
       .slice()
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -157,6 +158,7 @@ export function toTicketViewDataFromPublicTicket(row: PublicTicketRow): TicketVi
     eventDate: row.event_date,
     entryName: row.entry_name,
     status: row.status as ReservationStatus,
+    eventEnded: row.event_ended,
   };
 }
 

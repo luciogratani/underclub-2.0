@@ -1,4 +1,5 @@
 import {
+  type EventWithDetails,
   type PublicEventView,
   type PublicReservationFormInput,
   type CreateReservationResult,
@@ -19,44 +20,58 @@ const DEBUG_LOG = import.meta.env.DEV;
 // Next published event
 // ---------------------------------------------------------------------------
 
-export async function fetchNextEvent(): Promise<PublicEventView | null> {
+/**
+ * The home is picked from this, once: a night (`event`), no night published
+ * (`none`), or the database could not be read (`error`). "Next" = the first
+ * published night that is not over (`is_over`, computed by the database: a
+ * night ends at 06:00 Europe/Rome of the day after its date). No date maths
+ * in the browser.
+ */
+export type NextEventResult =
+  | { kind: 'event'; event: PublicEventView }
+  | { kind: 'none' }
+  | { kind: 'error' };
+
+export async function fetchNextEvent(): Promise<NextEventResult> {
   if (!supabase) {
     if (DEBUG_LOG) {
       console.info('[underclub][fetchNextEvent] supabase client not configured');
     }
-    return null;
+    return { kind: 'error' };
   }
 
-  const today = new Date().toISOString().split('T')[0];
-  if (DEBUG_LOG) {
-    console.info('[underclub][fetchNextEvent] querying next published event', { today });
-  }
-
-  const { data: event, error } = await supabase
+  // `booking_deadline` and `is_over` are computed fields (SQL functions on
+  // the events row), see rls-history/2026-10-02-night-end-booking-close.sql.
+  const { data, error } = await supabase
     .from('events')
-    .select('*, event_artists(*), event_entries(*)')
+    .select('*, booking_deadline, event_artists(*), event_entries(*)')
     .eq('status', 'published')
-    .gte('date', today)
+    .eq('is_over', false)
     .order('date', { ascending: true })
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (error || !event) {
+  if (error) {
     if (DEBUG_LOG) {
-      console.warn('[underclub][fetchNextEvent] no event returned', {
-        hasError: Boolean(error),
-        errorCode: error?.code,
-        errorMessage: error?.message,
+      console.warn('[underclub][fetchNextEvent] query failed', {
+        errorCode: error.code,
+        errorMessage: error.message,
       });
     }
-    return null;
+    return { kind: 'error' };
+  }
+  if (!data) {
+    if (DEBUG_LOG) console.info('[underclub][fetchNextEvent] no published night');
+    return { kind: 'none' };
   }
 
+  const event = data as unknown as EventWithDetails & { booking_deadline: string };
   if (DEBUG_LOG) {
     console.info('[underclub][fetchNextEvent] event found', {
       id: event.id,
       title: event.title,
       date: event.date,
+      bookingDeadline: event.booking_deadline,
       lineupCount: event.event_artists?.length ?? 0,
       entriesCount: event.event_entries?.length ?? 0,
     });
@@ -79,15 +94,7 @@ export async function fetchNextEvent(): Promise<PublicEventView | null> {
     counts.set(r.entry_id, r.confirmed_count);
   }
 
-  const view = toPublicEventView(event, counts);
-  if (DEBUG_LOG) {
-    console.info('[underclub][fetchNextEvent] mapped public event view', {
-      id: view.id,
-      title: view.title,
-      entriesCount: view.entries.length,
-    });
-  }
-  return view;
+  return { kind: 'event', event: toPublicEventView(event, counts) };
 }
 
 // ---------------------------------------------------------------------------
