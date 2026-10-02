@@ -10,7 +10,7 @@ export function isWellFormedToken(value: unknown): value is string {
   return typeof value === 'string' && TOKEN_RE.test(value);
 }
 
-function parseCookieHeader(header: string | null): Map<string, string> {
+export function parseCookieHeader(header: string | null): Map<string, string> {
   const out = new Map<string, string>();
   if (!header) return out;
   for (const part of header.split(';')) {
