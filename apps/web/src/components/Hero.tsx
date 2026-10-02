@@ -41,17 +41,18 @@ export default function Hero({
         }`}
       >
         <TextRing words={ringWords} />
-        {notice && (
-          <p
-            role="status"
-            className={`absolute left-1/2 top-1/2 z-10 w-[52vw] -translate-x-1/2 -translate-y-1/2 text-center font-sans text-[14px] font-medium leading-tight text-black transition-opacity duration-300 ${
-              showButtons ? "opacity-100" : "opacity-0"
-            }`}
-          >
-            {notice}
-          </p>
-        )}
       </div>
+      {notice && (
+        // Between the ring and the pill: the ring's band leaves no room inside it.
+        <p
+          role="status"
+          className={`absolute bottom-40 left-1/2 z-20 w-[80%] -translate-x-1/2 text-center font-sans text-[14px] font-medium leading-tight text-black transition-opacity duration-300 ${
+            showButtons ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {notice}
+        </p>
+      )}
       <div className="absolute bottom-22 left-1/2 z-20 flex -translate-x-1/2 scale-75 flex-col items-center gap-4">
         <div
           className={`flex flex-row items-center justify-center gap-4 transition-all duration-300 ease-out ${
