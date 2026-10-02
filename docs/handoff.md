@@ -128,6 +128,9 @@ poi `docs/dns-underclub.md`.
   file statici e `/ticket/*`. `?bypass=<segreto>` dà un cookie httpOnly
   `uc_bypass` di 30 giorni (hash del segreto: cambiarlo revoca tutti).
 - Accendere o spegnere = cambiare la env + Redeploy (circa 1-2 minuti).
+- Gli anteprimatori dei link (WhatsApp, Facebook, Telegram, X, LinkedIn,
+  Slack, Discord) ricevono la stessa pagina con un 200: con il 503 scartano
+  la scheda di condivisione. Google e i visitatori restano sul 503.
 - Provato il 2026-10-02 su un preview CLI con le env solo di runtime
   (`vercel deploy -e …`, lanciato dalla root del repo con `VERCEL_ORG_ID` e
   `VERCEL_PROJECT_ID`, perché il progetto ha Root Directory `apps/web`), e
