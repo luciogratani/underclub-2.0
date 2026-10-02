@@ -43,12 +43,38 @@ BOOKINGS) sul DB di produzione.
 ## Prossimi passi
 1. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
    pannello Cron). Non ancora fatto.
-1b. **Senza serata pubblicata il sito finge** (da sistemare prima
-   dell'apertura): `NextDate` mostra una serata finta ("SATURDAY MARCH 07 —
-   TECHNOROOM: GIRLS POWER"), Book Now tre formule di esempio, e la conferma
-   mostra "YOU'RE IN!" senza salvare niente (`apps/web/src/App.tsx`, ramo
-   "No event loaded"). Serve uno stato "nessuna serata in programma" con i
-   link ai social.
+1b. **Home senza serate e caricamento** (da fare prima dell'apertura). Oggi,
+   senza serata pubblicata, il sito finge: `NextDate` mostra "SATURDAY MARCH 07
+   — TECHNOROOM: GIRLS POWER", Book Now tre formule di esempio, la conferma dice
+   "YOU'RE IN!" senza salvare (`apps/web/src/App.tsx`, ramo "No event loaded"),
+   e l'anello (`TextRing.tsx`) ha i ripieghi `??.??`, `TECHNOROOM`, `07.03`.
+   Deciso con Lucio il 2026-10-02:
+   - **Due home separate,** scelte una volta sola in `App`: il percorso di oggi
+     (Hero → Next Date → Book Now → conferma) se c'è una serata, una home
+     "senza serate" a schermata unica se non c'è (stessi elementi visivi della
+     Hero, testo tipo "no dates announced yet", Instagram, Facebook, WhatsApp,
+     menu, bottone ticket se la persona ha ancora una prenotazione valida).
+     Dati finti e ripieghi si tolgono dal codice.
+   - **Caricamento:** finché non rispondono sia la prossima serata sia
+     `/api/session`, si vede solo l'anello con `UNDERCLUB.IT - ` ripetuto (4
+     volte, giro completo, senza ciclo); niente bottoni (ticket, NEXT DATE),
+     niente menu (oggi compare troppo presto), cornice aperta. Poi parte l'intro.
+     Tempo massimo ~5 s: oltre, si va alla home senza serate con un messaggio
+     neutro; sessione che non risponde = non loggato.
+   - **Anello con una serata:** comportamento di oggi, tre frasi in ciclo, ma
+     parte solo a dati arrivati.
+   - **Anello senza serate:** ciclo a due frasi, `UNDERCLUB.IT - ` e
+     ` < NEXT DATE > ??.??` (20 caratteri, divide i 60 dell'anello).
+   - Ancora da decidere (proposte dell'assistente): una serata resta "in corso"
+     fino alle 06:00 del giorno dopo ovunque (oggi a mezzanotte spariscono il
+     ticket da MY BOOKINGS e dalla home, si chiudono prenotazioni e disdette,
+     mezz'ora prima dell'apertura delle porte; e la home sceglie la serata con
+     la data UTC mentre il server usa Roma); quando chiudono le prenotazioni
+     online; ticket passato aperto dall'email (oggi mostra ancora il QR);
+     avviso nello scanner per un ticket di un'altra serata (oggi il check-in non
+     controlla la data); testo della home senza serate.
+   - La serata di prova nel DB si cancella dopo queste modifiche, per vedere
+     subito la home nuova.
 2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
    Lucio dirà quali; in coda c'è la revisione del menu (fatto in autonomia il
    2026-10-01, mai visto da Lucio: menu nascosto su Book Now, bottone ticket in
