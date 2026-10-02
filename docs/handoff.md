@@ -118,19 +118,45 @@ BOOKINGS) sul DB di produzione.
    - `MAINTENANCE_MODE` tolta o a `0` in Production, poi Redeploy;
    - Search Console: proprietà di dominio e invio della sitemap.
 6. **Più avanti:**
-   - dati strutturati `MusicEvent` per ogni serata e un paragrafo vero in
-     `/info` (generi, sale, ex Pancho Villa, tavoli, eventi privati);
-   - pulizia in fondo alla migrazione 2026-10-01 (step 1, 1b, 1c, poi 2-5), più
-     semplice ora che il flusso vecchio è abbandonato;
+   - un paragrafo vero in `/info` (generi, sale, ex Pancho Villa, tavoli,
+     eventi privati);
+   - pulizia della migrazione 2026-10-01, step 1b, 4 e 5 (togliere da
+     `reservations` le colonne legacy nome, email e data di nascita): si fa
+     con l'admin, che oggi le legge;
    - `About`, `Archive`, `Guests`: tenerle, toglierle o spostarle;
    - `/lanyard-rapier` e `/demo/lanyard`: pubbliche o no;
-   - `GET /api/session` senza sessione: 401 o `200 null`;
-   - errori TypeScript nei log di build di Vercel (15, tipo "Property 'headers'
-     does not exist on type 'Request'" in `server/`): non bloccano, c'erano già
-     il 2026-10-01, in locale `tsc` passa; probabile causa i tipi condizionali
-     di `@types/node` 22 nel compilatore delle funzioni di Vercel;
+   - `GET /api/session` senza sessione: 401 o `200 null`. Il 401 lascia un
+     errore rosso nella console di ogni visitatore anonimo; è solo estetico;
    - statistiche delle provenienze nell'admin (per ora basta sapere chi prenota
      da RA, vedi `presenza-online.md`).
+
+6b. **Branch `feat/pre-season`** (2026-10-02 sera, impilato su
+   `feat/home-no-events`, mai pushato). Il dettaglio è nel CHANGELOG. In breve:
+   - chiuso il vecchio flusso di prenotazione anonimo (migrazione
+     `2026-10-02-retire-anon-booking.sql`) e tolto il flag `VITE_BOOKING_API`
+     dal web;
+   - `MusicEvent` per la serata in home;
+   - corretti gli errori TypeScript della build di Vercel;
+   - configurazione ESLint;
+   - toast di errore in inglese.
+
+   **Rilascio:** dopo quello di 1b, nello stesso modo. Prima la migrazione,
+   poi il web:
+   ```bash
+   ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-02-retire-anon-booking.sql
+   ```
+   Il sito di oggi non usa più il percorso anonimo, quindi la migrazione si
+   può applicare anche prima del rilascio del web. Dopo il rilascio la env
+   `VITE_BOOKING_API` su Vercel non serve più: si può togliere.
+
+   **Da controllare (Lucio):** che Supabase non accetti nuove iscrizioni.
+   Le policy `admin_all_*` danno tutto a qualunque utente `authenticated`:
+   se l'iscrizione è aperta, chiunque si registra con la chiave anon diventa
+   admin e legge contatti e prenotazioni. Va controllato `"disable_signup": true`
+   (`GOTRUE_DISABLE_SIGNUP` nel `.env` di Supabase sulla VPS):
+   ```bash
+   curl -s https://supabase.luciogratani.it/auth/v1/settings -H "apikey: <chiave anon pubblica>" | grep -o '"disable_signup":[a-z]*'
+   ```
 
 ## Home senza serate: dove va il testo (scelta A, 2026-10-02, fatta)
 La Hero di oggi: card lime al 95 %×88 % con l'anello che gira, pill nera

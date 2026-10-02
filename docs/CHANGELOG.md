@@ -5,6 +5,49 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-02 (sera, 2) — Vecchio flusso chiuso, MusicEvent, build pulita
+
+Branch `feat/pre-season`, impilato su `feat/home-no-events`. Né la migrazione
+né il web sono rilasciati: vedi `handoff.md`, punto 6b.
+
+### Sicurezza
+- **`2026-10-02-retire-anon-booking.sql`** (step 1c, 2 e 3 della pulizia del
+  2026-10-01). Fino a questa migrazione `anon` poteva:
+  - inserire prenotazioni direttamente (policy `anon_insert_reservation`);
+  - inserirle con `create_public_reservation`, senza conferma via email, senza
+    controllo dei 18 anni, senza lock sulla quota e senza limiti.
+
+  La migrazione toglie ad `anon` ogni privilegio su `reservations`, insieme
+  alle policy `x-ticket-token`. Il ticket si legge solo con
+  `open_public_ticket`. `rls.sql` non ricrea più la policy di insert.
+
+### Tolto
+- Il flag `VITE_BOOKING_API` e il percorso con il flag spento:
+  - prenotazione via RPC diretta;
+  - ticket via header `x-ticket-token`;
+  - `markTicketOpened`;
+  - testi della privacy di aprile.
+
+### Aggiunto
+- **Dati strutturati `MusicEvent` per la serata in home:**
+  - inizio in ora di Roma (un orario prima di mezzogiorno vale come dopo
+    mezzanotte);
+  - il club come luogo, la lineup e le formule come offerte valide fino alla
+    chiusura online.
+- ESLint (`pnpm --filter web lint`): 0 errori, restano 17 avvisi, quasi tutti
+  `any` nel codice 3D del lanyard.
+- Vitest raccoglie anche i test di `src/lib`.
+
+### Corretto
+- **Errori TypeScript nei log di build di Vercel:** `@vercel/node` controlla i
+  tipi senza seguire i symlink di pnpm. Per questo non trovava `undici-types`
+  dentro `@types/node`, e `Request`/`Response` restavano vuoti. Il fix è
+  `undici-types` come devDependency diretta: ho riprodotto il controllo in
+  locale, 13 errori prima e 0 dopo.
+- Toast di errore in inglese ("code", "Close").
+
+---
+
 ## 2026-10-02 (sera) — Home senza serate, caricamento, fine serata, chiusura prenotazioni
 
 Branch `feat/home-no-events`. La migrazione non è ancora applicata in produzione
