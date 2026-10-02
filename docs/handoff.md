@@ -50,11 +50,15 @@ poi `docs/dns-underclub.md`.
 3. ~~Pulizia~~ — **fatta il 2026-10-02**: cancellate in una transazione le
    prenotazioni di prova (1), i contatti (1, con sessioni e link in cascata) e
    i contatori (2). Il DB di produzione parte vuoto.
-4. **Passaggio:**
+4. **Passaggio, con la manutenzione accesa** (decisione 2026-10-02: il sito
+   va sul dominio ma resta chiuso al pubblico finché non è pronto):
+   - in Production `MAINTENANCE_MODE=1` e `MAINTENANCE_BYPASS_SECRET` (hex,
+     così il link non va codificato; Lucio lo salva perché la env *sensitive*
+     non si rilegge);
    - deploy di produzione di `master` (impostare il branch di produzione su
      `master`, oppure promuovere a mano);
    - spostare `underclub.it` e `www` da `underclub` a `underclub-2-0-web`;
-   - verifica dal dominio vero.
+   - verifica dal dominio vero, entrando con `https://underclub.it/?bypass=<segreto>`.
 
    Rollback: rimettere i domini sul vecchio progetto. Il vecchio progetto si
    elimina solo settimane dopo.
@@ -62,7 +66,10 @@ poi `docs/dns-underclub.md`.
    dal pannello Cron o dai log delle 04:00.
 6. **Admin (rimandato):** deploy e prova del check-in prima della prima serata
    vera, perché l'admin di produzione è quello di aprile e non conosce lo stato
-   `pending`. Poi CRUD di eventi e formule, lista prenotazioni, guest list.
+   `pending`. Poi CRUD di eventi e formule, lista prenotazioni, guest list, e
+   l'interruttore della manutenzione: flag in una tabella `site_settings`
+   scritta dall'admin, letto dal middleware con una cache di ~30 s;
+   `MAINTENANCE_MODE` resta come override. Cambia solo `readMaintenanceConfig`.
 7. **Più avanti:**
    - la pulizia in fondo alla migrazione 2026-10-01 (step 1, 1b, 1c, poi 2-5);
    - `/lanyard-rapier` e `/demo/lanyard`;
@@ -79,6 +86,18 @@ poi `docs/dns-underclub.md`.
 - Il flusso di prenotazione vecchio non si usa da mesi e non tornerà: le
   prossime prenotazioni passeranno tutte dal flusso nuovo. Il recupero delle
   prenotazioni legacy e il flag spento non vanno più curati.
+
+## Manutenzione (cose non ovvie)
+- Routing Middleware in `apps/web/middleware.ts`, logica in
+  `apps/web/server/maintenance.ts`. Con `MAINTENANCE_MODE=1`: pagine → 503 con
+  la pagina di manutenzione, `/api/*` → 503 JSON; restano aperti il cron, i
+  file statici e `/ticket/*`. `?bypass=<segreto>` dà un cookie httpOnly
+  `uc_bypass` di 30 giorni (hash del segreto: cambiarlo revoca tutti).
+- Accendere o spegnere = cambiare la env + Redeploy (circa 1-2 minuti).
+- Provato il 2026-10-02 su un preview CLI con le env solo di runtime
+  (`vercel deploy -e …`, lanciato dalla root del repo con `VERCEL_ORG_ID` e
+  `VERCEL_PROJECT_ID`, perché il progetto ha Root Directory `apps/web`), e
+  `vercel curl` per superare la protezione dei preview.
 
 ## Infrastruttura (cose non ovvie)
 - **Supabase self-hosted:** VPS Hetzner `178.104.44.21`, host

@@ -5,7 +5,13 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
-## 2026-10-02 — Testi approvati, env di Production
+## 2026-10-02 — Testi approvati, env di Production, manutenzione
+
+### Aggiunto
+- **Modalità manutenzione** (Routing Middleware): `MAINTENANCE_MODE=1` chiude
+  pagine e API con un 503, lascia aperti cron, file statici e ticket; il link
+  `?bypass=` con `MAINTENANCE_BYPASS_SECRET` fa entrare il team. Provata su un
+  preview.
 
 ### Produzione
 - Env di Production caricate su `underclub-2-0-web` (segreti nuovi, API key
