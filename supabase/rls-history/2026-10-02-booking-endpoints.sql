@@ -38,7 +38,10 @@
 -- every function whose signature or return type changed (functions replaced
 -- by this version are dropped too). Once this file has run, 2026-04-21 must
 -- NOT be replayed: it would fail on the changed return type of
--- `scan_ticket_check_in` (fail-safe, nothing is altered).
+-- `scan_ticket_check_in` (fail-safe, nothing is altered). Likewise, once
+-- 2026-10-02-night-end-booking-close.sql has run, THIS file must not be
+-- replayed (it fails on `open_public_ticket`; replaying it would also bring
+-- back the midnight date rules).
 --
 -- Still ADDITIVE: the anon booking path (`anon_insert_reservation`,
 -- `create_public_reservation`) and the x-ticket-token policies keep working.
