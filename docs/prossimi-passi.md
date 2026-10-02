@@ -386,7 +386,7 @@ Le decisioni di marketing e di flusso vivono fuori dal repo, in
 
 ---
 
-## 9. Endpoint passwordless e funnel (implementati 2026-10-01, DB in produzione, sito non ancora deployato)
+## 9. Endpoint passwordless e funnel (implementati 2026-10-01, in produzione dal 2026-10-02 in manutenzione)
 
 Branch `feat/passwordless-booking`. La migrazione porta la data 2026-10-02 nel
 nome solo per ordinarsi dopo quella del 2026-10-01: è stata scritta lo stesso
@@ -524,25 +524,26 @@ giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
 
 ## Ordine suggerito (prossimi passi rimasti)
 
-Aggiornato il 2026-10-01: il modello dati, gli endpoint e il funnel esistono sul
-branch `feat/passwordless-booking`; DB e DNS sono in produzione.
+Aggiornato il 2026-10-02: il sito nuovo è in produzione su `underclub.it`, in
+manutenzione (vedi `handoff.md`). La lista operativa sta in `handoff.md`; la
+presenza online (SEO, Google, RA) in `presenza-online.md`.
 
-1. **Messa in produzione degli endpoint**: i passi 3-5 di "Da fare a mano" nella
-   sezione 9 (env Vercel, preview, copy, flag), poi lo spostamento di
-   `underclub.it` dal vecchio progetto Vercel `underclub` (da ignorare, nessun
-   dato da migrare) a `underclub-2-0-web`.
-2. Pulizia in fondo alla migrazione del 2026-10-01, dopo lo step 1b.
-3. Admin: **lista eventi + CRUD eventi** (lineup + formule con prezzo, quota e
-   scadenza) + **lista prenotazioni per evento** (con `qr_scanned_at`).
-4. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
-   funzionare anche senza QR.
-5. **Analytics** admin quando ci sarà dato reale.
-6. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
-7. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
+1. Lavori sul sito prima dell'apertura (li indica Lucio) e revisione del menu.
+2. Admin: deploy e prova del **check-in**, poi **lista eventi + CRUD eventi**
+   (lineup + formule con prezzo, quota e scadenza) e **lista prenotazioni per
+   evento** (con `qr_scanned_at`).
+3. Admin: **Guest list** A-Z e ricerca per nome o email alla porta, che deve
+   funzionare anche senza QR; interruttore della manutenzione.
+4. Apertura al pubblico: pulizia dei dati di prova, manutenzione spenta,
+   Search Console.
+5. Pulizia in fondo alla migrazione del 2026-10-01, dopo lo step 1b.
+6. Dati strutturati `MusicEvent` per le serate.
+7. **Analytics** admin quando ci sarà dato reale.
+8. Decidere se tenere pubbliche `/lanyard-rapier` e `/demo/lanyard` (sezione 7).
+9. (Rimandati) Anonimizzazione GDPR, incassi e ingressi senza prenotazione,
    suono e coda offline per lo scanner, privacy di BotID (sezione 9, "Aperto").
 
 ---
 
-*Ultimo aggiornamento: 2026-10-01 — endpoint passwordless, funnel dietro flag,
-test SQL e degli endpoint (sezione 9). Migrazioni applicate e DNS completo;
-sito nuovo non ancora deployato.*
+*Ultimo aggiornamento: 2026-10-02 — sito nuovo in produzione su
+`underclub.it` con la manutenzione accesa; SEO e presenza online avviati.*

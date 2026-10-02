@@ -1,163 +1,148 @@
-# Handoff — Underclub 2.0, messa in produzione (aggiornato 2026-10-01, sera)
+# Handoff — Underclub 2.0 (aggiornato 2026-10-02, sera)
 
 Repo: `/Users/lucio/Desktop/underclub.it/underclub-2.0`, un monorepo pnpm:
-- `apps/web`: sito pubblico, Vite + React, solo mobile, con funzioni Vercel in `api/`;
-- `apps/admin`: backoffice;
+- `apps/web`: sito pubblico, Vite + React, solo mobile, con funzioni Vercel in
+  `api/` e Routing Middleware in `middleware.ts`;
+- `apps/admin`: backoffice (quello in produzione è ancora di aprile);
 - `packages/shared`: tipi condivisi;
 - `supabase/`: SQL e test.
 
-Da leggere per primi: `docs/prossimi-passi.md` sezione 9, poi `docs/CHANGELOG.md`,
-poi `docs/dns-underclub.md`.
+Da leggere dopo questo file: `docs/CHANGELOG.md` (voci del 2026-10-01 e 02),
+`docs/presenza-online.md` (SEO, Google, RA, link tracciati),
+`docs/prossimi-passi.md` sezione 9, `docs/dns-underclub.md`.
 
-## Stato
-- **Git:** `feat/passwordless-booking` unito in `master` (fast-forward) e
-  pushato. `master` locale ha qualche commit di sola documentazione non ancora
-  pushato. Il branch `feat/passwordless-booking` locale è rimasto indietro e si
+## Stato in una riga
+Il sito nuovo è **in produzione su `underclub.it`, in manutenzione**: il
+pubblico vede la pagina "We'll be back soon", il team entra con il link di
+accesso e il sito funziona da capo a fondo (prenotazione, email, ticket, MY
+BOOKINGS) sul DB di produzione.
+
+## Stato nel dettaglio
+- **Git:** si lavora su `master`; `main` è il branch di produzione di Vercel
+  (vedi "Rilasci"). Il branch locale `feat/passwordless-booking` è vecchio e si
   può cancellare.
-- **DB (fatto):** le migrazioni 2026-10-01 e 2026-10-02 sono applicate in
-  produzione, prima con un dry-run, poi dopo il backup
-  `pgdumpall_20261001_1417.sql.gz`. Il buco di `issue_ticket_access_token` è
-  chiuso.
-- **DNS (fatto):** Resend per `reservations.` e `news.` (verificati, regione EU),
-  DMARC `p=none`, Google Postmaster (verificato), `info@underclub.it` inoltrata
-  con ImprovMX alla Gmail di Lucio (provato).
-- **Vercel `underclub-2-0-web`, Preview (fatto):** env legate al branch `master`
-  e flag `VITE_BOOKING_API=1` acceso, provato da capo a fondo sul DB di
-  produzione.
-  - Passati: prenotazione, conferma, ticket, email (SPF, DKIM e DMARC `PASS`,
-    Reply-To `info@`), MY BOOKINGS, logout, recupero.
-  - URL: `https://underclub-2-0-web-git-master-lucios-projects-aef0021a.vercel.app`
-    (protetto da Vercel Authentication).
-- **Vercel Production:** dal 2026-10-02 gira il sito nuovo, rilasciato da
-  `main`, con la manutenzione accesa.
-- **Dominio:** dal 2026-10-02 `underclub.it` (principale) e `www` (308 verso
-  la root) sono su `underclub-2-0-web`, con la manutenzione accesa. Il vecchio
-  progetto `underclub` resta senza domini: usa Supabase cloud, non ha dati da
-  migrare e si elimina tra qualche settimana.
+- **DB:** migrazioni 2026-10-01 e 2026-10-02 applicate in produzione (backup
+  `pgdumpall_20261001_1417.sql.gz` sulla VPS). Contiene le prenotazioni di
+  prova fatte in manutenzione: si cancellano all'apertura.
+- **Vercel `underclub-2-0-web`:**
+  - Production: env complete e tutte *sensitive* (impostazione del team), con
+    segreti propri e una API key Resend solo per Production;
+    `PUBLIC_SITE_URL=https://underclub.it`, `ALLOWED_ORIGINS=https://www.underclub.it`,
+    `VITE_BOOKING_API=1`, `MAINTENANCE_MODE=1`, `MAINTENANCE_BYPASS_SECRET`.
+  - Preview: env legate al branch `master`, flag acceso, senza manutenzione.
+- **Dominio:** `underclub.it` è il principale, `www` reindirizza alla root con
+  un 308. Il vecchio progetto Vercel `underclub` è senza domini e si elimina tra
+  qualche settimana (usava Supabase cloud, nessun dato da migrare).
+- **Email e DNS:** Resend per `reservations.` e `news.` (EU), DMARC `p=none`,
+  Google Postmaster verificato, `info@underclub.it` inoltrata con ImprovMX alla
+  Gmail di Lucio. Dettagli in `dns-underclub.md`.
+- **SEO e condivisione:** icone, manifest, OG, titolo e descrizione, dati
+  strutturati `NightClub`, `robots.txt`, `sitemap.xml`, `noindex` sulle pagine
+  personali. Dettagli e lavoro fuori dal sito in `presenza-online.md`.
 
-## Prossimi passi (in ordine)
-1. ~~Revisione dei testi `COPY-DRAFT`~~ — **fatta il 2026-10-02**: tutti
-   approvati, marcatori tolti. In privacy, Hetzner ha preso il posto di Supabase
-   tra i responsabili e la data è ora quella del 2 ottobre (con il flag acceso):
-   se il passaggio slitta di molto, va aggiornata.
-2. ~~Env di Production~~ — **fatte il 2026-10-02** su `underclub-2-0-web`, tutte
-   *sensitive* (lo impone il team): `TICKET_SECRET`, `IP_HASH_SECRET` e
-   `CRON_SECRET` nuovi; `SUPABASE_SERVICE_ROLE_KEY` letta dalla VPS;
-   `RESEND_API_KEY` **nuova**, una chiave Resend solo per Production (quella del
-   Preview si può revocare senza toccare la produzione); `SUPABASE_URL`,
-   `PUBLIC_SITE_URL=https://underclub.it`, `ALLOWED_ORIGINS=https://www.underclub.it`,
-   `EMAIL_FROM`, `EMAIL_REPLY_TO`, `VITE_BOOKING_API=1`. Le env *sensitive* non
-   si rileggono né si copiano tra ambienti: per ricaricarle si rigenerano.
-3. ~~Pulizia~~ — **fatta il 2026-10-02**: cancellate in una transazione le
-   prenotazioni di prova (1), i contatti (1, con sessioni e link in cascata) e
-   i contatori (2). Il DB di produzione parte vuoto.
-4. **Passaggio, con la manutenzione accesa** (decisione 2026-10-02: il sito
-   va sul dominio ma resta chiuso al pubblico finché non è pronto):
-   - in Production `MAINTENANCE_MODE=1` e `MAINTENANCE_BYPASS_SECRET` (hex,
-     così il link non va codificato; Lucio lo salva perché la env *sensitive*
-     non si rilegge);
-   - ~~deploy di produzione~~ — **fatto il 2026-10-02**: `main` è il branch
-     di rilascio (vedi "Rilasci" sotto), primo deploy con la manutenzione
-     accesa, provato senza cookie (503 su pagine e API, ticket e file statici
-     aperti);
-   - ~~spostare i domini~~ — **fatto il 2026-10-02**: `underclub.it` e `www`
-     sono su `underclub-2-0-web`. La root è il dominio principale (come
-     `PUBLIC_SITE_URL`), `www` reindirizza alla root con un 308. Prima era il
-     contrario (root → `www` con 307);
-   - ~~verifica dal dominio vero~~ — **fatta il 2026-10-02**: senza cookie 503
-     su pagine e API; con il link di accesso Lucio ha fatto una prenotazione
-     completa (form, email, conferma, ticket, MY BOOKINGS), andata a buon fine.
-
-   Rollback: rimettere i domini sul progetto `underclub` (con `www` principale).
-   Il vecchio progetto si elimina solo settimane dopo.
-5. **Dopo il passaggio:** verificare il cron `/api/cron/cleanup`, con "Run"
-   dal pannello Cron o dai log delle 04:00.
-5a. **SEO e condivisione** (2026-10-02, in produzione): icone, manifest, OG
-   (`public/og.png`, 2400×1260), titolo e descrizione, dati strutturati
-   `NightClub` in `index.html`, `robots.txt`, `sitemap.xml`, `noindex` su
-   ticket, `/activate`, `/account` e demo lanyard (`vercel.json`). Fuori dal
-   sito, da fare con Lucio: scheda Google Business (forse quella di Pancho
-   Villa da aggiornare), pagina Resident Advisor, Search Console + sitemap
-   all'apertura. Più avanti: dati strutturati `MusicEvent` per ogni serata e
-   un paragrafo vero in `/info` (generi, sale, ex Pancho Villa, tavoli, eventi
-   privati). Orari tipici 00:30–5:30, non messi nei dati del locale perché le
-   serate sono circa 3 al mese.
-5b. **Apertura al pubblico (quando lo decide Lucio):** prima la pulizia delle
-   prenotazioni di prova fatte in manutenzione (`delete` da `reservations`,
-   `contacts`, `request_throttle` in una transazione, come al punto 3; rimandata
-   il 2026-10-02 a questo momento), poi `MAINTENANCE_MODE` tolta o a `0` in
-   Production e Redeploy.
-6. **Admin (rimandato):** deploy e prova del check-in prima della prima serata
-   vera, perché l'admin di produzione è quello di aprile e non conosce lo stato
-   `pending`. Poi CRUD di eventi e formule, lista prenotazioni, guest list, e
-   l'interruttore della manutenzione: flag in una tabella `site_settings`
-   scritta dall'admin, letto dal middleware con una cache di ~30 s;
-   `MAINTENANCE_MODE` resta come override. Cambia solo `readMaintenanceConfig`.
-7. **Più avanti:**
-   - la pulizia in fondo alla migrazione 2026-10-01 (step 1, 1b, 1c, poi 2-5);
-   - `/lanyard-rapier` e `/demo/lanyard`;
-   - la scelta per `About`, `Archive`, `Guests`;
-   - `GET /api/session`: 401 o `200 null`.
-   - gli errori TypeScript nei log di build di Vercel (15, tipo "Property
-     'headers' does not exist on type 'Request'" in `server/`): non bloccano,
-     c'erano già il 2026-10-01, in locale `tsc` passa. Probabile causa i tipi
-     condizionali di `@types/node` 22 nel compilatore delle funzioni di Vercel.
+## Prossimi passi
+1. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
+   pannello Cron). Non ancora fatto.
+2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
+   Lucio dirà quali; in coda c'è la revisione del menu (fatto in autonomia il
+   2026-10-01, mai visto da Lucio: menu nascosto su Book Now, bottone ticket in
+   basso a sinistra).
+3. **Presenza online:** RA in attesa della risposta del supporto, scheda Google
+   da rivendicare, Search Console all'apertura. Vedi `presenza-online.md`.
+4. **Admin, prima della prima serata vera:** deploy e prova del check-in
+   (l'admin di aprile non conosce lo stato `pending`), poi CRUD di eventi e
+   formule, lista prenotazioni, guest list con ricerca alla porta, interruttore
+   della manutenzione (flag in una tabella `site_settings` scritto dall'admin e
+   letto dal middleware con una cache di ~30 s; `MAINTENANCE_MODE` resta come
+   override; cambia solo `readMaintenanceConfig`).
+5. **Apertura al pubblico (quando lo decide Lucio):**
+   - cancellare i dati di prova, in una transazione come `supabase_admin`:
+     `delete from underclub.reservations; delete from underclub.contacts;
+     delete from underclub.request_throttle;` (sessioni e link vanno via in
+     cascata con i contatti). Solo finché ci sono dati di prova: dopo
+     l'apertura non va più usato così;
+   - `MAINTENANCE_MODE` tolta o a `0` in Production, poi Redeploy;
+   - Search Console: proprietà di dominio e invio della sitemap.
+6. **Più avanti:**
+   - dati strutturati `MusicEvent` per ogni serata e un paragrafo vero in
+     `/info` (generi, sale, ex Pancho Villa, tavoli, eventi privati);
+   - pulizia in fondo alla migrazione 2026-10-01 (step 1, 1b, 1c, poi 2-5), più
+     semplice ora che il flusso vecchio è abbandonato;
+   - `About`, `Archive`, `Guests`: tenerle, toglierle o spostarle;
+   - `/lanyard-rapier` e `/demo/lanyard`: pubbliche o no;
+   - `GET /api/session` senza sessione: 401 o `200 null`;
+   - errori TypeScript nei log di build di Vercel (15, tipo "Property 'headers'
+     does not exist on type 'Request'" in `server/`): non bloccano, c'erano già
+     il 2026-10-01, in locale `tsc` passa; probabile causa i tipi condizionali
+     di `@types/node` 22 nel compilatore delle funzioni di Vercel;
+   - statistiche delle provenienze nell'admin (per ora basta sapere chi prenota
+     da RA, vedi `presenza-online.md`).
 
 ## Decisioni già prese (non ridiscutere)
 - Overbooking minimo accettato: le prenotazioni pending non tengono il posto.
 - I consensi non si cambiano dal sito: si revocano via email a `info@`.
 - Privacy di BotID: TODO futuro, non prioritario.
 - I segreti di Production sono diversi da quelli del Preview. `TICKET_SECRET` di
-  Production non va più cambiato dopo il passaggio.
+  Production non va più cambiato.
 - Nessun `rua=` nel DMARC: per il monitoraggio basta Postmaster.
-- Il flusso di prenotazione vecchio non si usa da mesi e non tornerà: le
-  prossime prenotazioni passeranno tutte dal flusso nuovo. Il recupero delle
-  prenotazioni legacy e il flag spento non vanno più curati.
+- Il flusso di prenotazione vecchio non si usa da mesi e non tornerà: recupero
+  delle prenotazioni legacy e flag spento non vanno più curati.
+- Il sito va sul dominio in manutenzione e si apre quando Lucio lo decide.
+- La root `underclub.it` è il dominio principale.
+- Statistiche rimandate: per ora basta `reservations.source` (`?src=`).
 
 ## Rilasci
 - `master` è il branch di lavoro: ogni push crea un preview con le env del
-  Preview (legate a `master`). `main` è il branch di produzione di Vercel:
-  si rilascia con `git push origin master:main`.
-- Il branch di produzione non può essere `master`: Vercel lo rifiuta perché
-  le env del Preview sono legate a quel branch.
+  Preview (legate a `master`). `main` è il branch di produzione: si rilascia
+  con `git push origin master:main` (di solito lo lancia Lucio).
+- Il branch di produzione non può essere `master`: Vercel lo rifiuta perché le
+  env del Preview sono legate a quel branch.
+- Preview di prova senza toccare le env del progetto: dalla **root del repo**
+  `VERCEL_ORG_ID=team_ZBmn3O0eWhlkzdw29iSyVLDv VERCEL_PROJECT_ID=prj_ts2sgVDwuMA52XRbmAY4YUWjH0D0 vercel deploy --yes`,
+  con `-e NOME=valore` per env solo di quel deploy (il progetto ha Root
+  Directory `apps/web`). I preview sono protetti: si leggono con `vercel curl`.
+  Vercel aggiunge `noindex` a tutte le pagine dei preview.
 
 ## Manutenzione (cose non ovvie)
-- Routing Middleware in `apps/web/middleware.ts`, logica in
+- Middleware in `apps/web/middleware.ts`, logica in
   `apps/web/server/maintenance.ts`. Con `MAINTENANCE_MODE=1`: pagine → 503 con
   la pagina di manutenzione, `/api/*` → 503 JSON; restano aperti il cron, i
-  file statici e `/ticket/*`. `?bypass=<segreto>` dà un cookie httpOnly
-  `uc_bypass` di 30 giorni (hash del segreto: cambiarlo revoca tutti).
-- Accendere o spegnere = cambiare la env + Redeploy (circa 1-2 minuti).
+  file statici e `/ticket/*`.
+- Link di accesso: `https://underclub.it/?bypass=<segreto>` (lo ha Lucio nel
+  password manager; la env non si rilegge). Dà un cookie httpOnly `uc_bypass`
+  di 30 giorni, valido solo per il dominio su cui lo si apre. Cambiare il
+  segreto revoca tutti i cookie: `vercel env rm` + `vercel env add` + Redeploy.
+- Accendere o spegnere = cambiare la env + Redeploy (1-2 minuti).
 - Gli anteprimatori dei link (WhatsApp, Facebook, Telegram, X, LinkedIn,
-  Slack, Discord) ricevono la stessa pagina con un 200: con il 503 scartano
-  la scheda di condivisione. Google e i visitatori restano sul 503.
-- Provato il 2026-10-02 su un preview CLI con le env solo di runtime
-  (`vercel deploy -e …`, lanciato dalla root del repo con `VERCEL_ORG_ID` e
-  `VERCEL_PROJECT_ID`, perché il progetto ha Root Directory `apps/web`), e
-  `vercel curl` per superare la protezione dei preview.
+  Slack, Discord) ricevono la stessa pagina con un 200: con il 503 scartano la
+  scheda di condivisione. Google e i visitatori restano sul 503.
 
 ## Infrastruttura (cose non ovvie)
-- **Supabase self-hosted:** VPS Hetzner `178.104.44.21`, host
+- **Supabase self-hosted:** VPS Hetzner `178.104.44.21` (Norimberga), host
   `supabase.luciogratani.it`, schema `underclub`. Documentazione in
   `~/Desktop/zukunft/server-vps/`. SQL via
   `ssh root@… "docker exec -i supabase-db psql -U supabase_admin -d postgres"`.
   Va usato `supabase_admin`, proprietario degli oggetti; `postgres` non è
   superuser.
-- **DNS di `underclub.it`:** la zona è su Vercel, nel team
-  `lucios-projects-aef0021a`, e si modifica con `vercel dns add`. Il dominio è
-  di Ezio (registrar): deve solo tenere i nameserver Vercel e rinnovarlo, ed è
-  già stato avvisato.
+- **DNS di `underclub.it`:** zona su Vercel, team `lucios-projects-aef0021a`,
+  si modifica con `vercel dns add`. Il dominio è di Ezio (registrar): tiene i
+  nameserver Vercel e lo rinnova. Mai `vercel domains rm`: toglierebbe il
+  dominio, con la zona, da tutto il team. I domini tra progetti si spostano
+  dalla dashboard.
 - **Permessi dell'assistente:** il classificatore della modalità auto blocca
-  l'SSH verso la VPS, le modifiche DNS e il `dig` subito dopo una modifica, e
-  anche la cancellazione di file locali. Si preparano i comandi, Lucio li lancia
-  e incolla l'output. Lettura delle env e deploy di preview con la Vercel CLI
-  invece funzionano.
+  l'SSH verso la VPS e le modifiche DNS. Si preparano i comandi, Lucio li lancia
+  e incolla l'output. Lettura delle env, deploy di preview e `vercel curl`
+  funzionano. Chrome (estensione Claude) è loggato anche su RA come Underclub.
 
 ## Come lavorare con l'utente
 - Rispondere in italiano. Il CLAUDE.md globale è attivo: `## Summary` in testa,
   risposte concise, niente push né branch nuovi senza richiesta.
-- Mai toccare Supabase, Vercel o Resend reali senza un ok esplicito, e
-  chiedere conferma per ogni passo irreversibile.
+- Mai toccare Supabase, Vercel o Resend reali senza un ok esplicito, e chiedere
+  conferma per ogni passo irreversibile.
+- I segreti non passano mai dalla chat: comandi con `openssl rand` o `pbpaste`
+  in pipe verso `vercel env add … --sensitive`.
+- Testi nuovi per gli utenti: bozza marcata `COPY-DRAFT`, approvazione di
+  Lucio, poi si toglie il marcatore. Oggi nel codice non ce ne sono.
 
 ## Trappole note dell'ambiente
 - **Postgres locale per i test:** `supabase/tests/run.sh` (con `--keep` resta

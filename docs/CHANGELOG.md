@@ -5,7 +5,7 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
-## 2026-10-02 — Testi approvati, env di Production, manutenzione
+## 2026-10-02 — Sito in produzione in manutenzione, SEO, presenza online
 
 ### Aggiunto
 - **SEO e condivisione**: favicon e icone, manifest, scheda Open Graph con
@@ -14,12 +14,13 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
   e nella pagina di manutenzione.
 - **Modalità manutenzione** (Routing Middleware): `MAINTENANCE_MODE=1` chiude
   pagine e API con un 503, lascia aperti cron, file statici e ticket; il link
-  `?bypass=` con `MAINTENANCE_BYPASS_SECRET` fa entrare il team. Provata su un
-  preview.
+  `?bypass=` con `MAINTENANCE_BYPASS_SECRET` fa entrare il team. Pagina con il
+  logo del club e i contatti (email, Instagram, Facebook, WhatsApp).
+- `docs/presenza-online.md`: dati del locale, bio, Google, RA, link tracciati.
 
 ### Produzione
 - Env di Production caricate su `underclub-2-0-web` (segreti nuovi, API key
-  Resend dedicata). Il deploy di produzione non è ancora partito.
+  Resend dedicata), comprese quelle della manutenzione.
 - Cancellate dal DB di produzione le prenotazioni, i contatti e i contatori
   delle prove sul Preview.
 - Primo deploy di produzione del sito nuovo, da `main` (branch di rilascio),
@@ -27,8 +28,19 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 - `underclub.it` e `www` spostati da `underclub` a `underclub-2-0-web`: la root
   è il dominio principale, `www` reindirizza con un 308. Prenotazione completa
   provata dal dominio vero con il link di accesso.
+- Fuori dal repo: pagina del locale su Resident Advisor
+  (https://ra.co/clubs/304274), in attesa del supporto RA; trovata la scheda
+  Google "UNDERCLUB", da rivendicare.
+
+### Corretto
+- Con la manutenzione, WhatsApp e Facebook non mostravano la scheda di
+  condivisione perché ricevevano un 503: ora gli anteprimatori dei link
+  ricevono la pagina con un 200.
+- `/info`: i link a Instagram e Facebook puntavano alle home generiche.
 
 ### Cambiato
+- Rilasci: `main` è il branch di produzione (`git push origin master:main`),
+  `master` resta il branch di lavoro con i preview.
 - Approvati tutti i testi `COPY-DRAFT` (UI, email, privacy, check-in admin) e
   tolti i marcatori.
 - Privacy: tra i responsabili, Hetzner (il server del database) sostituisce
