@@ -86,6 +86,14 @@ export default function Info() {
               >
                 Facebook
               </a>
+              <a
+                href="https://whatsapp.com/channel/0029VbEFh874IBhKWpMzGh3M"
+                target="_blank"
+                rel="noreferrer"
+                className="block text-[12vw] font-bold leading-[0.95] uppercase"
+              >
+                WhatsApp
+              </a>
             </div>
           </div>
 

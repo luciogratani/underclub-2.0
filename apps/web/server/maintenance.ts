@@ -122,6 +122,17 @@ const MAINTENANCE_PAGE = `<!doctype html>
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#111111">
 <title>Underclub — back soon</title>
+<link rel="icon" href="/favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Underclub">
+<meta property="og:url" content="https://underclub.it/">
+<meta property="og:title" content="Underclub — underground techno club in Sassari">
+<meta property="og:description" content="Techno, house and hard bounce nights in Sassari, mid-October to May. Formerly Pancho Villa. Book your reduced ticket online, pay at the door.">
+<meta property="og:image" content="https://underclub.it/og.png">
+<meta property="og:image:width" content="2400">
+<meta property="og:image:height" content="1260">
+<meta name="twitter:card" content="summary_large_image">
 <style>
 @font-face{font-family:"Clash Display";src:url("/fonts/ClashDisplay-Variable.woff2") format("woff2");font-weight:200 700;font-display:swap}
 *{box-sizing:border-box}
@@ -147,6 +158,7 @@ p{font-size:clamp(1.05rem,4.5vw,1.5rem);font-weight:300;line-height:1.3;margin:1
 <li><a href="mailto:info@underclub.it"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></svg>info@underclub.it</a></li>
 <li><a href="https://www.instagram.com/under_club_ss/" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r=".6" fill="currentColor"/></svg>@under_club_ss</a></li>
 <li><a href="https://www.facebook.com/profile.php?id=61594853785767" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M13.2 21v-7.2h2.3l.4-2.7h-2.7V9.4c0-.8.3-1.4 1.4-1.4h1.4V5.6c-.3 0-1.1-.1-2-.1-2 0-3.4 1.2-3.4 3.5v2.1H8.3v2.7h2.3V21"/></svg>Underclub</a></li>
+<li><a href="https://whatsapp.com/channel/0029VbEFh874IBhKWpMzGh3M" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.7a8.5 8.5 0 0 1-12.4 7.6L3.5 20.5l1.3-4.4a8.5 8.5 0 1 1 15.7-4.4z"/><path d="M9.2 8.2c-.4.9-.3 2 .4 3.2a7 7 0 0 0 3 2.9c1.2.6 2.3.7 3.1.3l.5-1.3-1.9-1-.9.8a5 5 0 0 1-2.4-2.4l.8-.9-1-1.9z"/></svg>Underclub</a></li>
 </ul>
 </body>
 </html>
