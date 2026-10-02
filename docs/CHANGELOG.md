@@ -5,6 +5,52 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-02 (sera) — Home senza serate, caricamento, fine serata, chiusura prenotazioni
+
+Branch `feat/home-no-events`. La migrazione non è ancora applicata in produzione
+e il sito non è ancora rilasciato: vedi `handoff.md`, punto 1b.
+
+### Aggiunto
+- **Fine serata unica:** una serata vale fino alle 06:00 (ora di Roma) del
+  giorno dopo la sua data. La regola è `event_ends_at(date)` ed è usata da
+  prenotazione, conferma, MY BOOKINGS, disdetta, recupero legacy e ticket.
+- **Chiusura delle prenotazioni online per serata:** colonna
+  `events.booking_closes_at`. Se è vuota vale il default delle 18:00 della data;
+  non c'è nessun vincolo nel DB, ma un valore oltre la fine serata viene
+  limitato a lei. La regola è `event_booking_deadline(date, closes_at)`. Un
+  pending chiesto prima della chiusura si conferma anche dopo.
+- **Computed fields** per il sito su `events`: `ends_at`, `booking_deadline`,
+  `is_over`. Il browser non fa più calcoli sulle date.
+- **`open_public_ticket` restituisce `event_ended`:** a serata finita la pagina
+  ticket mostra un avviso al posto del QR, e il ticket non viene più segnato
+  come aperto.
+- **Home scelta una volta sola dopo il caricamento:**
+  - finché non rispondono la serata e la sessione (al massimo 5 s) si vede solo
+    l'anello `UNDERCLUB.IT - `, senza bottoni né menu;
+  - poi parte l'intro;
+  - senza serata pubblicata, una sola schermata con il ciclo
+    ` < NEXT DATE > ??.??` e la pill `FOLLOW US →`, che apre i social nel
+    pannello lime del menu;
+  - in caso di errore o timeout, stessa home con un messaggio neutro.
+- **Book Now chiuso:** dopo la chiusura, o senza formule, al posto di
+  `BOOK NOW` compaiono "BOOKING CLOSED" e "tickets at the door"; il form non è
+  più raggiungibile. Un `not_bookable` ricevuto alla conferma ricarica la
+  serata.
+- `supabase/tests/13-night-end-booking-close.sql`.
+
+### Cambiato
+- Il guscio del pannello lime (fade, focus, Esc, chiusura) è ora
+  `OverlayPanel`, usato dal menu e da FOLLOW US.
+- I link social stanno in `src/lib/social.ts`, usato anche da `/info`.
+- `2026-10-02-booking-endpoints.sql` non va più rieseguito dopo la nuova
+  migrazione: `run.sh` riesegue solo quella.
+
+### Tolto
+- I dati finti: la serata di esempio in `NextDate`, le tre formule di Book Now,
+  la conferma "YOU'RE IN!" senza salvataggio e i ripieghi dell'anello.
+
+---
+
 ## 2026-10-02 — Sito in produzione in manutenzione, SEO, presenza online
 
 ### Aggiunto

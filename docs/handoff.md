@@ -43,55 +43,54 @@ BOOKINGS) sul DB di produzione.
 ## Prossimi passi
 1. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
    pannello Cron). Non ancora fatto.
-1b. **Home senza serate e caricamento** (da fare prima dell'apertura). Oggi,
-   senza serata pubblicata, il sito finge: `NextDate` mostra "SATURDAY MARCH 07
-   — TECHNOROOM: GIRLS POWER", Book Now tre formule di esempio, la conferma dice
-   "YOU'RE IN!" senza salvare (`apps/web/src/App.tsx`, ramo "No event loaded"),
-   e l'anello (`TextRing.tsx`) ha i ripieghi `??.??`, `TECHNOROOM`, `07.03`.
-   Deciso con Lucio il 2026-10-02:
-   - **Due home separate,** scelte una volta sola in `App`: il percorso di oggi
-     (Hero → Next Date → Book Now → conferma) se c'è una serata, una home
-     "senza serate" a schermata unica se non c'è (stessi elementi visivi della
-     Hero, testo tipo "no dates announced yet", Instagram, Facebook, WhatsApp,
-     menu, bottone ticket se la persona ha ancora una prenotazione valida).
-     Dati finti e ripieghi si tolgono dal codice.
-   - **Caricamento:** finché non rispondono sia la prossima serata sia
-     `/api/session`, si vede solo l'anello con `UNDERCLUB.IT - ` ripetuto (4
-     volte, giro completo, senza ciclo); niente bottoni (ticket, NEXT DATE),
-     niente menu (oggi compare troppo presto), cornice aperta. Poi parte l'intro.
-     Tempo massimo ~5 s: oltre, si va alla home senza serate con un messaggio
-     neutro; sessione che non risponde = non loggato.
-   - **Anello con una serata:** comportamento di oggi, tre frasi in ciclo, ma
-     parte solo a dati arrivati.
-   - **Anello senza serate:** ciclo a due frasi, `UNDERCLUB.IT - ` e
-     ` < NEXT DATE > ??.??` (20 caratteri, divide i 60 dell'anello).
-   - **Fine serata (deciso):** una serata resta "in corso" fino alle **06:00
-     del giorno dopo** la sua data (ora di Roma), ovunque: home, MY BOOKINGS,
-     bottone ticket, disdetta, prenotazione, pagina ticket. Oggi invece tutto
-     scatta a mezzanotte (`e.date >= oggi` in SQL: `ep_session_overview`,
-     `ep_request_booking`, `ep_cancel_reservation`, attivazione), cioè mezz'ora
-     prima dell'apertura delle porte; e `fetchNextEvent` in `apps/web/src/lib/api.ts`
-     usa la data UTC del browser invece di Roma. Va centralizzato (una funzione
-     SQL tipo `event_ends_at(date)` usata da tutti, e la stessa regola nel web).
-   - **Chiusura delle prenotazioni online (deciso):** per serata, con un valore
-     di default alle **18:00 della data della serata** (6 ore e mezza prima
-     dell'apertura delle 00:30). Si può scegliere giorno e ora tra il giorno
-     prima e le 06:00 di fine serata. Interpretazione da confermare con Lucio:
-     colonna `events.booking_closes_at timestamptz` (null = default),
-     intervallo ammesso [data − 1 giorno 00:00, data + 1 giorno 06:00]; per ora
-     si imposta in SQL, poi dall'admin. Da decidere ancora: cosa mostra la home
-     tra la chiusura e la fine serata (proposta: la serata resta in home con
-     Book Now chiuso e "online booking closed, tickets at the door").
-   - **Ticket passato aperto dall'email (deciso):** dopo la fine serata la
-     pagina `/ticket/…` non mostra il QR ma un avviso carino, bozza
-     `COPY-DRAFT`: "hey, this ticket has expired! hope you made good use of
-     it!" (il sito è in inglese).
-   - **Scanner (rimandato all'admin):** avviso per un ticket di un'altra serata;
-     oggi `scan_ticket_check_in` non controlla la data.
-   - **Home senza serate (deciso: opzione A):** vedi sotto, "Home senza
-     serate: dove va il testo".
-   - La serata di prova nel DB si cancella dopo queste modifiche, per vedere
-     subito la home nuova.
+1b. **Home senza serate, caricamento, fine serata, chiusura prenotazioni**
+   (fatto il 2026-10-02 sera sul branch `feat/home-no-events`, mai pushato; da
+   rivedere e rilasciare). Il dettaglio è nel CHANGELOG. In breve:
+   - **Fine serata:** le 06:00 di Roma del giorno dopo la data, ovunque.
+   - **Chiusura online:** colonna `events.booking_closes_at`, default 18:00
+     della data, senza vincolo nel DB. Un pending chiesto prima della chiusura
+     si conferma anche dopo.
+   - **Home:** prima solo l'anello che carica, poi una sola delle due home. Tra
+     la chiusura e la fine serata la serata resta in home con "BOOKING CLOSED".
+   - **Ticket:** a serata finita mostra il messaggio "expired".
+
+   **Testi `COPY-DRAFT` da approvare:**
+   - "we couldn't load the dates. try again later." (`App.tsx`);
+   - "BOOKING CLOSED" e "tickets at the door" (`NextDate.tsx`);
+   - "hey, this ticket has expired! hope you made good use of it!"
+     (`Ticket.tsx`).
+
+   **Da vedere nella revisione:**
+   - tinta della pill chiusa (lime al 45 %);
+   - posizione del messaggio di errore (tra l'anello e la pill);
+   - il pannello FOLLOW US non riporta il focus sulla pill quando si chiude.
+
+   **Passi per il rilascio, in quest'ordine:**
+   1. Migrazione in produzione (la lancia Lucio). È compatibile con il sito
+      oggi online, quindi va applicata **prima** del rilascio:
+      ```bash
+      ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-02-night-end-booking-close.sql
+      ```
+      Controllo: deve tornare la serata di prova con `booking_deadline` e
+      `ends_at`:
+      ```bash
+      ssh root@178.104.44.21 "docker exec -i supabase-db psql -U supabase_admin -d postgres -c \"select title, date, underclub.booking_deadline(e), underclub.ends_at(e), underclub.is_over(e) from underclub.events e\""
+      ```
+   2. Merge di `feat/home-no-events` in `master` e push di `master`: il preview
+      usa lo stesso DB, quindi si prova lì. Poi `git push origin master:main`.
+   3. Cancellazione della serata di prova ("TECHNOROOM: Solita serata"), così
+      la home mostra subito FOLLOW US. Prima le sue prenotazioni (le
+      `reservations` non vanno in cascata; i link di attivazione sì):
+      ```bash
+      ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" <<'SQL'
+      delete from underclub.reservations r using underclub.events e
+       where e.id = r.event_id and e.title = 'TECHNOROOM: Solita serata';
+      delete from underclub.events where title = 'TECHNOROOM: Solita serata';
+      SQL
+      ```
+   - **Ancora aperto:** lo scanner (avviso per un ticket di un'altra serata;
+     `scan_ticket_check_in` non controlla la data) passa all'admin. Anche la
+     chiusura impostata dall'admin arriva con il CRUD degli eventi.
 2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
    Lucio dirà quali; in coda c'è la revisione del menu (fatto in autonomia il
    2026-10-01, mai visto da Lucio: menu nascosto su Book Now, bottone ticket in
@@ -109,10 +108,8 @@ BOOKINGS) sul DB di produzione.
    letto dal middleware con una cache di ~30 s; `MAINTENANCE_MODE` resta come
    override; cambia solo `readMaintenanceConfig`).
 5. **Apertura al pubblico (quando lo decide Lucio):**
-   - togliere o sostituire la **serata di prova** pubblicata nel DB di
-     produzione ("TECHNOROOM: Solita serata", giovedì 11 novembre, quindi
-     probabilmente 2027, dalle 04:10, formule da 10/15/20 €): oggi è quella
-     che il sito mostra come prossima data;
+   - **serata di prova** ("TECHNOROOM: Solita serata"): se non è già stata
+     cancellata al punto 1b, toglierla con il comando che si trova lì;
    - cancellare i dati di prova, in una transazione come `supabase_admin`:
      `delete from underclub.reservations; delete from underclub.contacts;
      delete from underclub.request_throttle;` (sessioni e link vanno via in
@@ -135,7 +132,7 @@ BOOKINGS) sul DB di produzione.
    - statistiche delle provenienze nell'admin (per ora basta sapere chi prenota
      da RA, vedi `presenza-online.md`).
 
-## Home senza serate: dove va il testo (scelta A, 2026-10-02)
+## Home senza serate: dove va il testo (scelta A, 2026-10-02, fatta)
 La Hero di oggi: card lime al 95 %×88 % con l'anello che gira, pill nera
 "NEXT DATE →" in basso al centro, bottone ticket in basso a sinistra, menu in
 basso a destra. Il centro dell'anello è vuoto.
@@ -212,7 +209,8 @@ In entrambi i casi menu e bottone ticket restano dove sono.
 - I segreti non passano mai dalla chat: comandi con `openssl rand` o `pbpaste`
   in pipe verso `vercel env add … --sensitive`.
 - Testi nuovi per gli utenti: bozza marcata `COPY-DRAFT`, approvazione di
-  Lucio, poi si toglie il marcatore. Oggi nel codice non ce ne sono.
+  Lucio, poi si toglie il marcatore. Oggi ce ne sono tre, sul branch
+  `feat/home-no-events` (vedi 1b).
 
 ## Trappole note dell'ambiente
 - **Postgres locale per i test:** `supabase/tests/run.sh` (con `--keep` resta
