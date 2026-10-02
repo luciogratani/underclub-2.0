@@ -114,7 +114,6 @@ export function maintenanceResponse(decision: Exclude<MaintenanceDecision, { kin
 
 // Self-contained: the club's textmark inline, and the site's own font, which
 // stays reachable as a static file.
-// COPY-DRAFT
 const MAINTENANCE_PAGE = `<!doctype html>
 <html lang="en">
 <head>
