@@ -142,8 +142,8 @@ basso a destra. Il centro dell'anello è vuoto.
 - **A (scelta da Lucio):** stessa Hero; al posto della pill "NEXT DATE →" una pill
   uguale "STAY TUNED" o "FOLLOW US" che apre un pannello come quello del menu,
   con Instagram, Facebook e WhatsApp. L'anello (` < NEXT DATE > ??.??`) dice già
-  che non ci sono date: nessun altro testo. Etichetta della pill da
-  confermare con Lucio ("STAY TUNED" o "FOLLOW US"), bozza `COPY-DRAFT`.
+  che non ci sono date: nessun altro testo. Etichetta della pill:
+  **"FOLLOW US"** (scelta da Lucio), con la freccia come "NEXT DATE".
 - **B (scartata):** testo breve dentro l'anello, al centro ("no dates yet" + una riga), e
   sotto, al posto della pill, una riga di icone social cliccabili.
 In entrambi i casi menu e bottone ticket restano dove sono.
