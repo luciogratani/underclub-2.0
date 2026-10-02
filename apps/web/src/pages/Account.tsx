@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import type { MyReservation } from "@underclub/shared";
-import { BOOKING_API } from "../lib/flags";
 import { useSession } from "../lib/session";
 import { BookingApiError, cancelReservation } from "../lib/bookingApi";
 import SiteMenu from "../components/SiteMenu";
@@ -36,11 +35,6 @@ function cancelErrorMessage(err: unknown): string {
 }
 
 export default function Account() {
-  if (!BOOKING_API) return <Navigate to="/" replace />;
-  return <AccountPage />;
-}
-
-function AccountPage() {
   const { session, loading, logout } = useSession();
   const [logoutError, setLogoutError] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);

@@ -3,7 +3,6 @@ import {
   parseDdMmYyyyToIso,
   type PublicReservationFormInput,
   type PublicEventView,
-  type CreateReservationResult,
   type BookingRequest,
 } from "@underclub/shared";
 import Hero from "./components/Hero";
@@ -15,8 +14,7 @@ import ReservationSummary, { type ReservationSummaryVariant } from "./components
 import DataNoticeOverlay from "./components/DataNoticeOverlay";
 import ErrorToast, { type ErrorToastData } from "./components/ErrorToast";
 import SiteMenu from "./components/SiteMenu";
-import { fetchNextEvent, createReservation, type NextEventResult } from "./lib/api";
-import { BOOKING_API } from "./lib/flags";
+import { fetchNextEvent, type NextEventResult } from "./lib/api";
 import { getBookingSource } from "./lib/source";
 import { BookingApiError, book } from "./lib/bookingApi";
 import { nextTicketUrl, useSession } from "./lib/session";
@@ -32,7 +30,7 @@ const DATA_NOTICE_FADE_MS = 360;
 const DATA_NOTICE_SESSION_KEY = "underclub.dataNoticeAccepted";
 const DEBUG_LOG = import.meta.env.DEV;
 
-/** Booking API error code → toast copy (flag ON only). */
+/** Booking API error code → toast copy. */
 function toBookingErrorToast(err: unknown): ErrorToastData {
   const code = err instanceof BookingApiError ? err.code : "server_error";
   switch (code) {
@@ -121,16 +119,15 @@ function App() {
   const [followUsOpen, setFollowUsOpen] = useState(false);
   // Re-render at the booking deadline, so BOOK NOW turns into BOOKING CLOSED.
   const [, setDeadlineTick] = useState(0);
-  const [reservationResult, setReservationResult] = useState<CreateReservationResult | null>(null);
   const [confirmedData, setConfirmedData] = useState<PublicReservationFormInput | null>(null);
   const [confirmedEventDate, setConfirmedEventDate] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<ErrorToastData | null>(null);
-  // Booking API (flag ON): passwordless session (shared app-wide) + outcome of the last booking.
+  // Passwordless session (shared app-wide) + outcome of the last booking.
   const { session, loading: sessionLoading, refresh: refreshSession, logout, forget: forgetSession } = useSession();
-  const sessionContact = BOOKING_API ? session?.contact ?? null : null;
-  const homeTicketUrl = BOOKING_API ? nextTicketUrl(session) : null;
+  const sessionContact = session?.contact ?? null;
+  const homeTicketUrl = nextTicketUrl(session);
   const [menuOpen, setMenuOpen] = useState(false);
-  // Flag ON only: the menu button steps aside on Book Now, where it would sit on the form.
+  // The menu button steps aside on Book Now, where it would sit on the form.
   const [activeSection, setActiveSection] = useState(0);
   const [summaryVariant, setSummaryVariant] = useState<ReservationSummaryVariant>("in");
   const [bookingTicketUrl, setBookingTicketUrl] = useState<string | null>(null);
@@ -233,81 +230,59 @@ function App() {
       return false;
     }
 
-    if (BOOKING_API) {
-      const req: BookingRequest = {
-        eventId: nextEvent.id,
-        entryId,
-        consentMarketing: consents.marketing,
-        consentProfiling: consents.profiling,
-        source: getBookingSource(),
-      };
-      const normalizedEmail = data.email.trim().toLowerCase();
-      if (!sessionContact) {
-        req.fullName = data.fullName.trim();
-        req.dateOfBirth = parseDdMmYyyyToIso(data.dateOfBirth);
-        req.email = normalizedEmail;
-      }
-
-      try {
-        const res = await book(req);
-        // Keep entry availability in sync after each booking.
-        void refreshNextEvent();
-        setConfirmedEventDate(nextEvent.date);
-        // New reservation (or none, for check_email): keep menu / icon / account in sync.
-        void refreshSession();
-        if (res.status === "check_email") {
-          setSummaryVariant("check_email");
-          setBookingTicketUrl(null);
-          setConfirmedData({ ...data, email: normalizedEmail });
-        } else {
-          setSummaryVariant(res.status === "confirmed" ? "in" : "already_booked");
-          setBookingTicketUrl(res.ticketUrl);
-          setConfirmedData({
-            fullName: sessionContact?.fullName ?? data.fullName,
-            dateOfBirth: "",
-            email: sessionContact?.email ?? normalizedEmail,
-          });
-        }
-        return true;
-      } catch (err: unknown) {
-        if (err instanceof BookingApiError) {
-          if (err.code === "sold_out" || err.code === "invalid_entry" || err.code === "not_bookable") {
-            void refreshNextEvent();
-          }
-          // Session expired between page load and confirm: the server fell
-          // back to the anonymous path without form data. Show the form again.
-          if (err.code === "invalid_input" && sessionContact) {
-            forgetSession();
-            showBookingError({
-              title: "You've been logged out",
-              message: "Fill in your details to book.",
-              code: err.code,
-            });
-            return false;
-          }
-        }
-        showBookingError(toBookingErrorToast(err));
-        return false;
-      }
+    const req: BookingRequest = {
+      eventId: nextEvent.id,
+      entryId,
+      consentMarketing: consents.marketing,
+      consentProfiling: consents.profiling,
+      source: getBookingSource(),
+    };
+    const normalizedEmail = data.email.trim().toLowerCase();
+    if (!sessionContact) {
+      req.fullName = data.fullName.trim();
+      req.dateOfBirth = parseDdMmYyyyToIso(data.dateOfBirth);
+      req.email = normalizedEmail;
     }
 
     try {
-      const result = await createReservation(data, nextEvent.id, entryId);
-      setReservationResult(result);
-      // Keep entry availability in sync after each successful booking.
+      const res = await book(req);
+      // Keep entry availability in sync after each booking.
       void refreshNextEvent();
-      setSummaryVariant("in");
-      setConfirmedData(data);
       setConfirmedEventDate(nextEvent.date);
+      // New reservation (or none, for check_email): keep menu / icon / account in sync.
+      void refreshSession();
+      if (res.status === "check_email") {
+        setSummaryVariant("check_email");
+        setBookingTicketUrl(null);
+        setConfirmedData({ ...data, email: normalizedEmail });
+      } else {
+        setSummaryVariant(res.status === "confirmed" ? "in" : "already_booked");
+        setBookingTicketUrl(res.ticketUrl);
+        setConfirmedData({
+          fullName: sessionContact?.fullName ?? data.fullName,
+          dateOfBirth: "",
+          email: sessionContact?.email ?? normalizedEmail,
+        });
+      }
       return true;
     } catch (err: unknown) {
-      const e = err as { message?: string; details?: string; code?: string };
-      showBookingError({
-        title: "Reservation failed",
-        message: e.message || "Unable to save. Please try again.",
-        technicalDetail: e.details,
-        code: e.code,
-      });
+      if (err instanceof BookingApiError) {
+        if (err.code === "sold_out" || err.code === "invalid_entry" || err.code === "not_bookable") {
+          void refreshNextEvent();
+        }
+        // Session expired between page load and confirm: the server fell
+        // back to the anonymous path without form data. Show the form again.
+        if (err.code === "invalid_input" && sessionContact) {
+          forgetSession();
+          showBookingError({
+            title: "You've been logged out",
+            message: "Fill in your details to book.",
+            code: err.code,
+          });
+          return false;
+        }
+      }
+      showBookingError(toBookingErrorToast(err));
       return false;
     }
   };
@@ -334,7 +309,7 @@ function App() {
     navigateToSection(0);
   };
 
-  const summaryTicketUrl = BOOKING_API ? bookingTicketUrl : reservationResult?.ticketUrl ?? null;
+  const summaryTicketUrl = bookingTicketUrl;
 
   const openTicketInNewTab = () => {
     if (!summaryTicketUrl || typeof window === "undefined") return;
@@ -405,7 +380,7 @@ function App() {
           0,
           Math.min(sectionCountRef.current - 1, Math.round(elV.scrollTop / h))
         );
-        if (BOOKING_API) setActiveSection(currentSectionRef.current);
+        setActiveSection(currentSectionRef.current);
       }
       // While programmatic navigation from Hero -> NextDate starts,
       // ignore top resets until we've actually left the first section.
@@ -622,7 +597,7 @@ function App() {
               onConfirmed={goToSummary}
               isExited={bookNowExited}
               entries={nextEvent.entries}
-              sessionContact={BOOKING_API ? sessionContact : null}
+              sessionContact={sessionContact}
               onLogout={handleLogout}
             />
           </div>
@@ -637,7 +612,6 @@ function App() {
               fullName={confirmedData?.fullName ?? ""}
               email={confirmedData?.email ?? ""}
               eventDate={confirmedEventDate ?? undefined}
-              reservationId={reservationResult?.reservationId}
             />
           </div>
         </>
@@ -670,13 +644,11 @@ function App() {
         onAccept={handleAcceptDataNotice}
       />
 
-      {BOOKING_API && (
-        <SiteMenu
-          hidden={dataNoticeVisible || dataNoticeClosing || !heroCtaVisible || activeSection === 2}
-          onOpenChange={handleMenuOpenChange}
-          onLogout={handleLogout}
-        />
-      )}
+      <SiteMenu
+        hidden={dataNoticeVisible || dataNoticeClosing || !heroCtaVisible || activeSection === 2}
+        onOpenChange={handleMenuOpenChange}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import TextRing from "./TextRing";
 import HeroButton from "./HeroButton";
 import TicketIcon from "./icons/Ticket";
-import { BOOKING_API } from "../lib/flags";
 
 type HeroProps = {
   /** Phrases of the ring (see TextRing). */
@@ -15,7 +14,7 @@ type HeroProps = {
   showButtons?: boolean;
   /** Short line in the middle of the ring (e.g. the dates could not be loaded). */
   notice?: string | null;
-  /** Flag ON: ticket of the next confirmed reservation; shows the ticket button. */
+  /** Ticket of the next confirmed reservation; shows the ticket button. */
   ticketUrl?: string | null;
 };
 
@@ -71,7 +70,7 @@ export default function Hero({
           </div>
         )}
       </div>
-      {BOOKING_API && ticketUrl && (
+      {ticketUrl && (
         // Bottom left, mirroring the menu button (bottom right).
         <a
           href={ticketUrl}

@@ -1,11 +1,10 @@
 /**
- * Passwordless session shared by the whole app (flag ON only): one fetch of
+ * Passwordless session shared by the whole app: one fetch of
  * `GET /api/session` feeds the home (BookNow, Hero ticket icon), the menu and
- * `/account`. With the flag off the provider never fetches and `session` stays null.
+ * `/account`.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { SessionResponse } from "@underclub/shared";
-import { BOOKING_API } from "./flags";
 import { fetchSession, logout as logoutRequest } from "./bookingApi";
 
 type SessionState = {
@@ -22,21 +21,7 @@ type SessionState = {
 
 const SessionContext = createContext<SessionState | null>(null);
 
-// Flag OFF: no session, nothing to fetch (and none of the code below in the bundle).
-const NO_SESSION: SessionState = {
-  session: null,
-  loading: false,
-  refresh: async () => null,
-  logout: async () => {},
-  forget: () => {},
-};
-
 export function SessionProvider({ children }: { children: ReactNode }) {
-  if (!BOOKING_API) return <SessionContext.Provider value={NO_SESSION}>{children}</SessionContext.Provider>;
-  return <LiveSessionProvider>{children}</LiveSessionProvider>;
-}
-
-function LiveSessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const sessionRef = useRef<SessionResponse | null>(null);

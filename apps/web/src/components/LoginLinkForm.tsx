@@ -7,7 +7,7 @@ type LoginLinkFormProps = {
   submitLabel: string;
 };
 
-/** Email → `POST /api/auth/login-link` → "check your inbox" (flag ON pages, lime background). */
+/** Email → `POST /api/auth/login-link` → "check your inbox" (lime background). */
 export default function LoginLinkForm({ submitLabel }: LoginLinkFormProps) {
   const [email, setEmail] = useState("");
   const [focused, setFocused] = useState(false);

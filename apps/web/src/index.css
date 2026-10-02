@@ -287,7 +287,7 @@ body {
   opacity: 0.75;
 }
 
-/* Site menu (flag ON): round button bottom right + full-screen lime overlay.
+/* Site menu: round button bottom right + full-screen lime overlay.
  * The overlay reuses .data-notice-overlay / .data-notice-overlay-exit; it sits
  * above the page and the button but below the error toast (z 199) and the
  * data notice (z 260). */

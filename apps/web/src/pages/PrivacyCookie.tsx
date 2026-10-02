@@ -1,5 +1,3 @@
-import { BOOKING_API } from "../lib/flags";
-
 export default function PrivacyCookie() {
   return (
     <section
@@ -36,21 +34,12 @@ export default function PrivacyCookie() {
         </h1>
 
         <p className="mt-5 max-w-prose font-sans text-base leading-relaxed opacity-75">
-          {BOOKING_API ? (
-            <>
-              In due parole: chiediamo i dati che ci servono per farti entrare.
-              Niente tracciamento e niente pubblicità; email promozionali e
-              profilazione solo se ce lo chiedi tu, con due consensi separati.
-            </>
-          ) : (
-            <>
-              In due parole: chiediamo i dati che ci servono per farti entrare,
-              nient'altro. Niente tracciamento, niente marketing, niente pubblicità.
-            </>
-          )}
+          In due parole: chiediamo i dati che ci servono per farti entrare.
+          Niente tracciamento e niente pubblicità; email promozionali e
+          profilazione solo se ce lo chiedi tu, con due consensi separati.
         </p>
         <p className="mt-2 font-sans text-xs uppercase tracking-wide opacity-50">
-          Ultimo aggiornamento: {BOOKING_API ? "2 ottobre 2026" : "17 aprile 2026"}
+          Ultimo aggiornamento: 2 ottobre 2026
         </p>
 
         <div className="mt-12 space-y-12 font-sans">
@@ -93,20 +82,12 @@ export default function PrivacyCookie() {
               tecniche legate al biglietto: il momento in cui lo apri sul tuo
               telefono e quello in cui il QR viene scansionato all'ingresso.
             </p>
-            {BOOKING_API ? (
-              <p>
-                Non raccogliamo documenti d'identità, numero di telefono, dati di
-                pagamento o cronologia di navigazione. Usiamo lo storico delle
-                tue prenotazioni per la profilazione solo se ci dai il consenso
-                facoltativo descritto più sotto.
-              </p>
-            ) : (
-              <p>
-                Non raccogliamo documenti d'identità, numero di telefono, dati di
-                pagamento, indirizzo IP, cronologia di navigazione o dati di
-                profilazione.
-              </p>
-            )}
+            <p>
+              Non raccogliamo documenti d'identità, numero di telefono, dati di
+              pagamento o cronologia di navigazione. Usiamo lo storico delle
+              tue prenotazioni per la profilazione solo se ci dai il consenso
+              facoltativo descritto più sotto.
+            </p>
           </PolicySection>
 
           <PolicySection label="why we collect them" title="Perché li trattiamo">
@@ -122,125 +103,109 @@ export default function PrivacyCookie() {
               </li>
               <li>recapitarti il biglietto digitale via email</li>
             </ul>
-            {BOOKING_API ? (
-              <p>
-                Email promozionali e profilazione sono facoltative e richiedono
-                ciascuna un consenso esplicito e separato: le trovi descritte
-                nella sezione sui consensi.
-              </p>
-            ) : (
-              <p>
-                Non facciamo marketing, non mandiamo newsletter, non profiliamo.
-                Se un giorno decidessimo di farlo, te lo chiederemmo con un
-                consenso esplicito e separato da questa informativa.
-              </p>
-            )}
+            <p>
+              Email promozionali e profilazione sono facoltative e richiedono
+              ciascuna un consenso esplicito e separato: le trovi descritte
+              nella sezione sui consensi.
+            </p>
           </PolicySection>
 
-          {BOOKING_API && (
-            <PolicySection
-              label="your account"
-              title="Accesso senza password"
-            >
-              <p>
-                Per prenotare non serve una password. La prima volta ci lasci
-                nome, data di nascita ed email e ti mandiamo un link monouso,
-                valido 30 minuti: aprendolo confermi la prenotazione e accedi.
-                Finché il link non viene aperto la prenotazione resta in
-                attesa e non ti garantisce il posto.
-              </p>
-              <p>
-                Dopo l'accesso il sito ti riconosce e puoi prenotare le serate
-                successive senza compilare di nuovo il modulo. Se il tuo
-                dispositivo non ti riconosce più, puoi chiedere un nuovo link
-                con la stessa email. Questo trattamento serve a fornirti il
-                servizio che ci chiedi (art. 6.1.b GDPR).
-              </p>
-            </PolicySection>
-          )}
+          <PolicySection
+            label="your account"
+            title="Accesso senza password"
+          >
+            <p>
+              Per prenotare non serve una password. La prima volta ci lasci
+              nome, data di nascita ed email e ti mandiamo un link monouso,
+              valido 30 minuti: aprendolo confermi la prenotazione e accedi.
+              Finché il link non viene aperto la prenotazione resta in
+              attesa e non ti garantisce il posto.
+            </p>
+            <p>
+              Dopo l'accesso il sito ti riconosce e puoi prenotare le serate
+              successive senza compilare di nuovo il modulo. Se il tuo
+              dispositivo non ti riconosce più, puoi chiedere un nuovo link
+              con la stessa email. Questo trattamento serve a fornirti il
+              servizio che ci chiedi (art. 6.1.b GDPR).
+            </p>
+          </PolicySection>
 
-          {BOOKING_API && (
-            <PolicySection
-              label="optional consents"
-              title="Consensi facoltativi"
-            >
-              <p>
-                Quando prenoti puoi darci, se vuoi, due consensi separati.
-                Sono entrambi facoltativi, non preselezionati, e senza di loro
-                la prenotazione funziona esattamente allo stesso modo (art. 6.1.a
-                GDPR):
-              </p>
-              <ul className="list-disc space-y-1 pl-5">
-                <li>
-                  <strong>marketing</strong> — ti scriviamo via email per
-                  annunciarti serate, line-up e inviti
-                </li>
-                <li>
-                  <strong>profilazione</strong> — usiamo lo storico delle tue
-                  prenotazioni (a quali serate vieni, con quale formula) per
-                  scegliere cosa proporti
-                </li>
-              </ul>
-              <p>
-                Registriamo la data in cui dai ciascun consenso e quella in cui
-                lo revochi. Puoi revocarli in qualsiasi momento, anche uno solo
-                dei due, scrivendo a{" "}
-                <a
-                  href="mailto:info@underclub.it"
-                  className="underline underline-offset-4"
-                >
-                  info@underclub.it
-                </a>
-                : la revoca vale da quel momento in poi.
-              </p>
-            </PolicySection>
-          )}
+          <PolicySection
+            label="optional consents"
+            title="Consensi facoltativi"
+          >
+            <p>
+              Quando prenoti puoi darci, se vuoi, due consensi separati.
+              Sono entrambi facoltativi, non preselezionati, e senza di loro
+              la prenotazione funziona esattamente allo stesso modo (art. 6.1.a
+              GDPR):
+            </p>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>
+                <strong>marketing</strong> — ti scriviamo via email per
+                annunciarti serate, line-up e inviti
+              </li>
+              <li>
+                <strong>profilazione</strong> — usiamo lo storico delle tue
+                prenotazioni (a quali serate vieni, con quale formula) per
+                scegliere cosa proporti
+              </li>
+            </ul>
+            <p>
+              Registriamo la data in cui dai ciascun consenso e quella in cui
+              lo revochi. Puoi revocarli in qualsiasi momento, anche uno solo
+              dei due, scrivendo a{" "}
+              <a
+                href="mailto:info@underclub.it"
+                className="underline underline-offset-4"
+              >
+                info@underclub.it
+              </a>
+              : la revoca vale da quel momento in poi.
+            </p>
+          </PolicySection>
 
-          {BOOKING_API && (
-            <PolicySection
-              label="where you come from"
-              title="Provenienza della prenotazione"
-            >
-              <p>
-                Se arrivi sul sito da un link che contiene un codice di
-                provenienza (per esempio quello di un volantino, di un
-                manifesto o di una campagna, come <code>?src=volantino-ottobre</code>),
-                lo registriamo insieme alla prenotazione. Ci serve solo a
-                capire quali canali funzionano (legittimo interesse, art. 6.1.f
-                GDPR).
-              </p>
-              <p>
-                Il codice indica il canale, non la persona: resta nella memoria
-                della scheda del browser (sessionStorage) fino alla sua
-                chiusura e non usa cookie. Se arrivi senza codice, non
-                registriamo nulla.
-              </p>
-            </PolicySection>
-          )}
+          <PolicySection
+            label="where you come from"
+            title="Provenienza della prenotazione"
+          >
+            <p>
+              Se arrivi sul sito da un link che contiene un codice di
+              provenienza (per esempio quello di un volantino, di un
+              manifesto o di una campagna, come <code>?src=volantino-ottobre</code>),
+              lo registriamo insieme alla prenotazione. Ci serve solo a
+              capire quali canali funzionano (legittimo interesse, art. 6.1.f
+              GDPR).
+            </p>
+            <p>
+              Il codice indica il canale, non la persona: resta nella memoria
+              della scheda del browser (sessionStorage) fino alla sua
+              chiusura e non usa cookie. Se arrivi senza codice, non
+              registriamo nulla.
+            </p>
+          </PolicySection>
 
-          {BOOKING_API && (
-            <PolicySection
-              label="against abuse"
-              title="Protezione dagli abusi"
-            >
-              <p>
-                Per proteggere i moduli di prenotazione e di accesso da invii
-                automatici usiamo <strong>BotID</strong> di Vercel: quando invii
-                uno di questi moduli, il browser esegue un controllo tecnico
-                sulla richiesta per capire se arriva da una persona o da un
-                programma. Serve solo a bloccare gli abusi, non crea alcun
-                profilo e non viene usato per altro (legittimo interesse alla
-                sicurezza del servizio, art. 6.1.f GDPR).
-              </p>
-              <p>
-                Per limitare i tentativi ripetuti contiamo le richieste che
-                arrivano dalla stessa rete. L'indirizzo IP non viene mai salvato
-                in chiaro: lo usiamo solo in forma cifrata (hash), per finestre
-                di pochi minuti, e il conteggio viene cancellato
-                automaticamente entro due giorni.
-              </p>
-            </PolicySection>
-          )}
+          <PolicySection
+            label="against abuse"
+            title="Protezione dagli abusi"
+          >
+            <p>
+              Per proteggere i moduli di prenotazione e di accesso da invii
+              automatici usiamo <strong>BotID</strong> di Vercel: quando invii
+              uno di questi moduli, il browser esegue un controllo tecnico
+              sulla richiesta per capire se arriva da una persona o da un
+              programma. Serve solo a bloccare gli abusi, non crea alcun
+              profilo e non viene usato per altro (legittimo interesse alla
+              sicurezza del servizio, art. 6.1.f GDPR).
+            </p>
+            <p>
+              Per limitare i tentativi ripetuti contiamo le richieste che
+              arrivano dalla stessa rete. L'indirizzo IP non viene mai salvato
+              in chiaro: lo usiamo solo in forma cifrata (hash), per finestre
+              di pochi minuti, e il conteggio viene cancellato
+              automaticamente entro due giorni.
+            </p>
+          </PolicySection>
 
           <PolicySection label="who sees the data" title="Chi vede i dati">
             <p>I tuoi dati li vediamo noi, più chi ci aiuta tecnicamente:</p>
@@ -268,13 +233,11 @@ export default function PrivacyCookie() {
                 lo staff Underclub — ai tornelli, per controllare il tuo QR la
                 sera dell'evento
               </li>
-              {BOOKING_API && (
-                <li>
-                  <strong>Vercel</strong> — hosting del sito e delle funzioni
-                  che gestiscono accesso e prenotazioni, come responsabile del
-                  trattamento
-                </li>
-              )}
+              <li>
+                <strong>Vercel</strong> — hosting del sito e delle funzioni
+                che gestiscono accesso e prenotazioni, come responsabile del
+                trattamento
+              </li>
             </ul>
             <p>
               Non vendiamo, non scambiamo e non cediamo i tuoi dati a terzi per
@@ -296,14 +259,12 @@ export default function PrivacyCookie() {
               Dopo di che vengono cancellati o anonimizzati. Puoi comunque
               chiederne la cancellazione anticipata in qualsiasi momento.
             </p>
-            {BOOKING_API && (
-              <p>
-                Se lasci i tuoi dati ma non apri mai il link di conferma, il
-                tuo contatto e le prenotazioni in attesa vengono cancellati
-                dopo 7 giorni. I link di accesso, usati o no, vengono
-                cancellati il giorno dopo la loro scadenza.
-              </p>
-            )}
+            <p>
+              Se lasci i tuoi dati ma non apri mai il link di conferma, il
+              tuo contatto e le prenotazioni in attesa vengono cancellati
+              dopo 7 giorni. I link di accesso, usati o no, vengono
+              cancellati il giorno dopo la loro scadenza.
+            </p>
           </PolicySection>
 
           <PolicySection label="your rights" title="I tuoi diritti">
@@ -352,17 +313,15 @@ export default function PrivacyCookie() {
               schermata. Questa informazione resta sul tuo dispositivo, non
               viene mai trasmessa a noi e si cancella quando chiudi la scheda.
             </p>
-            {BOOKING_API && (
-              <p>
-                Dopo che hai aperto il link di accesso impostiamo un solo
-                cookie, <strong>uc_session</strong>: è un cookie tecnico
-                strettamente necessario a riconoscerti quando prenoti, quindi
-                non richiede consenso. Contiene solo un codice casuale, non è
-                leggibile dagli script della pagina (httpOnly), dura 12 mesi e
-                si rinnova ogni volta che usi il sito. Se esci dall'account
-                viene cancellato.
-              </p>
-            )}
+            <p>
+              Dopo che hai aperto il link di accesso impostiamo un solo
+              cookie, <strong>uc_session</strong>: è un cookie tecnico
+              strettamente necessario a riconoscerti quando prenoti, quindi
+              non richiede consenso. Contiene solo un codice casuale, non è
+              leggibile dagli script della pagina (httpOnly), dura 12 mesi e
+              si rinnova ogni volta che usi il sito. Se esci dall'account
+              viene cancellato.
+            </p>
             <p>
               Le pagine esterne a cui linkiamo — Instagram, Facebook, WhatsApp,
               Google Maps — seguono le policy dei rispettivi gestori, su cui

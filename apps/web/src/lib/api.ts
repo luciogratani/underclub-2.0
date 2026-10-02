@@ -1,18 +1,11 @@
 import {
   type EventWithDetails,
   type PublicEventView,
-  type PublicReservationFormInput,
-  type CreateReservationResult,
   type TicketViewData,
-  type ReservationStatus,
   toPublicEventView,
-  toCreateReservationCommand,
-  toTicketViewData,
   toTicketViewDataFromPublicTicket,
-  buildTicketUrl,
 } from '@underclub/shared';
-import { createTicketSupabaseClient, supabase } from './supabase';
-import { BOOKING_API } from './flags';
+import { supabase } from './supabase';
 
 const DEBUG_LOG = import.meta.env.DEV;
 
@@ -98,42 +91,6 @@ export async function fetchNextEvent(): Promise<NextEventResult> {
 }
 
 // ---------------------------------------------------------------------------
-// Create reservation
-// ---------------------------------------------------------------------------
-
-export async function createReservation(
-  input: PublicReservationFormInput,
-  eventId: string,
-  entryId: string,
-): Promise<CreateReservationResult> {
-  if (!supabase) {
-    throw new Error('Supabase not configured');
-  }
-
-  const cmd = toCreateReservationCommand(input, eventId, entryId);
-  const { data, error } = await supabase
-    .rpc('create_public_reservation', {
-      p_event_id: cmd.eventId,
-      p_entry_id: cmd.entryId,
-      p_full_name: cmd.fullName,
-      p_date_of_birth: cmd.dateOfBirthIso,
-      p_email: cmd.email,
-    })
-    .single();
-
-  if (error || !data) {
-    throw error ?? new Error('Unable to create reservation');
-  }
-
-  return {
-    reservationId: data.reservation_id,
-    status: data.reservation_status as ReservationStatus,
-    ticketToken: data.ticket_token,
-    ticketUrl: buildTicketUrl(data.reservation_id, data.ticket_token),
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Ticket page
 // ---------------------------------------------------------------------------
 
@@ -148,52 +105,11 @@ export async function fetchTicketData(
     return null;
   }
 
-  if (BOOKING_API) {
-    if (!supabase) return null;
-    const { data, error } = await supabase
-      .rpc('open_public_ticket', { p_reservation_id: reservationId, p_token: ticketToken })
-      .maybeSingle();
-    // No row = token does not match: same outcome as the RLS path below.
-    if (error || !data) return null;
-    return toTicketViewDataFromPublicTicket(data);
-  }
-
-  const ticketSupabase = createTicketSupabaseClient(ticketToken);
-  if (!ticketSupabase) return null;
-
-  const { data: reservation, error } = await ticketSupabase
-    .from('reservations')
-    .select('*')
-    .eq('id', reservationId)
-    .single();
-
-  if (error || !reservation) return null;
-
-  const [{ data: event }, { data: entry }] = await Promise.all([
-    ticketSupabase.from('events').select('*').eq('id', reservation.event_id).single(),
-    ticketSupabase
-      .from('event_entries')
-      .select('*')
-      .eq('id', reservation.entry_id)
-      .single(),
-  ]);
-
-  if (!event || !entry) return null;
-
-  return toTicketViewData(reservation, event, entry);
-}
-
-export async function markTicketOpened(
-  reservationId: string,
-  ticketToken: string | null,
-): Promise<void> {
-  if (!ticketToken) return;
-  const ticketSupabase = createTicketSupabaseClient(ticketToken);
-  if (!ticketSupabase) return;
-
-  await ticketSupabase
-    .from('reservations')
-    .update({ ticket_opened_at: new Date().toISOString() })
-    .eq('id', reservationId)
-    .is('ticket_opened_at', null);
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .rpc('open_public_ticket', { p_reservation_id: reservationId, p_token: ticketToken })
+    .maybeSingle();
+  // No row = the token does not match this reservation.
+  if (error || !data) return null;
+  return toTicketViewDataFromPublicTicket(data);
 }

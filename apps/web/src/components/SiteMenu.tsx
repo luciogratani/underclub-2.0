@@ -18,7 +18,7 @@ type SiteMenuProps = {
 const itemClassName =
   "block w-full cursor-pointer border-0 bg-transparent p-0 text-left text-[12vw] font-bold uppercase leading-[0.95] text-black";
 
-/** Fixed round button (bottom right) + full-screen lime menu. Flag ON only. */
+/** Fixed round button (bottom right) + full-screen lime menu. */
 export default function SiteMenu({ hidden = false, onOpenChange, onLogout }: SiteMenuProps) {
   const { session } = useSession();
   const [open, setOpen] = useState(false);

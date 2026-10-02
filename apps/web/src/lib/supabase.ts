@@ -10,14 +10,3 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
  */
 export const supabase: TypedSupabaseClient | null =
   url && anonKey ? createSupabaseClient(url, anonKey) : null;
-
-export function createTicketSupabaseClient(ticketToken: string): TypedSupabaseClient | null {
-  if (!url || !anonKey) return null;
-  return createSupabaseClient(url, anonKey, {
-    global: {
-      headers: {
-        'x-ticket-token': ticketToken,
-      },
-    },
-  });
-}

@@ -1,8 +1,7 @@
 import { Suspense, lazy, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import type { TicketViewData } from "@underclub/shared";
-import { fetchTicketData, markTicketOpened } from "../lib/api";
-import { BOOKING_API } from "../lib/flags";
+import { fetchTicketData } from "../lib/api";
 
 // The 3D card pulls in three/@react-three/rapier; load it only once the
 // reservation actually resolved.
@@ -46,9 +45,7 @@ export default function Ticket() {
       if (data) setTicketData(data);
       setLoading(false);
     });
-    // Flag ON: open_public_ticket (inside fetchTicketData) marks the first
-    // opening itself.
-    if (!BOOKING_API) void markTicketOpened(id, ticketToken);
+    // open_public_ticket (inside fetchTicketData) marks the first opening.
     return () => { cancelled = true; };
   }, [id, ticketToken]);
 

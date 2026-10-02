@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PublicReservationFormInput, EntryTierView, SessionContact } from "@underclub/shared";
 import HeroButton from "./HeroButton";
 import ConfirmReservationButton from "./ConfirmReservationButton";
-import { BOOKING_API } from "../lib/flags";
 
 export type BookingConsents = { marketing: boolean; profiling: boolean };
 
@@ -157,7 +156,7 @@ type BookNowProps = {
   onConfirmed?: () => void;
   isExited?: boolean;
   entries?: EntryTierView[];
-  /** Booking API session (flag ON): identity fields are replaced by this contact. */
+  /** Passwordless session: identity fields are replaced by this contact. */
   sessionContact?: SessionContact | null;
   onLogout?: () => void | Promise<void>;
 };
@@ -280,7 +279,7 @@ export default function BookNow({
   const [consentMarketing, setConsentMarketing] = useState(false);
   const [consentProfiling, setConsentProfiling] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const hasSession = BOOKING_API && sessionContact !== null;
+  const hasSession = sessionContact !== null;
 
   const fullNameError = touchedFullName ? getFullNameError(fullName) : null;
   const dateOfBirthError = touchedDateOfBirth ? getDateOfBirthError(dateOfBirth) : null;
@@ -301,8 +300,8 @@ export default function BookNow({
     try {
       ok = onConfirm
         ? await onConfirm(payload, selectedEntryId, {
-            marketing: BOOKING_API && !hasSession && consentMarketing,
-            profiling: BOOKING_API && !hasSession && consentProfiling,
+            marketing: !hasSession && consentMarketing,
+            profiling: !hasSession && consentProfiling,
           })
         : true;
     } catch {
@@ -544,8 +543,8 @@ export default function BookNow({
             {entries?.map((tier) => {
               const isSoldOut = tier.availability.soldOut;
               const isSelected = selectedEntryId === tier.id;
-              const showPrice = BOOKING_API && tier.price > 0;
-              const validUntil = BOOKING_API ? formatValidUntil(tier.validUntil) : null;
+              const showPrice = tier.price > 0;
+              const validUntil = formatValidUntil(tier.validUntil);
               return (
                 <button
                   key={tier.id}
@@ -586,7 +585,7 @@ export default function BookNow({
           </div>
             </div>
 
-            {BOOKING_API && !hasSession && (
+            {!hasSession && (
               <div
                 className="animate-line mt-4.5 space-y-1.5"
                 style={{ "--i": 5 } as React.CSSProperties}

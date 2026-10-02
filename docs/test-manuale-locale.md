@@ -1,6 +1,6 @@
 # Test manuale in locale — flusso passwordless
 
-Come provare a mano il sito pubblico col flag `VITE_BOOKING_API=1` senza toccare
+Come provare a mano il sito pubblico senza toccare
 Supabase, Vercel o Resend. Usato per il primo giro di test manuali il 2026-10-01.
 
 **Cosa copre:** prenotazione, link di conferma, ticket, menu, `/account`,
@@ -80,7 +80,7 @@ Lavorare in una cartella temporanea fuori dal repo, per esempio `$TMPDIR/uc-manu
    ```
 6. **Sito**: le variabili in riga di comando hanno la precedenza sul file `.env`:
    ```bash
-   VITE_BOOKING_API=1 VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=$(cat anon.jwt) DEV_PG_URL=postgres://postgres@127.0.0.1:55460/postgres pnpm --filter web dev --port 5173 --strictPort
+   VITE_SUPABASE_URL=http://127.0.0.1:54321 VITE_SUPABASE_ANON_KEY=$(cat anon.jwt) DEV_PG_URL=postgres://postgres@127.0.0.1:55460/postgres pnpm --filter web dev --port 5173 --strictPort
    ```
 7. Aprire http://localhost:5173 in **Chrome**, con i DevTools in vista dispositivo
    (`⌘⇧M`). Safari può rifiutare il cookie `Secure` su localhost.

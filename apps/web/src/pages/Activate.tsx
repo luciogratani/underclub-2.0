@@ -1,6 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
-import { BOOKING_API } from "../lib/flags";
 import { BookingApiError, activate } from "../lib/bookingApi";
 import ConfirmReservationButton from "../components/ConfirmReservationButton";
 import LoginLinkForm from "../components/LoginLinkForm";
@@ -27,11 +25,6 @@ function takeTokenFromUrl(): string | null {
 }
 
 export default function Activate() {
-  if (!BOOKING_API) return <Navigate to="/" replace />;
-  return <ActivatePage />;
-}
-
-function ActivatePage() {
   const [state, setState] = useState<ActivateState>("loading");
   const startedRef = useRef(false);
   const mountedRef = useRef(true);
