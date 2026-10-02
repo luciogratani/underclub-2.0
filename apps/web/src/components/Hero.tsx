@@ -62,7 +62,7 @@ export default function Hero({
         // Bottom left, mirroring the menu button (bottom right).
         <a
           href={ticketUrl}
-          aria-label="Open your ticket" // COPY-DRAFT
+          aria-label="Open your ticket"
           className={`absolute bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] left-4 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-black text-primary ring-2 ring-primary transition-all duration-300 ease-out ${
             showNextDateButton ? "scale-100 opacity-100" : "scale-95 opacity-0 pointer-events-none"
           }`}

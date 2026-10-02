@@ -35,9 +35,10 @@ poi `docs/dns-underclub.md`.
   `underclub`, che va ignorato: usa Supabase cloud e non ha dati da migrare.
 
 ## Prossimi passi (in ordine)
-1. **Revisione dei testi `COPY-DRAFT`** (`git grep COPY-DRAFT`, circa 133, tra UI,
-   email e privacy). Idea: raccoglierli in una pagina per schermata da far
-   approvare in blocco.
+1. ~~Revisione dei testi `COPY-DRAFT`~~ — **fatta il 2026-10-02**: tutti
+   approvati, marcatori tolti. In privacy, Hetzner ha preso il posto di Supabase
+   tra i responsabili e la data è ora quella del 2 ottobre (con il flag acceso):
+   se il passaggio slitta di molto, va aggiornata.
 2. **Env di Production** su `underclub-2-0-web`, con segreti **nuovi**:
    - `TICKET_SECRET`, `IP_HASH_SECRET`, `CRON_SECRET`;
    - `SUPABASE_SERVICE_ROLE_KEY` e `RESEND_API_KEY` (si possono riusare);
@@ -83,6 +84,9 @@ poi `docs/dns-underclub.md`.
 - I segreti di Production sono diversi da quelli del Preview. `TICKET_SECRET` di
   Production non va più cambiato dopo il passaggio.
 - Nessun `rua=` nel DMARC: per il monitoraggio basta Postmaster.
+- Il flusso di prenotazione vecchio non si usa da mesi e non tornerà: le
+  prossime prenotazioni passeranno tutte dal flusso nuovo. Il recupero delle
+  prenotazioni legacy e il flag spento non vanno più curati.
 
 ## Infrastruttura (cose non ovvie)
 - **Supabase self-hosted:** VPS Hetzner `178.104.44.21`, host

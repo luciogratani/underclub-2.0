@@ -97,7 +97,7 @@ export default function SiteMenu({ hidden = false, onOpenChange, onLogout }: Sit
         ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Menu" // COPY-DRAFT
+        aria-label="Menu"
         aria-expanded={open}
         aria-controls={MENU_ID}
         aria-haspopup="dialog"
@@ -112,7 +112,7 @@ export default function SiteMenu({ hidden = false, onOpenChange, onLogout }: Sit
           ref={dialogRef}
           role="dialog"
           aria-modal="true"
-          aria-label="Menu" // COPY-DRAFT
+          aria-label="Menu"
           onKeyDown={handleKeyDown}
           className={`data-notice-overlay site-menu-overlay ${
             closing ? "data-notice-overlay-exit" : "site-menu-overlay-enter"
@@ -120,28 +120,28 @@ export default function SiteMenu({ hidden = false, onOpenChange, onLogout }: Sit
         >
           <nav className="mx-auto w-full max-w-3xl px-4 pb-28 pt-8">
             <p className="font-sans text-[4vw] font-light tracking-wide opacity-85">
-              menu{/* COPY-DRAFT */}
+              menu
             </p>
             <ul className="mt-2 space-y-3">
               <li>
                 <Link to="/account" className={itemClassName} onClick={() => close(false)}>
-                  {session ? "MY BOOKINGS" : "RECOVER BOOKING"}{/* COPY-DRAFT */}
+                  {session ? "MY BOOKINGS" : "RECOVER BOOKING"}
                 </Link>
               </li>
               <li>
                 <Link to="/info" className={itemClassName} onClick={() => close(false)}>
-                  INFO{/* COPY-DRAFT */}
+                  INFO
                 </Link>
               </li>
               <li>
                 <Link to="/info/privacy-cookie" className={itemClassName} onClick={() => close(false)}>
-                  PRIVACY{/* COPY-DRAFT */}
+                  PRIVACY
                 </Link>
               </li>
               {session && (
                 <li>
                   <button type="button" className={itemClassName} onClick={handleLogout}>
-                    LOG OUT{/* COPY-DRAFT */}
+                    LOG OUT
                   </button>
                 </li>
               )}
@@ -150,7 +150,7 @@ export default function SiteMenu({ hidden = false, onOpenChange, onLogout }: Sit
           <button
             type="button"
             onClick={() => close(true)}
-            aria-label="Close menu" // COPY-DRAFT
+            aria-label="Close menu"
             className="site-menu-button"
           >
             <CloseIcon className="h-4.5 w-4.5" />

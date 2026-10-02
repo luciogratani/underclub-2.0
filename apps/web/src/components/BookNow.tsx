@@ -370,7 +370,7 @@ export default function BookNow({
                 style={{ "--i": 1 } as React.CSSProperties}
               >
                 <p className="font-sans text-[14px] tracking-wide opacity-85">
-                  booking as {/* COPY-DRAFT */}
+                  booking as
                 </p>
                 <p className="mt-0.5 font-sans text-lg font-medium uppercase leading-tight">
                   {sessionContact.fullName}
@@ -384,7 +384,7 @@ export default function BookNow({
                   disabled={loggingOut || submitting}
                   className="mt-1.5 cursor-pointer font-sans text-[14px] tracking-wide underline underline-offset-2 opacity-85 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  not you? log out {/* COPY-DRAFT */}
+                  not you? log out
                 </button>
               </div>
             ) : (
@@ -569,7 +569,7 @@ export default function BookNow({
                       )}
                       {validUntil && (
                         <span className="flex basis-full items-baseline text-[0.5em] leading-none pb-0.5">
-                          <span className="font-light">valid for entry until</span>{/* COPY-DRAFT */}
+                          <span className="font-light">valid for entry until</span>
                           <span className="ml-0.5 font-medium">{validUntil}</span>
                         </span>
                       )}
@@ -629,22 +629,22 @@ export default function BookNow({
                   checked={consentMarketing}
                   onChange={setConsentMarketing}
                   disabled={submitting}
-                  label="email me news, line-ups and invites (optional)" // COPY-DRAFT
+                  label="email me news, line-ups and invites (optional)"
                 />
                 <ConsentCheckbox
                   id="consentProfiling"
                   checked={consentProfiling}
                   onChange={setConsentProfiling}
                   disabled={submitting}
-                  label="use my bookings to tailor what you send me (optional)" // COPY-DRAFT
+                  label="use my bookings to tailor what you send me (optional)"
                 />
                 <p className="pl-6 font-sans text-[12px] leading-tight opacity-70">
-                  we'll email you a link to confirm.{" "}{/* COPY-DRAFT */}
+                  we'll email you a link to confirm.{" "}
                   <a
                     href="/info/privacy-cookie"
                     className="underline underline-offset-2"
                   >
-                    privacy policy{/* COPY-DRAFT */}
+                    privacy policy
                   </a>
                 </p>
               </div>
@@ -656,7 +656,7 @@ export default function BookNow({
             style={{ "--i": 6 } as React.CSSProperties}
           >
             <ConfirmReservationButton
-            label={submitting ? "Confirming…" : "Confirm"} // COPY-DRAFT ("Confirming…")
+            label={submitting ? "Confirming…" : "Confirm"}
             onClick={() => void handleConfirm()}
             disabled={!isFormValid || submitting}
           />

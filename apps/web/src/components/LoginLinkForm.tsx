@@ -48,10 +48,10 @@ export default function LoginLinkForm({ submitLabel }: LoginLinkFormProps) {
     return (
       <div className="mt-8" role="status">
         <p className="text-[8vw] font-bold uppercase leading-[0.95]">
-          Check your inbox{/* COPY-DRAFT */}
+          Check your inbox
         </p>
         <p className="mt-3 font-sans text-[4vw] font-light leading-snug tracking-wide opacity-85">
-          if <span className="font-medium">{sentTo}</span> is registered, a new link is on its way. it's valid for 30 minutes.{/* COPY-DRAFT */}
+          if <span className="font-medium">{sentTo}</span> is registered, a new link is on its way. it's valid for 30 minutes.
         </p>
       </div>
     );
@@ -60,10 +60,10 @@ export default function LoginLinkForm({ submitLabel }: LoginLinkFormProps) {
   return (
     <form className="mt-8" onSubmit={(e) => void handleSubmit(e)} noValidate>
       <label htmlFor="loginEmail" className="block font-sans text-[14px] tracking-wide opacity-85">
-        email{/* COPY-DRAFT */}
+        email
         {networkError && (
           <span className="ml-1 opacity-90" role="alert">
-            [couldn't reach us, try again]{/* COPY-DRAFT */}
+            [couldn't reach us, try again]
           </span>
         )}
       </label>
@@ -91,7 +91,7 @@ export default function LoginLinkForm({ submitLabel }: LoginLinkFormProps) {
       </div>
       {rateLimited && (
         <p className="mt-3 font-sans text-[14px] leading-snug tracking-wide" role="alert">
-          too many requests, try again in a few minutes.{/* COPY-DRAFT */}
+          too many requests, try again in a few minutes.
         </p>
       )}
       <div className="mt-6">
@@ -104,7 +104,7 @@ export default function LoginLinkForm({ submitLabel }: LoginLinkFormProps) {
           }`}
         >
           <span className={!isValid || sending ? "text-primary opacity-25 transition-opacity" : "text-primary"}>
-            {sending ? "Sending…" : submitLabel}{/* COPY-DRAFT */}
+            {sending ? "Sending…" : submitLabel}
           </span>
         </button>
       </div>

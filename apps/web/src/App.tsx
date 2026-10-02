@@ -32,38 +32,38 @@ function toBookingErrorToast(err: unknown): ErrorToastData {
   switch (code) {
     case "sold_out":
       return {
-        title: "Sold out", // COPY-DRAFT
-        message: "This entry just sold out. Pick another one.", // COPY-DRAFT
+        title: "Sold out",
+        message: "This entry just sold out. Pick another one.",
         code,
       };
     case "not_bookable":
       return {
-        title: "Bookings closed", // COPY-DRAFT
-        message: "This night can't be booked anymore.", // COPY-DRAFT
+        title: "Bookings closed",
+        message: "This night can't be booked anymore.",
         code,
       };
     case "invalid_entry":
       return {
-        title: "Entry not available", // COPY-DRAFT
-        message: "This entry is no longer available. Pick another one.", // COPY-DRAFT
+        title: "Entry not available",
+        message: "This entry is no longer available. Pick another one.",
         code,
       };
     case "rate_limited":
       return {
-        title: "Too many attempts", // COPY-DRAFT
-        message: "Please wait a few minutes and try again.", // COPY-DRAFT
+        title: "Too many attempts",
+        message: "Please wait a few minutes and try again.",
         code,
       };
     case "invalid_input":
       return {
-        title: "Check your details", // COPY-DRAFT
-        message: "Something in the form doesn't look right. Check it and try again.", // COPY-DRAFT
+        title: "Check your details",
+        message: "Something in the form doesn't look right. Check it and try again.",
         code,
       };
     default:
       return {
-        title: "Reservation failed", // COPY-DRAFT
-        message: "Something went wrong on our side. Please try again.", // COPY-DRAFT
+        title: "Booking failed",
+        message: "Something went wrong on our side. Please try again.",
         code,
       };
   }
@@ -246,8 +246,8 @@ function App() {
           if (err.code === "invalid_input" && sessionContact) {
             forgetSession();
             showBookingError({
-              title: "You've been logged out", // COPY-DRAFT
-              message: "Fill in your details to book.", // COPY-DRAFT
+              title: "You've been logged out",
+              message: "Fill in your details to book.",
               code: err.code,
             });
             return false;
@@ -290,8 +290,8 @@ function App() {
       // The httpOnly cookie can only be cleared by the server: pretending to be
       // logged out here would leave the session alive on this device.
       showBookingError({
-        title: "Couldn't log out", // COPY-DRAFT
-        message: "Check your connection and try again.", // COPY-DRAFT
+        title: "Couldn't log out",
+        message: "Check your connection and try again.",
       });
       return;
     }

@@ -28,7 +28,7 @@ function feedbackForResult(code: AdminScanResult['code']) {
   else navigator.vibrate?.([60, 60, 60])
 }
 
-const FORMULA_EXPIRED_WARNING = 'Formula expired — full price at the door' // COPY-DRAFT
+const FORMULA_EXPIRED_WARNING = 'Formula expired — full price at the door'
 
 function ResultCard({ result }: { result: AdminScanResult }) {
   const palette: Record<
@@ -53,8 +53,8 @@ function ResultCard({ result }: { result: AdminScanResult }) {
     [ADMIN_SCAN_RESULT.PENDING]: {
       bg: 'bg-red-500/15 border-red-500/40',
       text: 'text-red-400',
-      title: 'Not confirmed', // COPY-DRAFT
-      note: 'Booking was never confirmed via email: no valid ticket.', // COPY-DRAFT
+      title: 'Not confirmed',
+      note: 'Booking was never confirmed via email: no valid ticket.',
     },
     [ADMIN_SCAN_RESULT.INVALID]: {
       bg: 'bg-red-500/15 border-red-500/40',

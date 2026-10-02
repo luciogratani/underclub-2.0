@@ -25,13 +25,13 @@ function cancelErrorMessage(err: unknown): string {
   const code = err instanceof BookingApiError ? err.code : "server_error";
   switch (code) {
     case "not_cancellable":
-      return "this booking can't be cancelled anymore."; // COPY-DRAFT
+      return "this booking can't be cancelled anymore.";
     case "not_found":
-      return "we couldn't find this booking: it may be cancelled already."; // COPY-DRAFT
+      return "we couldn't find this booking: it may be cancelled already.";
     case "unauthorized":
-      return "you've been logged out. ask for a new link to manage your bookings."; // COPY-DRAFT
+      return "you've been logged out. ask for a new link to manage your bookings.";
     default:
-      return "something went wrong. try again in a moment."; // COPY-DRAFT
+      return "something went wrong. try again in a moment.";
   }
 }
 
@@ -62,41 +62,41 @@ function AccountPage() {
   return (
     <section
       className="min-h-[100svh] w-full bg-primary px-4 pb-28 pt-10 text-black"
-      aria-label="My bookings" // COPY-DRAFT
+      aria-label="My bookings"
       aria-busy={loading}
     >
       <div className="mx-auto w-full max-w-3xl">
         {loading ? (
           <h1 className="animate-pulse text-[12vw] font-bold uppercase leading-[0.95]">
-            Loading…{/* COPY-DRAFT */}
+            Loading…
           </h1>
         ) : session ? (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              My bookings{/* COPY-DRAFT */}
+              My bookings
             </h1>
             <div className="mt-4 font-sans">
-              <p className="text-[14px] tracking-wide opacity-85">logged in as{/* COPY-DRAFT */}</p>
+              <p className="text-[14px] tracking-wide opacity-85">logged in as</p>
               <p className="mt-0.5 text-lg font-medium uppercase leading-tight">{session.contact.fullName}</p>
               <p className="break-all text-[14px] leading-tight opacity-85">{session.contact.email}</p>
             </div>
 
             {logoutError && (
               <p className="mt-4 font-sans text-[14px] tracking-wide" role="alert">
-                couldn't log out: check your connection and try again.{/* COPY-DRAFT */}
+                couldn't log out: check your connection and try again.
               </p>
             )}
 
             {session.reservations.length === 0 ? (
               <div className="mt-10">
                 <p className="text-[8vw] font-bold uppercase leading-[0.95]">
-                  No upcoming bookings{/* COPY-DRAFT */}
+                  No upcoming bookings
                 </p>
                 <Link
                   to="/"
                   className="mt-4 block text-[8vw] font-bold uppercase leading-[0.95] underline underline-offset-[0.12em]"
                 >
-                  Book the next date →{/* COPY-DRAFT */}
+                  Book the next date →
                 </Link>
               </div>
             ) : (
@@ -108,12 +108,12 @@ function AccountPage() {
             )}
 
             <div className="mt-12 font-sans">
-              <p className="text-[14px] tracking-wide opacity-85">your consents{/* COPY-DRAFT */}</p>
+              <p className="text-[14px] tracking-wide opacity-85">your consents</p>
               <p className="mt-1 text-lg font-medium uppercase leading-tight">
-                news: {session.contact.marketingConsent ? "yes" : "no"}{/* COPY-DRAFT */}
+                news: {session.contact.marketingConsent ? "yes" : "no"}
               </p>
               <p className="text-lg font-medium uppercase leading-tight">
-                personalised: {session.contact.profilingConsent ? "yes" : "no"}{/* COPY-DRAFT */}
+                tailored: {session.contact.profilingConsent ? "yes" : "no"}
               </p>
               <p className="mt-2 text-[14px] leading-snug tracking-wide opacity-85">
                 to withdraw a consent, write to{" "}
@@ -124,7 +124,7 @@ function AccountPage() {
                 <Link to="/info/privacy-cookie" className="underline underline-offset-2">
                   privacy policy
                 </Link>
-                ).{/* COPY-DRAFT */}
+                ).
               </p>
             </div>
 
@@ -136,7 +136,7 @@ function AccountPage() {
                 className="w-full cursor-pointer rounded-none border-0 bg-black py-5.5 text-[19px] font-bold leading-none disabled:cursor-not-allowed"
               >
                 <span className={loggingOut ? "text-primary opacity-25" : "text-primary"}>
-                  LOG OUT{/* COPY-DRAFT */}
+                  LOG OUT
                 </span>
               </button>
             </div>
@@ -144,17 +144,17 @@ function AccountPage() {
         ) : (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              Recover booking{/* COPY-DRAFT */}
+              Recover booking
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              enter the email you booked with: we'll send you a link to see your bookings and tickets.{/* COPY-DRAFT */}
+              enter the email you booked with: we'll send you a link to see your bookings and tickets.
             </p>
-            <LoginLinkForm submitLabel="Send me a link" />{/* COPY-DRAFT */}
+            <LoginLinkForm submitLabel="Send me a link" />
             <Link
               to="/"
               className="mt-10 block text-[8vw] font-bold uppercase leading-[0.95] underline underline-offset-[0.12em]"
             >
-              Home →{/* COPY-DRAFT */}
+              Home →
             </Link>
           </>
         )}
@@ -199,10 +199,10 @@ function ReservationItem({ reservation: r }: { reservation: MyReservation }) {
       </p>
       <p className="mt-1 font-sans text-[14px] tracking-wide opacity-85">
         {r.status === "pending"
-          ? "waiting for email confirmation" // COPY-DRAFT
+          ? "waiting for email confirmation"
           : r.qrScanned
-            ? "checked in" // COPY-DRAFT
-            : "confirmed"}{/* COPY-DRAFT */}
+            ? "checked in"
+            : "confirmed"}
       </p>
 
       {r.status === "confirmed" &&
@@ -211,11 +211,11 @@ function ReservationItem({ reservation: r }: { reservation: MyReservation }) {
             href={r.ticketUrl}
             className="mt-4 block w-full bg-black py-5.5 text-center text-[19px] font-bold leading-none text-primary"
           >
-            TICKET{/* COPY-DRAFT */}
+            TICKET
           </a>
         ) : (
           <p className="mt-3 font-sans text-[14px] tracking-wide opacity-85">
-            your ticket link is in your email.{/* COPY-DRAFT */}
+            your ticket link is in your email.
           </p>
         ))}
 
@@ -229,7 +229,7 @@ function ReservationItem({ reservation: r }: { reservation: MyReservation }) {
         (confirming ? (
           <div className="mt-4 font-sans">
             <p className="text-lg font-medium uppercase leading-tight">
-              Cancel this booking?{/* COPY-DRAFT */}
+              Cancel this booking?
             </p>
             <div className="mt-3 flex gap-3">
               <button
@@ -238,7 +238,7 @@ function ReservationItem({ reservation: r }: { reservation: MyReservation }) {
                 disabled={cancelling}
                 className="flex-1 cursor-pointer rounded-none border-0 bg-black py-4 text-[16px] font-bold leading-none text-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {cancelling ? "Cancelling…" : "YES, CANCEL"}{/* COPY-DRAFT */}
+                {cancelling ? "Cancelling…" : "YES, CANCEL"}
               </button>
               <button
                 type="button"
@@ -246,7 +246,7 @@ function ReservationItem({ reservation: r }: { reservation: MyReservation }) {
                 disabled={cancelling}
                 className="flex-1 cursor-pointer rounded-none border border-black bg-transparent py-4 text-[16px] font-bold leading-none text-black disabled:cursor-not-allowed disabled:opacity-40"
               >
-                KEEP IT{/* COPY-DRAFT */}
+                KEEP IT
               </button>
             </div>
           </div>
@@ -259,7 +259,7 @@ function ReservationItem({ reservation: r }: { reservation: MyReservation }) {
             }}
             className="mt-3 cursor-pointer border-0 bg-transparent p-0 font-sans text-[14px] tracking-wide underline underline-offset-2"
           >
-            CANCEL{/* COPY-DRAFT */}
+            CANCEL
           </button>
         ))}
     </li>

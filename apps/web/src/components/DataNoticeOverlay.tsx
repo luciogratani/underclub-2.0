@@ -42,7 +42,7 @@ export default function DataNoticeOverlay({
         </p>
         {BOOKING_API && (
           <p className="data-notice-hint">
-            To book, we email you a one-time link to confirm.{/* COPY-DRAFT */}
+            To book, we email you a one-time link to confirm.
           </p>
         )}
         <p className="data-notice-hint">TAP ANYWHERE TO CONTINUE</p>

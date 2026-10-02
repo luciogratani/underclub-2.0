@@ -5,6 +5,19 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-02 — Testi approvati
+
+### Cambiato
+- Approvati tutti i testi `COPY-DRAFT` (UI, email, privacy, check-in admin) e
+  tolti i marcatori.
+- Privacy: tra i responsabili, Hetzner (il server del database) sostituisce
+  Supabase; con il flag acceso la data di aggiornamento è il 2 ottobre 2026.
+- "booking" al posto di "reservation" nei testi nuovi; titoli delle email in
+  maiuscolo; "You're logged in" dopo un link di accesso; "tailored" al posto
+  di "personalised" nei consensi di `/account`.
+
+---
+
 ## 2026-10-01 (sera) — Migrazioni in produzione, DNS
 
 ### Produzione

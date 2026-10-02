@@ -124,19 +124,16 @@ function eventDetails(event: EventInfo): Layout['details'] {
 
 function greeting(fullName: string | null): string {
   const name = firstName(fullName);
-  // COPY-DRAFT
   return name ? `Hi ${name},` : 'Hi,';
 }
 
 /** Sent on a booking without session: the link confirms that pending booking. */
 export function activationEmail(input: { fullName: string | null; link: string; event: EventInfo }): RenderedEmail {
   const { event } = input;
-  // COPY-DRAFT
   const subject = event.title ? `Confirm your spot at ${event.title}` : 'Confirm your Underclub booking';
-  // COPY-DRAFT
   return render(subject, {
     preheader: 'One tap to confirm your booking. The link expires in 30 minutes.',
-    heading: 'One more step',
+    heading: 'ONE MORE STEP',
     paragraphs: [
       greeting(input.fullName),
       'Tap the button below to confirm your booking. Until you do, your spot is not reserved.',
@@ -151,9 +148,7 @@ export function activationEmail(input: { fullName: string | null; link: string; 
 /** Sent when a booking becomes confirmed: the durable copy of the ticket link. */
 export function ticketEmail(input: { fullName: string | null; ticketLink: string; event: EventInfo }): RenderedEmail {
   const { event } = input;
-  // COPY-DRAFT
   const subject = event.title ? `You're in: your ticket for ${event.title}` : "You're in: your Underclub ticket";
-  // COPY-DRAFT
   return render(subject, {
     preheader: 'Your booking is confirmed. Show the QR code at the door.',
     heading: "YOU'RE IN",
@@ -171,12 +166,10 @@ export function ticketEmail(input: { fullName: string | null; ticketLink: string
 /** Sent instead of a new activation when the email already has a confirmed booking. */
 export function alreadyBookedEmail(input: { fullName: string | null; loginLink: string; event: EventInfo }): RenderedEmail {
   const { event } = input;
-  // COPY-DRAFT
   const subject = event.title ? `You're already on the list for ${event.title}` : "You're already on the list";
-  // COPY-DRAFT
   return render(subject, {
     preheader: 'You already have a confirmed booking for this night.',
-    heading: 'Already on the list',
+    heading: 'ALREADY ON THE LIST',
     paragraphs: [
       greeting(input.fullName),
       'Someone, hopefully you, just tried to book this night with your email address, but you already have a confirmed booking.',
@@ -190,12 +183,10 @@ export function alreadyBookedEmail(input: { fullName: string | null; loginLink: 
 
 /** Sent on POST /api/auth/login-link for a known contact. */
 export function loginEmail(input: { fullName: string | null; link: string }): RenderedEmail {
-  // COPY-DRAFT
   const subject = 'Your Underclub login link';
-  // COPY-DRAFT
   return render(subject, {
     preheader: 'One tap to log in. The link expires in 30 minutes.',
-    heading: 'Log in to Underclub',
+    heading: 'LOG IN',
     paragraphs: [
       greeting(input.fullName),
       'Tap the button below to log in and see your bookings.',

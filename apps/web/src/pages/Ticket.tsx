@@ -70,7 +70,7 @@ export default function Ticket() {
     return (
       <section className="fixed inset-0 z-0 flex items-center justify-center h-[100dvh] w-full bg-primary">
         <p className="text-black font-bold text-xl text-center px-6">
-          This reservation was cancelled. {/* COPY-DRAFT */}
+          This booking was cancelled.
         </p>
       </section>
     );

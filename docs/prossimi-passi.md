@@ -476,8 +476,8 @@ giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
    produzione e il `CRON_SECRET` sensitive non è rileggibile: verificarlo dai
    log dopo le 04:00 del primo giorno, o con "Run" dal pannello Cron). Prima di
    andare live: cancellare le prenotazioni di prova.
-5. Rivedere i testi marcati `COPY-DRAFT` (UI, email, privacy) e accendere
-   `VITE_BOOKING_API=1`.
+5. ~~Rivedere i testi marcati `COPY-DRAFT`~~ — **fatto il 2026-10-02**, tutti
+   approvati. Resta da accendere `VITE_BOOKING_API=1` in Production.
 6. A endpoint vivi: la pulizia in fondo alla migrazione del 2026-10-01 (prima va
    tolta da `ep_request_booking` la scrittura delle colonne legacy, step 1b; lo
    step 1c chiude del tutto `reservations` ad `anon`).

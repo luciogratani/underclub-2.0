@@ -97,23 +97,23 @@ function ActivatePage() {
   return (
     <section
       className="flex min-h-[100svh] w-full flex-col justify-center bg-primary px-4 py-10 text-black"
-      aria-label="Activate" // COPY-DRAFT
+      aria-label="Activate"
       aria-live="polite"
     >
       <div className="mx-auto w-full max-w-3xl">
         {state === "loading" && (
           <h1 className="animate-pulse text-[12vw] font-bold uppercase leading-[0.95]">
-            Checking your link…{/* COPY-DRAFT */}
+            Checking your link…
           </h1>
         )}
 
         {state === "redirecting" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              You're in!{/* COPY-DRAFT */}
+              You're in!
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              opening your ticket…{/* COPY-DRAFT */}
+              opening your ticket…
             </p>
           </>
         )}
@@ -121,10 +121,10 @@ function ActivatePage() {
         {state === "redirecting_account" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              You're in!{/* COPY-DRAFT */}
+              You're logged in
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              opening your bookings…{/* COPY-DRAFT */}
+              opening your bookings…
             </p>
           </>
         )}
@@ -132,12 +132,12 @@ function ActivatePage() {
         {state === "reservation_expired" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              Your reservation expired, book again{/* COPY-DRAFT */}
+              Your booking expired, book again
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              the link was valid for 30 minutes. you're logged in now, so it takes one tap.{/* COPY-DRAFT */}
+              the link was valid for 30 minutes. you're logged in now, so it takes one tap.
             </p>
-            <HomeLink label="Book again" />{/* COPY-DRAFT */}
+            <HomeLink label="Book again" />
             <AccountLink />
           </>
         )}
@@ -145,12 +145,12 @@ function ActivatePage() {
         {state === "reservation_unavailable" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              This reservation is no longer available{/* COPY-DRAFT */}
+              This booking is no longer available
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              you're logged in anyway: check the next date from the home page.{/* COPY-DRAFT */}
+              you're logged in anyway: check the next date from the home page.
             </p>
-            <HomeLink label="Home" />{/* COPY-DRAFT */}
+            <HomeLink label="Home" />
             <AccountLink />
           </>
         )}
@@ -158,14 +158,14 @@ function ActivatePage() {
         {state === "error" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              Something went wrong{/* COPY-DRAFT */}
+              Something went wrong
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              we couldn't check your link. try again in a moment.{/* COPY-DRAFT */}
+              we couldn't check your link. try again in a moment.
             </p>
             <div className="mt-8">
               <ConfirmReservationButton
-                label="Try again" // COPY-DRAFT
+                label="Try again"
                 onClick={() => void runActivation()}
               />
             </div>
@@ -175,12 +175,12 @@ function ActivatePage() {
         {state === "invalid" && (
           <>
             <h1 className="text-[12vw] font-bold uppercase leading-[0.95]">
-              This link is no longer valid{/* COPY-DRAFT */}
+              This link is no longer valid
             </h1>
             <p className="mt-4 font-sans text-[4vw] font-light tracking-wide opacity-85">
-              links work once and only for 30 minutes. get a new one:{/* COPY-DRAFT */}
+              links work once and only for 30 minutes. get a new one:
             </p>
-            <LoginLinkForm submitLabel="Send me a new link" />{/* COPY-DRAFT */}
+            <LoginLinkForm submitLabel="Send me a new link" />
           </>
         )}
       </div>
@@ -199,7 +199,7 @@ function HomeLink({ label }: { label: string }) {
 function AccountLink() {
   return (
     <a href="/account" className="mt-3 block text-[8vw] font-bold uppercase leading-[0.95] underline underline-offset-[0.12em]">
-      My bookings →{/* COPY-DRAFT */}
+      My bookings →
     </a>
   );
 }

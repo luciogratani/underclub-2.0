@@ -38,9 +38,9 @@ export default function ReservationSummary({
 }: ReservationSummaryProps) {
   const ariaLabel =
     variant === "check_email"
-      ? "Check your inbox" // COPY-DRAFT
+      ? "Check your inbox"
       : variant === "already_booked"
-        ? "Already booked" // COPY-DRAFT
+        ? "Already booked"
         : "Reservation confirmed";
   return (
     <section
@@ -54,34 +54,34 @@ export default function ReservationSummary({
           {variant === "check_email" ? (
             <>
               <p className="mt-4.5 text-[50px] font-bold leading-[0.95]">
-                CHECK YOUR INBOX{/* COPY-DRAFT */}
+                CHECK YOUR INBOX
               </p>
 
               <p className="mt-6 font-sans text-lg leading-tight text-primary">
                 Dear <span className="font-medium uppercase">{fullName || "—"},</span>
               </p>
               <p className="mt-2 font-sans text-lg leading-tight text-primary">
-                we sent a link to <br /><span className="font-medium">{email || "—"}</span>.{/* COPY-DRAFT */}
+                we sent a link to <br /><span className="font-medium">{email || "—"}</span>.
               </p>
               <p className="mt-2 font-sans text-lg leading-tight text-primary">
                 Open it within <span className="font-medium">30 minutes</span> to confirm your spot for{" "}
-                <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.{/* COPY-DRAFT */}
+                <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.
               </p>
             </>
           ) : variant === "already_booked" ? (
             <>
               <p className="mt-4.5 text-[50px] font-bold leading-[0.95]">
-                YOU'RE ALREADY IN!{/* COPY-DRAFT */}
+                YOU'RE ALREADY IN!
               </p>
 
               <p className="mt-6 font-sans text-lg leading-tight text-primary">
                 Dear <span className="font-medium uppercase">{fullName || "—"},</span>
               </p>
               <p className="mt-2 font-sans text-lg leading-tight text-primary">
-                you already have a spot on <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.{/* COPY-DRAFT */}
+                you already have a spot on <br /><span className="font-medium">{formatSummaryDate(eventDate) || "—"}</span>.
               </p>
               <p className="mt-2 font-sans text-lg leading-tight text-primary">
-                One ticket per person: see you there.{/* COPY-DRAFT */}
+                One ticket per person: see you there.
               </p>
             </>
           ) : (
