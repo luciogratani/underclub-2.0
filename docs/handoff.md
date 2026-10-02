@@ -28,9 +28,8 @@ poi `docs/dns-underclub.md`.
     Reply-To `info@`), MY BOOKINGS, logout, recupero.
   - URL: `https://underclub-2-0-web-git-master-lucios-projects-aef0021a.vercel.app`
     (protetto da Vercel Authentication).
-- **Vercel Production: non toccata.** Gira ancora il deploy di aprile
-  (`df95948`). Il branch di produzione del progetto è `main`, che non esiste,
-  quindi ogni push crea solo preview.
+- **Vercel Production:** dal 2026-10-02 gira il sito nuovo, rilasciato da
+  `main`, con la manutenzione accesa.
 - **Dominio:** `underclub.it` e `www` sono ancora collegati al vecchio progetto
   `underclub`, che va ignorato: usa Supabase cloud e non ha dati da migrare.
 
@@ -55,8 +54,10 @@ poi `docs/dns-underclub.md`.
    - in Production `MAINTENANCE_MODE=1` e `MAINTENANCE_BYPASS_SECRET` (hex,
      così il link non va codificato; Lucio lo salva perché la env *sensitive*
      non si rilegge);
-   - deploy di produzione di `master` (impostare il branch di produzione su
-     `master`, oppure promuovere a mano);
+   - ~~deploy di produzione~~ — **fatto il 2026-10-02**: `main` è il branch
+     di rilascio (vedi "Rilasci" sotto), primo deploy con la manutenzione
+     accesa, provato senza cookie (503 su pagine e API, ticket e file statici
+     aperti);
    - spostare `underclub.it` e `www` da `underclub` a `underclub-2-0-web`;
    - verifica dal dominio vero, entrando con `https://underclub.it/?bypass=<segreto>`.
 
@@ -86,6 +87,13 @@ poi `docs/dns-underclub.md`.
 - Il flusso di prenotazione vecchio non si usa da mesi e non tornerà: le
   prossime prenotazioni passeranno tutte dal flusso nuovo. Il recupero delle
   prenotazioni legacy e il flag spento non vanno più curati.
+
+## Rilasci
+- `master` è il branch di lavoro: ogni push crea un preview con le env del
+  Preview (legate a `master`). `main` è il branch di produzione di Vercel:
+  si rilascia con `git push origin master:main`.
+- Il branch di produzione non può essere `master`: Vercel lo rifiuta perché
+  le env del Preview sono legate a quel branch.
 
 ## Manutenzione (cose non ovvie)
 - Routing Middleware in `apps/web/middleware.ts`, logica in

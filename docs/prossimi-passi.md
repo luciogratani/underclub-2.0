@@ -466,9 +466,10 @@ giorno. Le due migrazioni sono **applicate in produzione dal 2026-10-01**
    OIDC attivo, cron riconosciuto. **Production: fatto il 2026-10-02**, con
    segreti nuovi e una API key Resend dedicata, `PUBLIC_SITE_URL=https://underclub.it`,
    `ALLOWED_ORIGINS=https://www.underclub.it`, `EMAIL_REPLY_TO=info@underclub.it`.
-   Nota: il branch di produzione del progetto è `main`, che non esiste, quindi
-   ogni push crea solo preview; al passaggio impostarlo su `master` o promuovere
-   a mano.
+   Rilasci: `main` è il branch di produzione e si aggiorna con
+   `git push origin master:main` (`master` non può esserlo: le env del Preview
+   sono legate a quel branch). Primo deploy di produzione il 2026-10-02, con la
+   manutenzione accesa.
 4. ~~Deploy di preview~~ — **provato il 2026-10-01 sul DB di produzione**:
    prenotazione, conferma, ticket ed email del ticket (SPF, DKIM e DMARC
    `PASS`, Reply-To su `info@`), MY BOOKINGS, logout, recupero. Non provati:

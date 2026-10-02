@@ -18,6 +18,8 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
   Resend dedicata). Il deploy di produzione non è ancora partito.
 - Cancellate dal DB di produzione le prenotazioni, i contatti e i contatori
   delle prove sul Preview.
+- Primo deploy di produzione del sito nuovo, da `main` (branch di rilascio),
+  con la manutenzione accesa. Il dominio è ancora sul vecchio progetto.
 
 ### Cambiato
 - Approvati tutti i testi `COPY-DRAFT` (UI, email, privacy, check-in admin) e
