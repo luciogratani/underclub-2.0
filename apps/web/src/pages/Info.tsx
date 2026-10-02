@@ -71,7 +71,7 @@ export default function Info() {
             </p>
             <div className="mt-1">
               <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/under_club_ss/"
                 target="_blank"
                 rel="noreferrer"
                 className="block text-[12vw] font-bold leading-[0.95] uppercase"
@@ -79,7 +79,7 @@ export default function Info() {
                 Instagram
               </a>
               <a
-                href="https://facebook.com"
+                href="https://www.facebook.com/profile.php?id=61594853785767"
                 target="_blank"
                 rel="noreferrer"
                 className="block text-[12vw] font-bold leading-[0.95] uppercase"
