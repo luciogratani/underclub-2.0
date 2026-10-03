@@ -35,9 +35,6 @@ export default function Login() {
         className="w-full max-w-sm rounded-xl border border-border/60 bg-card/80 p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.03)]"
       >
         <h1 className="text-lg font-semibold tracking-tight">Admin login</h1>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Accedi per gestire eventi, prenotazioni e check-in.
-        </p>
 
         <label htmlFor="email" className="mt-5 block text-[11px] uppercase tracking-widest text-muted-foreground">
           Email
@@ -82,11 +79,6 @@ export default function Login() {
         >
           {busy ? 'Accesso in corso…' : 'Accedi'}
         </button>
-
-        <p className="mt-4 text-[11px] leading-relaxed text-muted">
-          Le credenziali admin vanno create manualmente in Supabase (Auth → Users). Nessuna
-          registrazione pubblica.
-        </p>
       </form>
     </div>
   )
