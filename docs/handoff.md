@@ -140,6 +140,14 @@ BOOKINGS) sul DB di produzione.
    - configurazione ESLint;
    - toast di errore in inglese.
 
+   **Verifiche (2026-10-03):**
+   - in locale: 13 suite SQL, 14 controlli via PostgREST (permessi di
+     `anon` e lista degli admin) e 24 controlli nel browser (prenotazione,
+     conferma, ticket, MY BOOKINGS, disdetta, recupero, privacy,
+     `MusicEvent`, toast in inglese, focus di FOLLOW US), tutti superati;
+   - preview Vercel `underclub-2-0-e2pp2la8u` (deploy da CLI del branch):
+     0 `error TS` nel log di build, contro i 15 della produzione di oggi.
+
    **Admin solo per chi è in lista (2026-10-03,
    `2026-10-03-admin-allowlist.sql`).** Supabase, compreso il login, è
    condiviso con foras/University e alex_akashi. Prima di questa migrazione
