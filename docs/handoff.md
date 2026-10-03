@@ -33,6 +33,21 @@ BOOKINGS) sul DB di produzione.
     `PUBLIC_SITE_URL=https://underclub.it`, `ALLOWED_ORIGINS=https://www.underclub.it`,
     `VITE_BOOKING_API=1`, `MAINTENANCE_MODE=1`, `MAINTENANCE_BYPASS_SECRET`.
   - Preview: env legate al branch `master`, flag acceso, senza manutenzione.
+- **Admin (`underclub-2-0-admin`), dal 2026-10-04:**
+  - è su **`admin.underclub.it`** (certificato `*.underclub.it`); resta
+    raggiungibile anche su `underclub-2-0-admin.vercel.app`;
+  - il branch di produzione è `main`, come per il sito: un rilascio su `main`
+    porta in produzione sito e admin insieme;
+  - non viene mai indicizzato: `X-Robots-Tag` noindex su tutte le risposte e
+    meta `robots`, impostati in `apps/admin/vercel.json` e `index.html`;
+  - header di sicurezza: niente incorporamento in altre pagine, `no-referrer`,
+    fotocamera concessa solo all'admin per lo scanner;
+  - icone proprie (il segno del sito con i colori invertiti);
+  - Supabase accetta il login da quell'origine (CORS `*`);
+  - accesso solo per chi è in `underclub.admin_users`;
+  - in `apps/admin` c'è una vecchia cartella `.git` annidata: la repo
+    principale la ignora e traccia normalmente i file. Da valutare se
+    rimuoverla.
 - **Dominio:** `underclub.it` è il principale, `www` reindirizza alla root con
   un 308. Il vecchio progetto Vercel `underclub` è stato cancellato il 2026-10-04:
   era senza domini e senza deploy dal 24 settembre. Era collegato a una repo
