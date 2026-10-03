@@ -20,9 +20,8 @@ BOOKINGS) sul DB di produzione.
 ## Stato nel dettaglio
 - **Git:** si lavora su `master`; `main` è il branch di produzione di Vercel
   (vedi "Rilasci"). Ultimo rilascio il 2026-10-03, commit `654c01a`, con i
-  punti 1b e 6b. Si possono cancellare i branch locali `feat/passwordless-booking`
-  (vecchio), `feat/home-no-events` e `feat/pre-season`, entrambi già in
-  `master`.
+  punti 1b e 6b. I branch locali di lavoro, tutti già in `master`, sono stati cancellati il
+  2026-10-04: in locale e su GitHub restano solo `master` e `main`.
 - **DB:** in produzione sono applicate le migrazioni del 2026-10-01, del
   2026-10-02 e del 2026-10-03, compresa la lista degli admin
   (backup `pgdumpall_20261001_1417.sql.gz` sulla VPS, più i giornalieri delle
@@ -35,8 +34,10 @@ BOOKINGS) sul DB di produzione.
     `VITE_BOOKING_API=1`, `MAINTENANCE_MODE=1`, `MAINTENANCE_BYPASS_SECRET`.
   - Preview: env legate al branch `master`, flag acceso, senza manutenzione.
 - **Dominio:** `underclub.it` è il principale, `www` reindirizza alla root con
-  un 308. Il vecchio progetto Vercel `underclub` è senza domini e si elimina tra
-  qualche settimana (usava Supabase cloud, nessun dato da migrare).
+  un 308. Il vecchio progetto Vercel `underclub` è stato cancellato il 2026-10-04:
+  era senza domini e senza deploy dal 24 settembre. Era collegato a una repo
+  GitHub privata diversa, `luciogratani/underclub-preseason-2`, ferma al 24
+  settembre e mai toccata da questo progetto.
 - **Email e DNS:** Resend per `reservations.` e `news.` (EU), DMARC `p=none`,
   Google Postmaster verificato, `info@underclub.it` inoltrata con ImprovMX alla
   Gmail di Lucio. Dettagli in `dns-underclub.md`.
