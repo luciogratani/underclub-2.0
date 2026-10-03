@@ -149,14 +149,18 @@ BOOKINGS) sul DB di produzione.
    può applicare anche prima del rilascio del web. Dopo il rilascio la env
    `VITE_BOOKING_API` su Vercel non serve più: si può togliere.
 
-   **Da controllare (Lucio):** che Supabase non accetti nuove iscrizioni.
-   Le policy `admin_all_*` danno tutto a qualunque utente `authenticated`:
-   se l'iscrizione è aperta, chiunque si registra con la chiave anon diventa
-   admin e legge contatti e prenotazioni. Va controllato `"disable_signup": true`
-   (`GOTRUE_DISABLE_SIGNUP` nel `.env` di Supabase sulla VPS):
+   **Iscrizione a Supabase (controllata il 2026-10-03):** è chiusa. Le policy
+   `admin_all_*` danno tutto a qualunque utente `authenticated`, quindi deve
+   restare chiusa. Esito su `supabase.luciogratani.it` (GoTrue v2.186.0),
+   letto con la chiave anon pubblica: `disable_signup: true` e
+   `anonymous_users: false` (gli utenti anonimi avrebbero lo stesso ruolo).
+   Per ricontrollare:
    ```bash
-   curl -s https://supabase.luciogratani.it/auth/v1/settings -H "apikey: <chiave anon pubblica>" | grep -o '"disable_signup":[a-z]*'
+   curl -s https://supabase.luciogratani.it/auth/v1/settings -H "apikey: <chiave anon pubblica>" | grep -oE '"(disable_signup|anonymous_users)":[a-z]*'
    ```
+   Facoltativo, via SSH (lo lancia Lucio): controllare che in `auth.users` ci
+   siano solo account del team, nel caso l'iscrizione sia stata aperta in
+   passato.
 
 ## Home senza serate: dove va il testo (scelta A, 2026-10-02, fatta)
 La Hero di oggi: card lime al 95 %×88 % con l'anello che gira, pill nera
