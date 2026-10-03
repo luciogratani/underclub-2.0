@@ -9,6 +9,35 @@ disdetta, recupero, quota e limiti.
 - il check-in admin, perché manca il login di Supabase, che richiederebbe Docker;
 - BotID e il cron, che girano solo su Vercel.
 
+## Avvio rapido (dal 2026-10-04)
+Gli script di `scripts/dev-stack/` fanno tutti i passi qui sotto in un colpo
+solo, sul branch corrente:
+
+```bash
+scripts/dev-stack/start.sh
+```
+- Avvia Postgres con tutte le migrazioni e i test SQL, la serata di prova,
+  PostgREST, il proxy e Vite su http://localhost:5173.
+- Se c'è già uno stack acceso, prima lo spegne.
+- Stato, token e log stanno in `$TMPDIR/underclub-dev-stack`. I link delle
+  email sono in `vite.log`, in quella cartella.
+
+Per spegnere:
+```bash
+scripts/dev-stack/stop.sh
+```
+Per controllare i permessi via PostgREST (accessi di `anon` e lista degli
+admin, 14 controlli), a stack acceso:
+```bash
+scripts/dev-stack/privileges-check.sh
+```
+
+Lo stack non ha il login di Supabase, quindi l'admin non si collega qui. Per
+provare l'admin: `pnpm dev:admin` (porta 5174) contro il Supabase di
+produzione, sapendo che le scritture sono vere.
+
+I passi a mano restano qui sotto, come riferimento.
+
 ## Come funziona
 
 | Pezzo | Al posto di | Porta |

@@ -1,259 +1,248 @@
-# Handoff — Underclub 2.0 (aggiornato 2026-10-02, sera)
+# Handoff — Underclub 2.0 (aggiornato 2026-10-04)
 
 Repo: `/Users/lucio/Desktop/underclub.it/underclub-2.0`, un monorepo pnpm:
 - `apps/web`: sito pubblico, Vite + React, solo mobile, con funzioni Vercel in
-  `api/` e Routing Middleware in `middleware.ts`;
-- `apps/admin`: backoffice (quello in produzione è ancora di aprile);
-- `packages/shared`: tipi condivisi;
-- `supabase/`: SQL e test.
+  `api/` (logica in `server/`) e Routing Middleware in `middleware.ts`;
+- `apps/admin`: backoffice, Vite + React + shadcn, su `admin.underclub.it`;
+- `packages/shared`: tipi del DB, mapper, contratto delle API;
+- `supabase/`: SQL (`schema.sql`, `rls.sql`, `rls-history/`) e test;
+- `scripts/dev-stack/`: stack locale per provare il sito.
 
-Da leggere dopo questo file: `docs/CHANGELOG.md` (voci del 2026-10-01 e 02),
-`docs/presenza-online.md` (SEO, Google, RA, link tracciati),
-`docs/prossimi-passi.md` sezione 9, `docs/dns-underclub.md`.
+Da leggere dopo questo file:
+- `docs/CHANGELOG.md`: le voci dal 2026-10-01 al 2026-10-04;
+- `docs/presenza-online.md`: SEO, Google, RA, link tracciati;
+- `docs/test-manuale-locale.md`: stack locale;
+- `docs/dns-underclub.md`.
 
 ## Stato in una riga
-Il sito nuovo è **in produzione su `underclub.it`, in manutenzione**: il
-pubblico vede la pagina "We'll be back soon", il team entra con il link di
-accesso e il sito funziona da capo a fondo (prenotazione, email, ticket, MY
-BOOKINGS) sul DB di produzione.
+Sito e admin sono **in produzione**:
+- `underclub.it` è ancora **in manutenzione**: il pubblico vede "We'll be back
+  soon", il team entra con il link di accesso;
+- `admin.underclub.it` è attivo, con il login riservato agli admin in lista.
+
+**Obiettivo: lancio il 2026-10-05.** Lucio guiderà modifiche mirate: poche sul
+sito, molte sull'admin.
 
 ## Stato nel dettaglio
-- **Git:** si lavora su `master`; `main` è il branch di produzione di Vercel
-  (vedi "Rilasci"). Ultimo rilascio il 2026-10-03, commit `654c01a`, con i
-  punti 1b e 6b. I branch locali di lavoro, tutti già in `master`, sono stati cancellati il
-  2026-10-04: in locale e su GitHub restano solo `master` e `main`.
-- **DB:** in produzione sono applicate le migrazioni del 2026-10-01, del
-  2026-10-02 e del 2026-10-03, compresa la lista degli admin
-  (backup `pgdumpall_20261001_1417.sql.gz` sulla VPS, più i giornalieri delle
-  05:30). Contiene le prenotazioni di prova fatte in manutenzione e la serata
-  di prova: si cancellano all'apertura.
-- **Vercel `underclub-2-0-web`:**
-  - Production: env complete e tutte *sensitive* (impostazione del team), con
-    segreti propri e una API key Resend solo per Production;
-    `PUBLIC_SITE_URL=https://underclub.it`, `ALLOWED_ORIGINS=https://www.underclub.it`,
-    `VITE_BOOKING_API=1`, `MAINTENANCE_MODE=1`, `MAINTENANCE_BYPASS_SECRET`.
-  - Preview: env legate al branch `master`, flag acceso, senza manutenzione.
-- **Admin (`underclub-2-0-admin`), dal 2026-10-04:**
-  - è su **`admin.underclub.it`** (certificato `*.underclub.it`); resta
-    raggiungibile anche su `underclub-2-0-admin.vercel.app`;
-  - il branch di produzione è `main`, come per il sito: un rilascio su `main`
-    porta in produzione sito e admin insieme;
-  - non viene mai indicizzato: `X-Robots-Tag` noindex su tutte le risposte e
-    meta `robots`, impostati in `apps/admin/vercel.json` e `index.html`;
+- **Git:**
+  - si lavora su `master`; `main` è il branch di produzione di **entrambi** i
+    progetti Vercel;
+  - in produzione c'è `main` = `83ae7cc` (rilasciato il 2026-10-04);
+  - su `master` ci sono, in più, solo commit di documenti e script, non
+    pushati alla chiusura della sessione del 2026-10-04: controllare con
+    `git log origin/master..master`;
+  - esistono solo `master` e `main`, i branch di lavoro sono stati cancellati.
+- **DB (Supabase di produzione):**
+  - applicate tutte le migrazioni fino a `2026-10-03-admin-allowlist.sql`;
+  - backup giornalieri del cluster alle 05:30 sulla VPS; l'ultimo manuale è
+    `pgdumpall_20261001_1417.sql.gz`;
+  - contiene solo dati di prova: la serata "TECHNOROOM: Solita serata"
+    (11/11/2027) con prenotazioni, contatti e contatori di prova. **Si
+    cancellano al lancio** (comandi più sotto).
+- **Vercel `underclub-2-0-web`** (team `lucios-projects-aef0021a`, piano
+  **Hobby**):
+  - Production: env tutte *sensitive*: `PUBLIC_SITE_URL=https://underclub.it`,
+    `ALLOWED_ORIGINS=https://www.underclub.it`, `MAINTENANCE_MODE=1`,
+    `MAINTENANCE_BYPASS_SECRET`, segreti propri, chiave Resend solo per
+    Production. `VITE_BOOKING_API` non è più letta dal codice: si può
+    togliere.
+  - Preview: env legate al branch `master`, senza manutenzione.
+- **Vercel `underclub-2-0-admin`:**
+  - dominio `admin.underclub.it`, con certificato `*.underclub.it`; anche
+    `underclub-2-0-admin.vercel.app`;
+  - branch di produzione `main`, come il sito (cambiato il 2026-10-04 via
+    `vercel api`);
+  - env `VITE_SUPABASE_URL=https://supabase.luciogratani.it` e la chiave anon;
+  - mai indicizzato: `X-Robots-Tag` noindex su ogni risposta più meta
+    `robots`;
   - header di sicurezza: niente incorporamento in altre pagine, `no-referrer`,
-    fotocamera concessa solo all'admin per lo scanner;
-  - icone proprie (il segno del sito con i colori invertiti);
-  - Supabase accetta il login da quell'origine (CORS `*`);
-  - accesso solo per chi è in `underclub.admin_users`;
-  - in `apps/admin` c'è una vecchia cartella `.git` annidata: la repo
-    principale la ignora e traccia normalmente i file. Da valutare se
-    rimuoverla.
-- **Dominio:** `underclub.it` è il principale, `www` reindirizza alla root con
-  un 308. Il vecchio progetto Vercel `underclub` è stato cancellato il 2026-10-04:
-  era senza domini e senza deploy dal 24 settembre. Era collegato a una repo
-  GitHub privata diversa, `luciogratani/underclub-preseason-2`, ferma al 24
-  settembre e mai toccata da questo progetto.
-- **Email e DNS:** Resend per `reservations.` e `news.` (EU), DMARC `p=none`,
-  Google Postmaster verificato, `info@underclub.it` inoltrata con ImprovMX alla
-  Gmail di Lucio. Dettagli in `dns-underclub.md`.
-- **SEO e condivisione:** icone, manifest, OG, titolo e descrizione, dati
-  strutturati `NightClub`, `robots.txt`, `sitemap.xml`, `noindex` sulle pagine
-  personali. Dettagli e lavoro fuori dal sito in `presenza-online.md`.
+    `nosniff`, fotocamera concessa solo all'admin (scanner QR);
+  - icone proprie: il segno del sito con i colori invertiti.
+- **Dominio:**
+  - `underclub.it` è il principale; `www` reindirizza alla root con un 308;
+  - `admin.underclub.it` punta all'admin;
+  - il vecchio progetto Vercel `underclub` è stato cancellato il 2026-10-04.
+- **Email e DNS:**
+  - Resend per `reservations.` e `news.` (EU), DMARC `p=none`, Google
+    Postmaster verificato;
+  - `info@underclub.it` è inoltrata con ImprovMX alla Gmail di Lucio;
+  - dettagli in `dns-underclub.md`.
+- **SEO:**
+  - icone, manifest, OG, dati strutturati `NightClub` statici;
+  - `MusicEvent` iniettato per la serata in home;
+  - `robots.txt` e `sitemap.xml`, `noindex` sulle pagine personali;
+  - dettagli in `presenza-online.md`.
 
-## Prossimi passi
-1. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
-   pannello Cron). Non ancora fatto.
-1b. **Home senza serate, caricamento, fine serata, chiusura prenotazioni**
-   (fatto il 2026-10-02 sera, rivisto da Lucio il 2026-10-03, in produzione dal
-   2026-10-03). Il dettaglio è nel CHANGELOG. In breve:
-   - **Fine serata:** le 06:00 di Roma del giorno dopo la data, ovunque.
-   - **Chiusura online:** colonna `events.booking_closes_at`, default 18:00
-     della data, senza vincolo nel DB. Un pending chiesto prima della chiusura
-     si conferma anche dopo.
-   - **Home:** prima solo l'anello che carica, poi una sola delle due home. Tra
-     la chiusura e la fine serata la serata resta in home con "BOOKING CLOSED".
-   - **Ticket:** a serata finita mostra il messaggio "expired".
+## Cosa fa il sito oggi (in breve)
+- **Prenotazione senza password:** il form crea una prenotazione `pending` e
+  un link email; aprirlo la conferma e crea la sessione (`uc_session`, 12
+  mesi). Con la sessione, le prenotazioni successive si confermano subito.
+  Ci sono MY BOOKINGS, la disdetta e il recupero via email.
+- **Fine serata:** le **06:00 di Roma del giorno dopo** la data, ovunque.
+  È la regola SQL `event_ends_at`.
+- **Chiusura online:** `events.booking_closes_at`, default **18:00 della data**
+  (`event_booking_deadline`). Dopo la chiusura la serata resta in home con
+  "BOOKING CLOSED" e "tickets at the door". Un pending chiesto prima della
+  chiusura si conferma anche dopo.
+- **Home:**
+  - all'inizio carica, e si vede solo l'anello (al massimo 5 s);
+  - poi la home con la serata, oppure la home **FOLLOW US** con i social,
+    se non c'è una serata;
+  - in caso di errore, la stessa home con un messaggio neutro.
+- **Ticket:** il QR si apre con `open_public_ticket`; a serata finita compare
+  il messaggio "expired".
+- **Database dal browser:** legge solo le serate pubblicate, il conteggio dei
+  posti e il ticket con il token. Le prenotazioni passano solo dagli
+  endpoint `/api/*`, con la service role.
 
-   **Revisione di Lucio (2026-10-03): fatta.**
-   - Testato in locale scenario per scenario, tutto superato: caricamento,
-     prenotazione e conferma, chiusura, chiusura a form aperto, errore,
-     timeout, nessuna serata, ticket senza serata, serata finita.
-   - Approvati i testi ("we couldn't load the dates. try again later.",
-     "BOOKING CLOSED", "tickets at the door", "hey, this ticket has expired!
-     hope you made good use of it!"), la pill chiusa lime al 45 % e la
-     posizione del messaggio di errore.
-   - Il pannello FOLLOW US ora riporta il focus sulla pill quando si chiude
-     (fatto su `feat/pre-season` il 2026-10-03).
+## Piano per il lancio (2026-10-05)
 
-   **Passi per il rilascio, in quest'ordine:**
-   1. Migrazione in produzione (la lancia Lucio). È compatibile con il sito
-      oggi online, quindi va applicata **prima** del rilascio:
-      ```bash
-      ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-02-night-end-booking-close.sql
-      ```
-      Controllo: deve tornare la serata di prova con `booking_deadline` e
-      `ends_at`:
-      ```bash
-      ssh root@178.104.44.21 "docker exec -i supabase-db psql -U supabase_admin -d postgres -c \"select title, date, underclub.booking_deadline(e), underclub.ends_at(e), underclub.is_over(e) from underclub.events e\""
-      ```
-   2. Merge di `feat/home-no-events` in `master` e push di `master`: il preview
-      usa lo stesso DB, quindi si prova lì. Poi `git push origin master:main`.
-   3. Cancellazione della serata di prova ("TECHNOROOM: Solita serata"), così
-      la home mostra subito FOLLOW US. Prima le sue prenotazioni (le
-      `reservations` non vanno in cascata; i link di attivazione sì):
-      ```bash
-      ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" <<'SQL'
-      delete from underclub.reservations r using underclub.events e
-       where e.id = r.event_id and e.title = 'TECHNOROOM: Solita serata';
-      delete from underclub.events where title = 'TECHNOROOM: Solita serata';
-      SQL
-      ```
-   - **Ancora aperto:** lo scanner (avviso per un ticket di un'altra serata;
-     `scan_ticket_check_in` non controlla la data) passa all'admin. Anche la
-     chiusura impostata dall'admin arriva con il CRUD degli eventi.
-2. **Lavori sul sito prima dell'apertura:** il motivo della manutenzione.
-   Lucio dirà quali; in coda c'è la revisione del menu (fatto in autonomia il
-   2026-10-01, mai visto da Lucio: menu nascosto su Book Now, bottone ticket in
-   basso a sinistra).
-3. **Presenza online:** RA fatto (pagina approvata, eventi uniti), scheda
-   Google da rivendicare, Search Console all'apertura. Vedi `presenza-online.md`.
-4. **Admin, prima della prima serata vera** (oggi l'admin ha solo login e
-   check-in funzionanti; Events, Reservations, Guest list, Archive e Analytics
-   sono segnaposto, la Home ha statistiche finte; il DB ha già le policy
-   `admin_all_*` per scrivere eventi, artisti e formule, e le serate si creano
-   in SQL): deploy e prova del check-in
-   (l'admin di aprile non conosce lo stato `pending`), poi CRUD di eventi e
-   formule, lista prenotazioni, guest list con ricerca alla porta, interruttore
-   della manutenzione (flag in una tabella `site_settings` scritto dall'admin e
-   letto dal middleware con una cache di ~30 s; `MAINTENANCE_MODE` resta come
-   override; cambia solo `readMaintenanceConfig`).
-5. **Apertura al pubblico (quando lo decide Lucio):**
-   - **serata di prova** ("TECHNOROOM: Solita serata"): se non è già stata
-     cancellata al punto 1b, toglierla con il comando che si trova lì;
-   - cancellare i dati di prova, in una transazione come `supabase_admin`:
-     `delete from underclub.reservations; delete from underclub.contacts;
-     delete from underclub.request_throttle;` (sessioni e link vanno via in
-     cascata con i contatti). Solo finché ci sono dati di prova: dopo
-     l'apertura non va più usato così;
-   - `MAINTENANCE_MODE` tolta o a `0` in Production, poi Redeploy;
-   - Search Console: proprietà di dominio e invio della sitemap.
-6. **Più avanti:**
-   - un paragrafo vero in `/info` (generi, sale, ex Pancho Villa, tavoli,
-     eventi privati);
-   - pulizia della migrazione 2026-10-01, step 1b, 4 e 5 (togliere da
-     `reservations` le colonne legacy nome, email e data di nascita): si fa
-     con l'admin, che oggi le legge;
-   - `About`, `Archive`, `Guests`: tenerle, toglierle o spostarle;
-   - `/lanyard-rapier` e `/demo/lanyard`: pubbliche o no;
-   - `GET /api/session` senza sessione: 401 o `200 null`. Il 401 lascia un
-     errore rosso nella console di ogni visitatore anonimo; è solo estetico;
-   - statistiche delle provenienze nell'admin (per ora basta sapere chi prenota
-     da RA, vedi `presenza-online.md`).
+### A. Admin (la parte grossa)
+Oggi l'admin ha login e check-in funzionanti:
+- il check-in conosce `pending` e le formule scadute, e rifiuta chi non è
+  in lista;
+- Events, Reservations, Guest list, Archive e Analytics sono segnaposto;
+- la Home mostra statistiche finte.
 
-6b. **Branch `feat/pre-season`** (2026-10-02 sera, impilato su
-   `feat/home-no-events`, mai pushato). Il dettaglio è nel CHANGELOG. In breve:
-   - chiuso il vecchio flusso di prenotazione anonimo (migrazione
-     `2026-10-02-retire-anon-booking.sql`) e tolto il flag `VITE_BOOKING_API`
-     dal web;
-   - `MusicEvent` per la serata in home;
-   - corretti gli errori TypeScript della build di Vercel;
-   - configurazione ESLint;
-   - toast di errore in inglese.
+**Domande a Lucio ancora aperte**, da chiudere all'inizio:
+1. cosa serve per la prima serata, e cosa dopo;
+2. dispositivi: telefono alla porta, computer per creare le serate?
+3. azioni sulle prenotazioni: disdetta e aggiunta manuale dall'admin?
+4. lingua dell'interfaccia: oggi è mista.
 
-   **Migrazioni in produzione (2026-10-03, lanciate da Lucio):**
-   - applicate senza errori, in ordine: `night-end-booking-close`,
-     `retire-anon-booking`, `admin-allowlist`;
-   - controllo esterno con la chiave anon: i computed fields rispondono
-     (serata di prova: chiusura alle 18:00, fine alle 06:00), `reservations`
-     dà 401 ad `anon`, `is_admin()` esiste e per `anon` è falso.
+Già risposto: l'admin lo usano Lucio e alcuni colleghi o capi. Ognuno avrà
+il suo account.
 
-   - L'account `info@underclub.it` è stato creato e registrato in
-     `underclub.admin_users` (2026-10-03). Il login nell'admin locale,
-     collegato alla produzione, funziona. Il proprietario di University,
-     simulato in una transazione annullata, ha `is_admin = f` e vede 0
-     serate e 0 prenotazioni.
+**Proposta minima per la prima serata:**
+- creare e modificare le serate: titolo, data, orario, stato
+  bozza/pubblicata, lineup, formule (prezzo, nota, quota, `valid_until`) e
+  `booking_closes_at`;
+- lista delle prenotazioni per serata, che fa anche da guest list con
+  ricerca alla porta;
+- nel check-in, l'avviso per un ticket di un'altra serata (oggi
+  `scan_ticket_check_in` non controlla la data);
+- Home con numeri veri.
 
-   **Rilasciato il 2026-10-03:** `master` e `main` sono al commit `654c01a`.
-   - Preview e produzione hanno 0 errori TypeScript nella build.
-   - `underclub.it` resta in manutenzione (503 al pubblico).
-   - Resta per più avanti la cancellazione della serata di prova (comando al
-     punto 1b).
-   - Facoltativo: togliere la env `VITE_BOOKING_API` su Vercel.
+Dopo: Archive, Analytics, interruttore della manutenzione (`site_settings`).
 
-   **Verifiche (2026-10-03):**
-   - in locale: 13 suite SQL, 14 controlli via PostgREST (permessi di
-     `anon` e lista degli admin) e 24 controlli nel browser (prenotazione,
-     conferma, ticket, MY BOOKINGS, disdetta, recupero, privacy,
-     `MusicEvent`, toast in inglese, focus di FOLLOW US), tutti superati;
-   - preview Vercel `underclub-2-0-e2pp2la8u` (deploy da CLI del branch):
-     0 `error TS` nel log di build, contro i 15 della produzione di oggi.
+**Cose tecniche da sapere per l'admin:**
+- **Permessi:** l'admin usa supabase-js con la sessione dell'utente
+  (`authenticated`). Le policy `admin_all_*` danno CRUD completo su
+  `events`, `event_artists`, `event_entries` e `reservations`, ma **solo** se
+  `underclub.is_admin()` è vero. Su `contacts` l'admin può solo leggere.
+- **Nomi ed email:** `toAdminReservationView` (`packages/shared`) legge ancora
+  nome ed email dalle colonne legacy di `reservations`. Le prenotazioni nuove
+  hanno nome ed email in `contacts`, collegati con `contact_id`, quindi la
+  lista va fatta unendo `contacts`.
+- **Pulizia rimandata:** gli step 1b, 4 e 5 della migrazione 2026-10-01
+  (togliere le colonne legacy di `reservations`) si fanno solo dopo questo.
+- **Dove provare:** in locale l'admin non ha un login di Supabase. Si prova
+  con `pnpm dev:admin` (porta 5174) contro la produzione, che oggi contiene
+  solo dati di prova: **le scritture sono vere**.
+- **Ruoli:** `admin_users.role` oggi ammette solo `admin`. Un ruolo per lo
+  staff alla porta, limitato al check-in, richiede una migrazione.
+- **Sicurezza da fare** (vedi "Sicurezza"): verifica in due passaggi (MFA)
+  nel login, più avanti.
 
-   **Admin solo per chi è in lista (2026-10-03,
-   `2026-10-03-admin-allowlist.sql`).** Supabase, compreso il login, è
-   condiviso con foras/University e alex_akashi. Prima di questa migrazione
-   le policy admin erano `to authenticated using (true)`: qualunque account
-   dell'istanza poteva leggere contatti e prenotazioni di Underclub con la
-   chiave anon pubblica, per esempio il proprietario di University.
-   - Ora decide la tabella `underclub.admin_users` tramite `underclub.is_admin()`,
-     sullo stesso principio di `is_tenant_owner()` di foras.
-   - Tutto resta nello schema `underclub`, senza passare da `public.tenants`:
-     altrimenti il runner delle migrazioni di foras applicherebbe le sue
-     migrazioni a Underclub.
-   - Il check-in rifiuta chi non è in lista.
-   - Account admin previsto: `info@underclub.it`, da creare in Supabase.
-   - Nessun effetto su foras: tocca solo lo schema `underclub`.
+### B. Sito (pochi ritocchi, guidati da Lucio)
+In coda, se Lucio vuole:
+- la revisione del menu: menu nascosto su Book Now, bottone ticket in basso
+  a sinistra;
+- un paragrafo vero in `/info`;
+- `About`, `Archive` e `Guests`, che non sono montati da nessuna parte;
+- se `/lanyard-rapier` e `/demo/lanyard` debbano restare pubblici;
+- `GET /api/session` senza sessione risponde 401 (errore rosso nella console,
+  solo estetico).
 
-   **Rilascio,** dopo quello di 1b e nello stesso modo. Prima le migrazioni,
-   poi il web:
-   ```bash
-   ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-02-retire-anon-booking.sql
-   ```
-   ```bash
-   ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-03-admin-allowlist.sql
-   ```
-   Poi l'account admin. Prima va creato `info@underclub.it` nel pannello
-   Supabase (Authentication → Add user, con password), poi si registra:
-   ```bash
-   ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres" <<'SQL'
-   insert into underclub.admin_users (user_id)
-   select id from auth.users where email = 'info@underclub.it'
-   on conflict (user_id) do nothing;
-   select u.email, a.role from underclub.admin_users a join auth.users u on u.id = a.user_id;
-   SQL
-   ```
-   - Fra la seconda migrazione e questo insert nessuno è admin. L'admin di
-     oggi serve solo al check-in, quindi non c'è fretta prima della prima
-     serata.
-   - Il sito non usa più il percorso anonimo: le migrazioni si possono
-     applicare anche prima del rilascio del web.
-   - Dopo il rilascio la env `VITE_BOOKING_API` su Vercel non serve più e si
-     può togliere.
+### C. Checklist del lancio, in ordine
+1. **Rilascio finale** con `git push origin master:main` (dopo le eventuali
+   migrazioni). Porta in produzione sito e admin insieme.
+2. **Account admin** per i colleghi. Si crea l'utente in Supabase
+   (Authentication → Add user), poi si registra in lista (comando sotto).
+3. **Dati di prova:** cancellare serata, prenotazioni, contatti e contatori
+   di prova (comando sotto).
+4. **Serate vere:** crearle dall'admin, oppure in SQL se l'admin non è pronto.
+5. **Manutenzione spenta:** `MAINTENANCE_MODE` tolta o messa a `0` in
+   Production su `underclub-2-0-web`, poi Redeploy. Prova da un browser
+   senza il cookie di accesso.
+6. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
+   pannello Cron). **Mai controllato finora.**
+7. **Search Console:** proprietà di dominio e invio della sitemap. Prova del
+   `MusicEvent` con il Rich Results Test.
+8. **Google Business:** rivendicare la scheda. RA è a posto (vedi
+   `presenza-online.md`).
+9. **Facoltativo:** togliere la env `VITE_BOOKING_API`.
 
-   **Iscrizione a Supabase (controllata il 2026-10-03):** è chiusa e deve
-   restarlo. Con la lista degli admin un nuovo account non vedrebbe comunque
-   Underclub, ma potrebbe entrare negli altri progetti dell'istanza. Esito su `supabase.luciogratani.it` (GoTrue v2.186.0),
-   letto con la chiave anon pubblica: `disable_signup: true` e
-   `anonymous_users: false` (gli utenti anonimi avrebbero lo stesso ruolo).
-   Per ricontrollare:
-   ```bash
-   curl -s https://supabase.luciogratani.it/auth/v1/settings -H "apikey: <chiave anon pubblica>" | grep -oE '"(disable_signup|anonymous_users)":[a-z]*'
-   ```
-   Facoltativo, via SSH (lo lancia Lucio): controllare che in `auth.users` ci
-   siano solo account del team, nel caso l'iscrizione sia stata aperta in
-   passato.
+**Da sapere:**
+- il piano Hobby di Vercel è riservato all'uso **non commerciale**: un locale
+  con prenotazioni è uso commerciale, valutare il piano Pro;
+- l'icona del sito nelle card di Vercel dovrebbe comparire a manutenzione
+  spenta.
 
-## Home senza serate: dove va il testo (scelta A, 2026-10-02, fatta)
-La Hero di oggi: card lime al 95 %×88 % con l'anello che gira, pill nera
-"NEXT DATE →" in basso al centro, bottone ticket in basso a sinistra, menu in
-basso a destra. Il centro dell'anello è vuoto.
-- **A (scelta da Lucio):** stessa Hero; al posto della pill "NEXT DATE →" una pill
-  uguale "STAY TUNED" o "FOLLOW US" che apre un pannello come quello del menu,
-  con Instagram, Facebook e WhatsApp. L'anello (` < NEXT DATE > ??.??`) dice già
-  che non ci sono date: nessun altro testo. Etichetta della pill:
-  **"FOLLOW US"** (scelta da Lucio), con la freccia come "NEXT DATE".
-- **B (scartata):** testo breve dentro l'anello, al centro ("no dates yet" + una riga), e
-  sotto, al posto della pill, una riga di icone social cliccabili.
-In entrambi i casi menu e bottone ticket restano dove sono.
+## Sicurezza (stato e aperti)
+**Fatto:**
+- `anon` non ha accessi a `reservations` né alla vecchia RPC di prenotazione;
+- iscrizione a Supabase chiusa (`disable_signup: true`) e utenti anonimi
+  spenti;
+- lista degli admin: `underclub.admin_users` più `underclub.is_admin()`;
+- admin non indicizzato, con gli header di sicurezza.
+
+**Il login di Supabase è condiviso** con foras/University e alex_akashi:
+- la lista degli admin è dentro lo schema `underclub` e **non** in
+  `public.tenants` di foras. Altrimenti il runner delle migrazioni di foras
+  applicherebbe le sue a Underclub;
+- oggi in `public.tenants` ci sono solo `template` e `university`;
+- l'iscrizione chiusa deve restare così: un nuovo account non vedrebbe
+  Underclub, ma potrebbe entrare negli altri progetti.
+
+**Aperti:**
+- **Limite dei tentativi di login.** GoTrue (v2.186) gira senza variabili
+  `RATE_LIMIT_*`. Senza `GOTRUE_RATE_LIMIT_HEADER`, dietro Caddy e Kong, il
+  limite per IP sull'endpoint `/token` probabilmente non protegge: o non
+  limita, o usa un unico contatore per tutti, e un bot potrebbe bloccare i
+  login di Underclub e foras.
+  - Correzione: Caddy imposta un header con l'IP vero non falsificabile
+    (per esempio `X-Real-IP`), e si imposta `GOTRUE_RATE_LIMIT_HEADER`.
+  - È una modifica di tutta l'istanza: va fatta con foras, la lancia Lucio.
+  - Nel frattempo: password lunghe e casuali, un account per persona.
+- **MFA** nel login dell'admin (TOTP, supportato da Supabase).
+- **`.git` annidata:** in `apps/admin` c'è una vecchia cartella `.git`. La
+  repo principale traccia normalmente i file, ma un `git status` lanciato
+  dentro `apps/admin` mostra la vecchia repo. Va guardata prima di
+  rimuoverla.
+
+## Comandi utili (li lancia Lucio: SSH e DNS sono bloccati per l'assistente)
+SQL sulla VPS:
+```bash
+ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres"
+```
+Migrazione (sempre `--single-transaction`):
+```bash
+ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/<file>.sql
+```
+Registrare un admin (l'utente va prima creato in Supabase):
+```bash
+ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres" <<'SQL'
+insert into underclub.admin_users (user_id)
+select id from auth.users where email = '<email>'
+on conflict (user_id) do nothing;
+select u.email, a.role from underclub.admin_users a join auth.users u on u.id = a.user_id;
+SQL
+```
+Cancellare i dati di prova, **solo prima dell'apertura**. Le sessioni e i link
+se ne vanno in cascata con i contatti; artisti e formule con la serata:
+```bash
+ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" <<'SQL'
+delete from underclub.reservations;
+delete from underclub.contacts;
+delete from underclub.request_throttle;
+delete from underclub.events where title = 'TECHNOROOM: Solita serata';
+SQL
+```
+Controllare l'iscrizione chiusa (chiave anon pubblica, nel bundle del sito):
+```bash
+curl -s https://supabase.luciogratani.it/auth/v1/settings -H "apikey: <chiave anon>" | grep -oE '"(disable_signup|anonymous_users)":[a-z]*'
+```
 
 ## Decisioni già prese (non ridiscutere)
 - Overbooking minimo accettato: le prenotazioni pending non tengono il posto.
@@ -262,23 +251,34 @@ In entrambi i casi menu e bottone ticket restano dove sono.
 - I segreti di Production sono diversi da quelli del Preview. `TICKET_SECRET` di
   Production non va più cambiato.
 - Nessun `rua=` nel DMARC: per il monitoraggio basta Postmaster.
-- Il flusso di prenotazione vecchio non si usa da mesi e non tornerà: recupero
-  delle prenotazioni legacy e flag spento non vanno più curati.
-- Il sito va sul dominio in manutenzione e si apre quando Lucio lo decide.
-- La root `underclub.it` è il dominio principale.
+- Il vecchio flusso di prenotazione anonimo è chiuso, e il flag
+  `VITE_BOOKING_API` non esiste più.
+- La root `underclub.it` è il dominio principale; il sito si apre quando lo
+  decide Lucio.
 - Statistiche rimandate: per ora basta `reservations.source` (`?src=`).
+- Fine serata alle 06:00 di Roma del giorno dopo; chiusura online di default
+  alle 18:00 della data, modificabile per serata, senza vincolo nel DB.
+- Home senza serate: opzione A, cioè la Hero con la pill "FOLLOW US" e il
+  pannello dei social.
+- Admin: lista degli admin nello schema `underclub`, un account per persona,
+  branch di produzione `main`, mai indicizzato. Niente `Disallow` nel
+  `robots.txt`, così i crawler leggono il `noindex`.
 
 ## Rilasci
-- `master` è il branch di lavoro: ogni push crea un preview con le env del
-  Preview (legate a `master`). `main` è il branch di produzione: si rilascia
-  con `git push origin master:main` (di solito lo lancia Lucio).
-- Il branch di produzione non può essere `master`: Vercel lo rifiuta perché le
-  env del Preview sono legate a quel branch.
-- Preview di prova senza toccare le env del progetto: dalla **root del repo**
-  `VERCEL_ORG_ID=team_ZBmn3O0eWhlkzdw29iSyVLDv VERCEL_PROJECT_ID=prj_ts2sgVDwuMA52XRbmAY4YUWjH0D0 vercel deploy --yes`,
-  con `-e NOME=valore` per env solo di quel deploy (il progetto ha Root
-  Directory `apps/web`). I preview sono protetti: si leggono con `vercel curl`.
-  Vercel aggiunge `noindex` a tutte le pagine dei preview.
+- `master` è il branch di lavoro: ogni push crea i preview di sito e admin.
+  `main` è la produzione di entrambi: si rilascia con
+  `git push origin master:main`.
+- Ordine: prima le migrazioni (le lancia Lucio), poi il push su `main`. Le
+  migrazioni si scrivono compatibili con il codice già online.
+- Lucio può chiedere di andare "dritti in produzione" senza fermarsi al
+  preview.
+- Preview di prova del sito senza push, dalla **root del repo**:
+  `VERCEL_ORG_ID=team_ZBmn3O0eWhlkzdw29iSyVLDv VERCEL_PROJECT_ID=prj_ts2sgVDwuMA52XRbmAY4YUWjH0D0 vercel deploy --yes`.
+  I preview sono protetti: si leggono con `vercel curl` o dal browser di
+  Lucio, loggato su Vercel.
+- Admin: progetto `prj_YtkXYNpCGA2Pu66WJckSTyhRjV6x`. Le impostazioni che la
+  CLI non espone si cambiano con `vercel api`, per esempio il branch di
+  produzione con `PATCH /v9/projects/<id>/branch`.
 
 ## Manutenzione (cose non ovvie)
 - Middleware in `apps/web/middleware.ts`, logica in
@@ -287,48 +287,68 @@ In entrambi i casi menu e bottone ticket restano dove sono.
   file statici e `/ticket/*`.
 - Link di accesso: `https://underclub.it/?bypass=<segreto>` (lo ha Lucio nel
   password manager; la env non si rilegge). Dà un cookie httpOnly `uc_bypass`
-  di 30 giorni, valido solo per il dominio su cui lo si apre. Cambiare il
-  segreto revoca tutti i cookie: `vercel env rm` + `vercel env add` + Redeploy.
+  di 30 giorni, valido solo per il dominio su cui lo si apre.
 - Accendere o spegnere = cambiare la env + Redeploy (1-2 minuti).
 - Gli anteprimatori dei link (WhatsApp, Facebook, Telegram, X, LinkedIn,
-  Slack, Discord) ricevono la stessa pagina con un 200: con il 503 scartano la
-  scheda di condivisione. Google e i visitatori restano sul 503.
+  Slack, Discord) ricevono la pagina con un 200, per mostrare la scheda di
+  condivisione. Google e i visitatori restano sul 503.
 
 ## Infrastruttura (cose non ovvie)
 - **Supabase self-hosted:** VPS Hetzner `178.104.44.21` (Norimberga), host
-  `supabase.luciogratani.it`, schema `underclub`. Documentazione in
-  `~/Desktop/zukunft/server-vps/`. SQL via
-  `ssh root@… "docker exec -i supabase-db psql -U supabase_admin -d postgres"`.
-  Va usato `supabase_admin`, proprietario degli oggetti; `postgres` non è
-  superuser.
-- **DNS di `underclub.it`:** zona su Vercel, team `lucios-projects-aef0021a`,
-  si modifica con `vercel dns add`. Il dominio è di Ezio (registrar): tiene i
-  nameserver Vercel e lo rinnova. Mai `vercel domains rm`: toglierebbe il
-  dominio, con la zona, da tutto il team. I domini tra progetti si spostano
-  dalla dashboard.
+  `supabase.luciogratani.it`; `supabase.web-pr.it` è la stessa istanza,
+  usata da foras. Schema `underclub`.
+  - Va usato `supabase_admin`, proprietario degli oggetti: `postgres` non è
+    superuser.
+  - Documentazione in `~/Desktop/zukunft/server-vps/`, e per foras in
+    `~/Desktop/University/university/docs/university/note/infrastruttura.md`.
+  - Mai riavviare `supabase-rest`: interrompe anche gli altri progetti. Per
+    ricaricare PostgREST si usa `notify pgrst, 'reload schema'`, che le
+    migrazioni già fanno.
+- **DNS di `underclub.it`:** zona su Vercel, team `lucios-projects-aef0021a`.
+  - Il dominio è di Ezio (registrar): tiene i nameserver Vercel e lo rinnova.
+  - Mai `vercel domains rm`: toglierebbe il dominio, con la zona, da tutto il
+    team.
+  - Un sottodominio si collega a un progetto con
+    `vercel domains add <dominio> <progetto>`.
 - **Permessi dell'assistente:** il classificatore della modalità auto blocca
-  l'SSH verso la VPS e le modifiche DNS. Si preparano i comandi, Lucio li lancia
-  e incolla l'output. Lettura delle env, deploy di preview e `vercel curl`
-  funzionano. Chrome (estensione Claude) è loggato anche su RA come Underclub.
+  l'SSH verso la VPS e le modifiche DNS. Si preparano i comandi, Lucio li
+  lancia e incolla l'output. Funzionano: lettura delle env, deploy di preview,
+  `vercel curl`, `vercel api`, `gh`.
+- **Browser:** l'estensione Chrome di Claude non è sempre collegata. In quel
+  caso si usa Chrome headless con `playwright-core`, installato nella
+  scratchpad e puntato su `/Applications/Google Chrome.app`.
 
 ## Come lavorare con l'utente
 - Rispondere in italiano. Il CLAUDE.md globale è attivo: `## Summary` in testa,
   risposte concise, niente push né branch nuovi senza richiesta.
 - Mai toccare Supabase, Vercel o Resend reali senza un ok esplicito, e chiedere
-  conferma per ogni passo irreversibile.
+  conferma per ogni passo irreversibile. Le cose che si cancellano (progetti,
+  dati) si guardano prima.
 - I segreti non passano mai dalla chat: comandi con `openssl rand` o `pbpaste`
-  in pipe verso `vercel env add … --sensitive`.
+  in pipe verso `vercel env add … --sensitive`. Le password le inserisce Lucio.
 - Testi nuovi per gli utenti: bozza marcata `COPY-DRAFT`, approvazione di
   Lucio, poi si toglie il marcatore. Oggi nel codice non ce ne sono.
+- La cartella di lavoro può essere condivisa con altre sessioni: controllare
+  `git status` e il branch prima di committare.
 
 ## Trappole note dell'ambiente
-- **Postgres locale per i test:** `supabase/tests/run.sh` (con `--keep` resta
-  acceso) richiede `LC_ALL=C` e TCP su 127.0.0.1, ma l'harness lo gestisce già.
-  Il bootstrap rispecchia i permessi della produzione: `service_role` senza
-  usage sullo schema finché non lo concede la migrazione.
-- **`pnpm build` / `tsc -b`** riscrivono `apps/web/tsconfig.tsbuildinfo`, che è
-  tracciato: ripristinarlo con `git checkout` prima di committare.
+- **Postgres locale:** `supabase/tests/run.sh` (con `--keep` resta acceso)
+  richiede `LC_ALL=C` e TCP su 127.0.0.1, e l'harness lo gestisce già.
+  - Il bootstrap ha uno schema `auth` minimo (`auth.users`, `auth.uid()`).
+  - Le fixture hanno due utenti: `…0001`, admin di Underclub, e `…0002`,
+    utente di un altro progetto.
+  - Per agire come un utente nei test: `test.as_admin()` o
+    `test.as_other_project_user()`, poi `set local role authenticated`.
+- **Output di `run.sh --keep`:** va mandato su un file, non in una pipe. Il
+  Postgres che resta acceso terrebbe la pipe aperta.
+- **I processi in background** dell'assistente muoiono con la sessione. Lo
+  stack locale si riavvia con `scripts/dev-stack/start.sh`.
+- **`pnpm build` / `tsc -b`** riscrivono `apps/*/tsconfig.tsbuildinfo`, che
+  sono tracciati: ripristinarli con `git checkout` prima di committare.
 - **`vercel link`** crea anche `apps/web/.env.local` (con un token OIDC, e Vite
   lo leggerebbe) e un `apps/web/.gitignore`: vanno tolti.
+- **`apps/web/.env` e `apps/admin/.env` locali** puntano a
+  `supabase.web-pr.it`, cioè la stessa istanza. Lo stack locale li sovrascrive
+  dalla riga di comando.
 - **Il terminale di Lucio** apre nella root del repo: per i comandi `vercel env`
   serve `cd apps/web`.

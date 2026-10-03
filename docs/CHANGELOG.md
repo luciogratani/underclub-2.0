@@ -5,6 +5,57 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ---
 
+## 2026-10-03 / 04 — Revisione, rilascio, admin su admin.underclub.it
+
+### Revisione e rilascio
+- **Revisione di Lucio:**
+  - 1b scenario per scenario; testi approvati e marcatori `COPY-DRAFT` tolti;
+  - 6b con 14 controlli via PostgREST e 24 nel browser, in locale;
+  - preview Vercel con 0 errori TypeScript.
+- **Migrazioni in produzione** (le ha lanciate Lucio): `night-end-booking-close`,
+  `retire-anon-booking`, `admin-allowlist`.
+- **Rilasci:** `main` a `654c01a` il 2026-10-03, poi a `83ae7cc` il
+  2026-10-04 con le icone e gli header dell'admin. Il sito resta in
+  manutenzione.
+
+### Aggiunto
+- **Admin:**
+  - dominio `admin.underclub.it`;
+  - icone proprie (il segno del sito con i colori invertiti) e manifest
+    "Underclub Admin";
+  - mai indicizzato (`X-Robots-Tag` e meta `robots`);
+  - header di sicurezza: niente incorporamento in altre pagine,
+    `no-referrer`, `nosniff`, fotocamera solo per l'admin.
+- **Account admin:** `info@underclub.it`, registrato in
+  `underclub.admin_users`.
+- **`scripts/dev-stack/`:**
+  - `start.sh` e `stop.sh` per lo stack locale (Postgres, PostgREST, proxy,
+    Vite);
+  - `privileges-check.sh`, 14 controlli sui permessi di `anon` e sulla lista
+    degli admin.
+
+### Cambiato
+- **Branch di produzione dell'admin:** da `master` a `main`, come il sito.
+- **FOLLOW US:** chiudendo il pannello, il focus torna sulla pill. Per questo
+  `HeroButton` ora accetta una `ref`.
+
+### Tolto
+- **Il vecchio progetto Vercel `underclub`:** non aveva domini e non aveva
+  deploy dal 24 settembre.
+- **I branch locali** `feat/passwordless-booking`, `feat/home-no-events` e
+  `feat/pre-season`, tutti già in `master`.
+
+### Controllato
+- **Iscrizione a Supabase:** chiusa (`disable_signup: true`, niente utenti
+  anonimi).
+- **`public.tenants` di foras:** ci sono solo `template` e `university`.
+  Underclub ne resta fuori di proposito.
+- **Limiti di GoTrue sui tentativi di login:** nessuna variabile
+  `RATE_LIMIT_*` impostata. Il limite per IP probabilmente non protegge
+  dietro i proxy: è un'attività aperta in `handoff.md`, sezione "Sicurezza".
+
+---
+
 ## 2026-10-02 (sera, 2) — Vecchio flusso chiuso, MusicEvent, build pulita
 
 Branch `feat/pre-season`, impilato su `feat/home-no-events`. Migrazioni e web
