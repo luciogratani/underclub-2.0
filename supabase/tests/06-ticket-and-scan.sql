@@ -140,6 +140,7 @@ begin
 end $$;
 
 -- scan_ticket_check_in, as the logged-in admin.
+select test.as_admin();
 set local role authenticated;
 do $$
 declare
@@ -230,6 +231,7 @@ begin
            where id = current_setting('test.late_id')::uuid) = now(), 'marked after column drop';
 end $$;
 
+select test.as_admin();
 set local role authenticated;
 do $$
 declare

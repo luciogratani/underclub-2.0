@@ -28,5 +28,25 @@ alter default privileges in schema underclub
 alter default privileges in schema underclub
   grant all on sequences to anon, authenticated, service_role;
 
+-- The slice of Supabase Auth the migrations use: `auth.users` (referenced by
+-- underclub.admin_users) and `auth.uid()`, same definition as Supabase: the
+-- `sub` of the request JWT, which PostgREST puts in `request.jwt.claims`.
+-- Tests act as a given user with set_config('request.jwt.claims', ...).
+create schema auth;
+create table auth.users (
+  id    uuid primary key,
+  email text
+);
+create function auth.uid() returns uuid
+language sql stable
+as $$
+  select coalesce(
+    nullif(current_setting('request.jwt.claim.sub', true), ''),
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
+  )::uuid
+$$;
+grant usage on schema auth to anon, authenticated, service_role;
+grant execute on function auth.uid() to anon, authenticated, service_role;
+
 -- Only for the concurrency tests (two real sessions from inside SQL).
 create extension dblink schema extensions;

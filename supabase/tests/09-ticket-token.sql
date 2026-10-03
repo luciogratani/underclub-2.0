@@ -113,6 +113,7 @@ begin
 end $$;
 
 -- The door accepts the derived tokens as any other.
+select test.as_admin();
 set local role authenticated;
 do $$
 declare

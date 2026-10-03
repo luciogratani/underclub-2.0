@@ -12,6 +12,7 @@
 --   7. supabase/rls-history/2026-10-02-booking-endpoints.sql
 --   8. supabase/rls-history/2026-10-02-night-end-booking-close.sql
 --   9. supabase/rls-history/2026-10-02-retire-anon-booking.sql
+--  10. supabase/rls-history/2026-10-03-admin-allowlist.sql
 --
 -- pgcrypto: every call is qualified as `extensions.*` (step 3 was fixed on
 -- 2026-10-01, together with step 7; before that its unqualified `digest` aborted the file on a fresh
@@ -93,33 +94,56 @@ drop policy if exists "anon_insert_reservation" on underclub.reservations;
 -- Do not reintroduce them here.
 
 -- =========================================================================
--- AUTHENTICATED (admin) policies — full CRUD
+-- ADMIN policies — full CRUD, allowlisted users only
 -- =========================================================================
+-- Supabase Auth is shared with the other projects on this instance, so being
+-- `authenticated` is not enough: the user must be in underclub.admin_users
+-- (2026-10-03, see rls-history/2026-10-03-admin-allowlist.sql).
+
+create table if not exists underclub.admin_users (
+  user_id    uuid        primary key references auth.users (id) on delete cascade,
+  role       text        not null default 'admin' check (role in ('admin')),
+  created_at timestamptz not null default now()
+);
+alter table underclub.admin_users enable row level security;
+revoke all on underclub.admin_users from anon, authenticated;
+
+create or replace function underclub.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = underclub, public
+as $$
+  select exists (select 1 from underclub.admin_users a where a.user_id = auth.uid())
+$$;
+revoke all on function underclub.is_admin() from public;
+grant execute on function underclub.is_admin() to anon, authenticated, service_role;
 
 drop policy if exists "admin_all_events" on underclub.events;
 create policy "admin_all_events"
   on underclub.events for all
   to authenticated
-  using (true)
-  with check (true);
+  using (underclub.is_admin())
+  with check (underclub.is_admin());
 
 drop policy if exists "admin_all_event_artists" on underclub.event_artists;
 create policy "admin_all_event_artists"
   on underclub.event_artists for all
   to authenticated
-  using (true)
-  with check (true);
+  using (underclub.is_admin())
+  with check (underclub.is_admin());
 
 drop policy if exists "admin_all_event_entries" on underclub.event_entries;
 create policy "admin_all_event_entries"
   on underclub.event_entries for all
   to authenticated
-  using (true)
-  with check (true);
+  using (underclub.is_admin())
+  with check (underclub.is_admin());
 
 drop policy if exists "admin_all_reservations" on underclub.reservations;
 create policy "admin_all_reservations"
   on underclub.reservations for all
   to authenticated
-  using (true)
-  with check (true);
+  using (underclub.is_admin())
+  with check (underclub.is_admin());

@@ -21,6 +21,21 @@ né il web sono rilasciati: vedi `handoff.md`, punto 6b.
   alle policy `x-ticket-token`. Il ticket si legge solo con
   `open_public_ticket`. `rls.sql` non ricrea più la policy di insert.
 
+- **`2026-10-03-admin-allowlist.sql`** (aggiunta il 2026-10-03, durante la
+  revisione). Il login di Supabase è condiviso con gli altri progetti
+  dell'istanza (foras/University, alex_akashi). Le policy admin
+  `to authenticated using (true)` aprivano quindi contatti, prenotazioni,
+  serate e check-in a qualunque account dell'istanza.
+  - Ora serve essere in `underclub.admin_users`; il controllo è
+    `underclub.is_admin()`, che usa `auth.uid()` come `is_tenant_owner()` di
+    foras ma senza passare da `public.tenants`.
+  - `scan_ticket_check_in` risponde 42501 a chi non è in lista.
+  - `rls.sql` e la migrazione 2026-10-01 definiscono già le policy con
+    `is_admin()`.
+  - Test: nel bootstrap ci sono uno schema `auth` minimo e due utenti di
+    prova (admin Underclub e utente di un altro progetto); una prova a mano
+    conferma che una policy riaperta con `using (true)` fa fallire `07`.
+
 ### Tolto
 - Il flag `VITE_BOOKING_API` e il percorso con il flag spento:
   - prenotazione via RPC diretta;

@@ -163,9 +163,91 @@ begin
       null;
     end;
   end loop;
-  -- What the admin is supposed to have.
+  -- What the admin is supposed to have (allowlisted user).
+  perform test.as_admin();
   perform count(*) from underclub.contacts;
   assert (select result_code from underclub.scan_ticket_check_in('nope')) = 'invalid', 'admin can scan';
+end $$;
+rollback;
+
+-- Admin allowlist (2026-10-03): Supabase Auth is shared with other projects,
+-- so `authenticated` alone gets nothing; only underclub.admin_users counts.
+do $$
+declare
+  p record;
+begin
+  -- Every admin policy goes through is_admin(); none is left open.
+  for p in select polname, pg_get_expr(polqual, polrelid) as q, pg_get_expr(polwithcheck, polrelid) as c
+             from pg_policy
+            where polrelid in ('underclub.events'::regclass, 'underclub.event_artists'::regclass,
+                               'underclub.event_entries'::regclass, 'underclub.reservations'::regclass,
+                               'underclub.contacts'::regclass)
+              and polroles @> array['authenticated'::regrole]::oid[] loop
+    assert p.q = 'underclub.is_admin()', format('%s: using %s', p.polname, p.q);
+    assert p.c is null or p.c = 'underclub.is_admin()', format('%s: with check %s', p.polname, p.c);
+  end loop;
+  assert (select count(*) from pg_policy where polname like 'admin\_%') = 5, 'five admin policies';
+
+  -- The allowlist itself is invisible to the API roles.
+  assert not has_table_privilege('anon', 'underclub.admin_users', 'select,insert,update,delete'), 'anon admin_users';
+  assert not has_table_privilege('authenticated', 'underclub.admin_users', 'select,insert,update,delete'), 'auth admin_users';
+  assert has_function_privilege('anon', 'underclub.is_admin()', 'execute'), 'anon may ask is_admin';
+end $$;
+
+-- A logged-in user of another project: authenticated, not allowlisted.
+begin;
+select test.as_other_project_user();
+set local role authenticated;
+do $$
+begin
+  assert underclub.is_admin() = false, 'other project user is not admin';
+  assert (select count(*) from underclub.events) = 0, 'no events';
+  assert (select count(*) from underclub.event_entries) = 0, 'no entries';
+  assert (select count(*) from underclub.event_artists) = 0, 'no artists';
+  assert (select count(*) from underclub.reservations) = 0, 'no reservations';
+  assert (select count(*) from underclub.contacts) = 0, 'no contacts';
+
+  begin
+    insert into underclub.events (title, date, time, status) values ('Intruder', test.today(), '23:00', 'published');
+    raise exception 'other project user could insert an event' using errcode = 'P0001';
+  exception when insufficient_privilege then
+    null;  -- RLS: new row violates row-level security policy
+  end;
+
+  update underclub.events set title = 'Hijacked';
+  assert not found, 'update touches nothing';
+
+  begin
+    perform underclub.scan_ticket_check_in('nope');
+    raise exception 'other project user could scan' using errcode = 'P0001';
+  exception when insufficient_privilege then
+    null;
+  end;
+end $$;
+rollback;
+
+-- Logged in with no user at all (no JWT sub): same as above.
+begin;
+set local role authenticated;
+do $$
+begin
+  assert underclub.is_admin() = false, 'no sub, not admin';
+  assert (select count(*) from underclub.events) = 0, 'no sub: no events';
+end $$;
+rollback;
+
+-- The allowlisted admin: full access.
+begin;
+select test.as_admin();
+set local role authenticated;
+do $$
+begin
+  assert underclub.is_admin(), 'admin is admin';
+  assert (select count(*) from underclub.events) = 5, 'admin sees every event';
+  insert into underclub.events (title, date, time, status) values ('Admin Night', test.today() + 30, '23:00', 'draft');
+  assert (select count(*) from underclub.events) = 6, 'admin can create an event';
+  update underclub.events set title = 'Admin Night 2' where title = 'Admin Night';
+  assert found, 'admin can edit';
 end $$;
 rollback;
 

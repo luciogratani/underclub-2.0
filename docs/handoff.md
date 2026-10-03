@@ -140,18 +140,50 @@ BOOKINGS) sul DB di produzione.
    - configurazione ESLint;
    - toast di errore in inglese.
 
-   **Rilascio:** dopo quello di 1b, nello stesso modo. Prima la migrazione,
+   **Admin solo per chi è in lista (2026-10-03,
+   `2026-10-03-admin-allowlist.sql`).** Supabase, compreso il login, è
+   condiviso con foras/University e alex_akashi. Prima di questa migrazione
+   le policy admin erano `to authenticated using (true)`: qualunque account
+   dell'istanza poteva leggere contatti e prenotazioni di Underclub con la
+   chiave anon pubblica, per esempio il proprietario di University.
+   - Ora decide la tabella `underclub.admin_users` tramite `underclub.is_admin()`,
+     sullo stesso principio di `is_tenant_owner()` di foras.
+   - Tutto resta nello schema `underclub`, senza passare da `public.tenants`:
+     altrimenti il runner delle migrazioni di foras applicherebbe le sue
+     migrazioni a Underclub.
+   - Il check-in rifiuta chi non è in lista.
+   - Account admin previsto: `info@underclub.it`, da creare in Supabase.
+   - Nessun effetto su foras: tocca solo lo schema `underclub`.
+
+   **Rilascio,** dopo quello di 1b e nello stesso modo. Prima le migrazioni,
    poi il web:
    ```bash
    ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-02-retire-anon-booking.sql
    ```
-   Il sito di oggi non usa più il percorso anonimo, quindi la migrazione si
-   può applicare anche prima del rilascio del web. Dopo il rilascio la env
-   `VITE_BOOKING_API` su Vercel non serve più: si può togliere.
+   ```bash
+   ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 --single-transaction -U supabase_admin -d postgres" < supabase/rls-history/2026-10-03-admin-allowlist.sql
+   ```
+   Poi l'account admin. Prima va creato `info@underclub.it` nel pannello
+   Supabase (Authentication → Add user, con password), poi si registra:
+   ```bash
+   ssh root@178.104.44.21 "docker exec -i supabase-db psql -v ON_ERROR_STOP=1 -U supabase_admin -d postgres" <<'SQL'
+   insert into underclub.admin_users (user_id)
+   select id from auth.users where email = 'info@underclub.it'
+   on conflict (user_id) do nothing;
+   select u.email, a.role from underclub.admin_users a join auth.users u on u.id = a.user_id;
+   SQL
+   ```
+   - Fra la seconda migrazione e questo insert nessuno è admin. L'admin di
+     oggi serve solo al check-in, quindi non c'è fretta prima della prima
+     serata.
+   - Il sito non usa più il percorso anonimo: le migrazioni si possono
+     applicare anche prima del rilascio del web.
+   - Dopo il rilascio la env `VITE_BOOKING_API` su Vercel non serve più e si
+     può togliere.
 
-   **Iscrizione a Supabase (controllata il 2026-10-03):** è chiusa. Le policy
-   `admin_all_*` danno tutto a qualunque utente `authenticated`, quindi deve
-   restare chiusa. Esito su `supabase.luciogratani.it` (GoTrue v2.186.0),
+   **Iscrizione a Supabase (controllata il 2026-10-03):** è chiusa e deve
+   restarlo. Con la lista degli admin un nuovo account non vedrebbe comunque
+   Underclub, ma potrebbe entrare negli altri progetti dell'istanza. Esito su `supabase.luciogratani.it` (GoTrue v2.186.0),
    letto con la chiave anon pubblica: `disable_signup: true` e
    `anonymous_users: false` (gli utenti anonimi avrebbero lo stesso ruolo).
    Per ricontrollare:

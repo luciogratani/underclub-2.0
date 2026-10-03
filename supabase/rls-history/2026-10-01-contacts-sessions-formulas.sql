@@ -261,10 +261,12 @@ revoke all on underclub.contact_sessions  from anon, authenticated;
 grant select on underclub.contacts to authenticated;
 
 drop policy if exists "admin_read_contacts" on underclub.contacts;
+-- Allowlisted admins only (2026-10-03: Supabase Auth is shared with other
+-- projects; is_admin() is defined in rls.sql).
 create policy "admin_read_contacts"
   on underclub.contacts for select
   to authenticated
-  using (true);
+  using (underclub.is_admin());
 
 -- ---------------------------------------------------------------------------
 -- Verification

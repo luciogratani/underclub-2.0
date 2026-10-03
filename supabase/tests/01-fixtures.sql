@@ -59,6 +59,31 @@ as $$
    where c.id = t.contact_id and c.email = p_email;
 $$;
 
+-- Supabase Auth users (bootstrap's minimal auth.users): the Underclub admin
+-- and an account of another project on the same instance (e.g. the
+-- University owner), which must get nothing here.
+insert into auth.users (id, email) values
+  ('a0000000-0000-0000-0000-000000000001', 'info@underclub.it'),
+  ('a0000000-0000-0000-0000-000000000002', 'owner@other-project.example');
+insert into underclub.admin_users (user_id) values ('a0000000-0000-0000-0000-000000000001');
+
+-- Act as a Supabase user for the rest of the transaction (what PostgREST does
+-- with the request JWT). Pair with `set local role authenticated`.
+create function test.as_user(p_id uuid)
+returns void
+language sql
+as $$ select set_config('request.jwt.claims', json_build_object('sub', p_id, 'role', 'authenticated')::text, true) $$;
+
+create function test.as_admin()
+returns void
+language sql
+as $$ select test.as_user('a0000000-0000-0000-0000-000000000001') $$;
+
+create function test.as_other_project_user()
+returns void
+language sql
+as $$ select test.as_user('a0000000-0000-0000-0000-000000000002') $$;
+
 grant execute on all functions in schema test to public;
 
 insert into underclub.events (id, title, date, time, status) values
@@ -82,4 +107,5 @@ do $$
 begin
   assert (select count(*) from underclub.events) = 5, 'fixture events';
   assert (select count(*) from underclub.event_entries) = 8, 'fixture entries';
+  assert (select count(*) from underclub.admin_users) = 1, 'fixture admin';
 end $$;
