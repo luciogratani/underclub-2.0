@@ -147,8 +147,14 @@ BOOKINGS) sul DB di produzione.
      (serata di prova: chiusura alle 18:00, fine alle 06:00), `reservations`
      dà 401 ad `anon`, `is_admin()` esiste e per `anon` è falso.
 
-   Restano: account `info@underclub.it` con il suo insert, merge e push,
-   cancellazione della serata di prova.
+   - L'account `info@underclub.it` è stato creato e registrato in
+     `underclub.admin_users` (2026-10-03). Il login nell'admin locale,
+     collegato alla produzione, funziona. Il proprietario di University,
+     simulato in una transazione annullata, ha `is_admin = f` e vede 0
+     serate e 0 prenotazioni.
+
+   Restano: merge e push, e più avanti la cancellazione della serata di
+   prova.
 
    **Verifiche (2026-10-03):**
    - in locale: 13 suite SQL, 14 controlli via PostgREST (permessi di
