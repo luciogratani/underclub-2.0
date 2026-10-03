@@ -140,6 +140,16 @@ BOOKINGS) sul DB di produzione.
    - configurazione ESLint;
    - toast di errore in inglese.
 
+   **Migrazioni in produzione (2026-10-03, lanciate da Lucio):**
+   - applicate senza errori, in ordine: `night-end-booking-close`,
+     `retire-anon-booking`, `admin-allowlist`;
+   - controllo esterno con la chiave anon: i computed fields rispondono
+     (serata di prova: chiusura alle 18:00, fine alle 06:00), `reservations`
+     dà 401 ad `anon`, `is_admin()` esiste e per `anon` è falso.
+
+   Restano: account `info@underclub.it` con il suo insert, merge e push,
+   cancellazione della serata di prova.
+
    **Verifiche (2026-10-03):**
    - in locale: 13 suite SQL, 14 controlli via PostgREST (permessi di
      `anon` e lista degli admin) e 24 controlli nel browser (prenotazione,
