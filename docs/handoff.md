@@ -62,8 +62,8 @@ BOOKINGS) sul DB di produzione.
      "BOOKING CLOSED", "tickets at the door", "hey, this ticket has expired!
      hope you made good use of it!"), la pill chiusa lime al 45 % e la
      posizione del messaggio di errore.
-   - Resta: il pannello FOLLOW US non riporta il focus sulla pill quando si
-     chiude.
+   - Il pannello FOLLOW US ora riporta il focus sulla pill quando si chiude
+     (fatto su `feat/pre-season` il 2026-10-03).
 
    **Passi per il rilascio, in quest'ordine:**
    1. Migrazione in produzione (la lancia Lucio). È compatibile con il sito

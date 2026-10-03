@@ -118,6 +118,7 @@ function App() {
   const [nextEventResult, setNextEventResult] = useState<NextEventResult | null>(null);
   const [loadTimedOut, setLoadTimedOut] = useState(false);
   const [followUsOpen, setFollowUsOpen] = useState(false);
+  const pillRef = useRef<HTMLButtonElement>(null);
   // Re-render at the booking deadline, so BOOK NOW turns into BOOKING CLOSED.
   const [, setDeadlineTick] = useState(0);
   const [confirmedData, setConfirmedData] = useState<PublicReservationFormInput | null>(null);
@@ -579,6 +580,7 @@ function App() {
           ringWords={ringWords}
           pillTitle={homeMode === "event" ? "NEXT DATE" : "FOLLOW US"}
           onPillClick={homeMode === "event" ? goToNextDate : () => setFollowUsOpen(true)}
+          pillRef={pillRef}
           isExited={heroExited || heroIntroActive}
           showButtons={heroCtaVisible}
           notice={homeMode === "none" && loadFailed ? LOAD_FAILED_NOTICE : null}
@@ -628,7 +630,7 @@ function App() {
         </>
       )}
 
-      {followUsOpen && <FollowUsPanel onClosed={handleFollowUsClosed} />}
+      {followUsOpen && <FollowUsPanel onClosed={handleFollowUsClosed} returnFocusRef={pillRef} />}
 
       {confirmError && (
         <div

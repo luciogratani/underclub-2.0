@@ -1,3 +1,4 @@
+import type { Ref } from "react";
 import TextRing from "./TextRing";
 import HeroButton from "./HeroButton";
 import TicketIcon from "./icons/Ticket";
@@ -8,6 +9,8 @@ type HeroProps = {
   /** Label of the pill under the ring: NEXT DATE (a night) or FOLLOW US (none). */
   pillTitle: string;
   onPillClick?: () => void;
+  /** The pill button (e.g. to give focus back when a panel it opened closes). */
+  pillRef?: Ref<HTMLButtonElement>;
   onAboutClick?: () => void;
   isExited?: boolean;
   /** Pill, ticket button: hidden while loading and during the intro. */
@@ -22,6 +25,7 @@ export default function Hero({
   ringWords,
   pillTitle,
   onPillClick,
+  pillRef,
   onAboutClick,
   isExited = false,
   showButtons = true,
@@ -60,7 +64,7 @@ export default function Hero({
               : "scale-95 opacity-0 translate-y-2 pointer-events-none"
           }`}
         >
-          <HeroButton title={pillTitle} direction="right" onClick={onPillClick} />
+          <HeroButton ref={pillRef} title={pillTitle} direction="right" onClick={onPillClick} />
         </div>
         {onAboutClick && (
           <div
