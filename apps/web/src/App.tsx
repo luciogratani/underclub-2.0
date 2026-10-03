@@ -24,7 +24,7 @@ import { nextTicketUrl, useSession } from "./lib/session";
 const TOTAL_SECTIONS = 4;
 /** Longest wait for the next night and the session before the home is picked anyway. */
 const LOAD_TIMEOUT_MS = 5000;
-// COPY-DRAFT: shown on the home without nights when the dates could not be loaded.
+// Shown on the home without nights when the dates could not be loaded.
 const LOAD_FAILED_NOTICE = "we couldn't load the dates. try again later.";
 const GESTURE_THRESHOLD_PX = 40;
 const WHEEL_THRESHOLD = 24;

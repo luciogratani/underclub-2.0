@@ -54,16 +54,16 @@ BOOKINGS) sul DB di produzione.
      la chiusura e la fine serata la serata resta in home con "BOOKING CLOSED".
    - **Ticket:** a serata finita mostra il messaggio "expired".
 
-   **Testi `COPY-DRAFT` da approvare:**
-   - "we couldn't load the dates. try again later." (`App.tsx`);
-   - "BOOKING CLOSED" e "tickets at the door" (`NextDate.tsx`);
-   - "hey, this ticket has expired! hope you made good use of it!"
-     (`Ticket.tsx`).
-
-   **Da vedere nella revisione:**
-   - tinta della pill chiusa (lime al 45 %);
-   - posizione del messaggio di errore (tra l'anello e la pill);
-   - il pannello FOLLOW US non riporta il focus sulla pill quando si chiude.
+   **Revisione di Lucio (2026-10-03): fatta.**
+   - Testato in locale scenario per scenario, tutto superato: caricamento,
+     prenotazione e conferma, chiusura, chiusura a form aperto, errore,
+     timeout, nessuna serata, ticket senza serata, serata finita.
+   - Approvati i testi ("we couldn't load the dates. try again later.",
+     "BOOKING CLOSED", "tickets at the door", "hey, this ticket has expired!
+     hope you made good use of it!"), la pill chiusa lime al 45 % e la
+     posizione del messaggio di errore.
+   - Resta: il pannello FOLLOW US non riporta il focus sulla pill quando si
+     chiude.
 
    **Passi per il rilascio, in quest'ordine:**
    1. Migrazione in produzione (la lancia Lucio). È compatibile con il sito
@@ -209,8 +209,7 @@ In entrambi i casi menu e bottone ticket restano dove sono.
 - I segreti non passano mai dalla chat: comandi con `openssl rand` o `pbpaste`
   in pipe verso `vercel env add … --sensitive`.
 - Testi nuovi per gli utenti: bozza marcata `COPY-DRAFT`, approvazione di
-  Lucio, poi si toglie il marcatore. Oggi ce ne sono tre, sul branch
-  `feat/home-no-events` (vedi 1b).
+  Lucio, poi si toglie il marcatore. Oggi nel codice non ce ne sono.
 
 ## Trappole note dell'ambiente
 - **Postgres locale per i test:** `supabase/tests/run.sh` (con `--keep` resta

@@ -204,7 +204,6 @@ export default function NextDate({ onBack, onBookNowClick, isExited = false, eve
               <BookNowButton onClick={onBookNowClick} />
             ) : (
               <>
-                {/* COPY-DRAFT: "BOOKING CLOSED" / "tickets at the door" */}
                 <p className="w-full bg-primary/45 py-5.5 text-center text-[19px] font-bold leading-none text-black">
                   BOOKING CLOSED
                 </p>

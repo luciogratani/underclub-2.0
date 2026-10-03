@@ -79,7 +79,6 @@ export default function Ticket() {
   if (ticketData.eventEnded) {
     return (
       <section className="fixed inset-0 z-0 flex items-center justify-center h-[100dvh] w-full bg-primary">
-        {/* COPY-DRAFT */}
         <p className="text-black font-bold text-xl text-center px-6">
           hey, this ticket has expired!
           <br />
