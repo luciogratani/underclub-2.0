@@ -19,11 +19,15 @@ BOOKINGS) sul DB di produzione.
 
 ## Stato nel dettaglio
 - **Git:** si lavora su `master`; `main` è il branch di produzione di Vercel
-  (vedi "Rilasci"). Il branch locale `feat/passwordless-booking` è vecchio e si
-  può cancellare.
-- **DB:** migrazioni 2026-10-01 e 2026-10-02 applicate in produzione (backup
-  `pgdumpall_20261001_1417.sql.gz` sulla VPS). Contiene le prenotazioni di
-  prova fatte in manutenzione: si cancellano all'apertura.
+  (vedi "Rilasci"). Ultimo rilascio il 2026-10-03, commit `654c01a`, con i
+  punti 1b e 6b. Si possono cancellare i branch locali `feat/passwordless-booking`
+  (vecchio), `feat/home-no-events` e `feat/pre-season`, entrambi già in
+  `master`.
+- **DB:** in produzione sono applicate le migrazioni del 2026-10-01, del
+  2026-10-02 e del 2026-10-03, compresa la lista degli admin
+  (backup `pgdumpall_20261001_1417.sql.gz` sulla VPS, più i giornalieri delle
+  05:30). Contiene le prenotazioni di prova fatte in manutenzione e la serata
+  di prova: si cancellano all'apertura.
 - **Vercel `underclub-2-0-web`:**
   - Production: env complete e tutte *sensitive* (impostazione del team), con
     segreti propri e una API key Resend solo per Production;
@@ -44,8 +48,8 @@ BOOKINGS) sul DB di produzione.
 1. **Cron:** verificare `/api/cron/cleanup` (log delle 04:00 o "Run" dal
    pannello Cron). Non ancora fatto.
 1b. **Home senza serate, caricamento, fine serata, chiusura prenotazioni**
-   (fatto il 2026-10-02 sera sul branch `feat/home-no-events`, mai pushato; da
-   rivedere e rilasciare). Il dettaglio è nel CHANGELOG. In breve:
+   (fatto il 2026-10-02 sera, rivisto da Lucio il 2026-10-03, in produzione dal
+   2026-10-03). Il dettaglio è nel CHANGELOG. In breve:
    - **Fine serata:** le 06:00 di Roma del giorno dopo la data, ovunque.
    - **Chiusura online:** colonna `events.booking_closes_at`, default 18:00
      della data, senza vincolo nel DB. Un pending chiesto prima della chiusura
@@ -153,8 +157,12 @@ BOOKINGS) sul DB di produzione.
      simulato in una transazione annullata, ha `is_admin = f` e vede 0
      serate e 0 prenotazioni.
 
-   Restano: merge e push, e più avanti la cancellazione della serata di
-   prova.
+   **Rilasciato il 2026-10-03:** `master` e `main` sono al commit `654c01a`.
+   - Preview e produzione hanno 0 errori TypeScript nella build.
+   - `underclub.it` resta in manutenzione (503 al pubblico).
+   - Resta per più avanti la cancellazione della serata di prova (comando al
+     punto 1b).
+   - Facoltativo: togliere la env `VITE_BOOKING_API` su Vercel.
 
    **Verifiche (2026-10-03):**
    - in locale: 13 suite SQL, 14 controlli via PostgREST (permessi di

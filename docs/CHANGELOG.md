@@ -7,8 +7,8 @@ la roadmap restano in [`prossimi-passi.md`](./prossimi-passi.md).
 
 ## 2026-10-02 (sera, 2) — Vecchio flusso chiuso, MusicEvent, build pulita
 
-Branch `feat/pre-season`, impilato su `feat/home-no-events`. Né la migrazione
-né il web sono rilasciati: vedi `handoff.md`, punto 6b.
+Branch `feat/pre-season`, impilato su `feat/home-no-events`. Migrazioni e web
+sono in produzione dal 2026-10-03 (commit `654c01a`): vedi `handoff.md`, punto 6b.
 
 ### Sicurezza
 - **`2026-10-02-retire-anon-booking.sql`** (step 1c, 2 e 3 della pulizia del
@@ -65,8 +65,8 @@ né il web sono rilasciati: vedi `handoff.md`, punto 6b.
 
 ## 2026-10-02 (sera) — Home senza serate, caricamento, fine serata, chiusura prenotazioni
 
-Branch `feat/home-no-events`. La migrazione non è ancora applicata in produzione
-e il sito non è ancora rilasciato: vedi `handoff.md`, punto 1b.
+Branch `feat/home-no-events`. Migrazione e sito sono in produzione dal
+2026-10-03 (commit `654c01a`): vedi `handoff.md`, punto 1b.
 
 ### Aggiunto
 - **Fine serata unica:** una serata vale fino alle 06:00 (ora di Roma) del
